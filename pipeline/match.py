@@ -28,11 +28,39 @@ _WHITESPACE_RE = re.compile(r"\s+")
 FFC_POSITION_ALIAS = {"PK": "K"}
 
 
+def normalize_ffc_position(position: str) -> str:
+    """Translate an FFC position string into Sleeper's vocabulary.
+
+    Single source of truth for the PK->K alias: used both to build the
+    matching key (so a kicker still resolves to a sleeper_id) and by
+    transform.py when writing AdpEntry.position, so the alias can't be
+    applied in one place and silently skipped in the other.
+    """
+    return FFC_POSITION_ALIAS.get(position, position)
+
+
+# Letters with no canonical NFKD decomposition into base-letter + combining
+# mark, so unicodedata.normalize("NFKD", ...).encode("ascii", "ignore") would
+# otherwise delete them outright instead of folding them (e.g. 'ø' has no
+# decomposition, unlike 'ñ' = 'n' + combining tilde). Folded explicitly first.
+_EXTRA_FOLD_MAP = str.maketrans(
+    {
+        "ø": "o", "Ø": "O",
+        "ł": "l", "Ł": "L",
+        "đ": "d", "Đ": "D",
+        "æ": "ae", "Æ": "AE",
+        "œ": "oe", "Œ": "OE",
+    }
+)
+
+
 def _fold_to_ascii(s: str) -> str:
     """'ñ' -> 'n', 'é' -> 'e', etc. NFKD decomposes a character into its base
     letter plus a combining accent mark; encoding to ASCII with 'ignore' then
     drops just the accent, leaving the underlying letter intact instead of
-    deleting the whole character."""
+    deleting the whole character. Letters with no such decomposition (ø, ł,
+    đ, æ, œ, ...) are folded via an explicit table first."""
+    s = s.translate(_EXTRA_FOLD_MAP)
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
 
 
@@ -81,7 +109,7 @@ def match_ffc_entry(entry: dict[str, Any], sleeper_index: dict[MatchKey, str]) -
     player corrupts every downstream recommendation that assumes it's just
     not draftable rather than untracked.
     """
-    position = FFC_POSITION_ALIAS.get(entry["position"], entry["position"])
+    position = normalize_ffc_position(entry["position"])
     if position == "DEF":
         key: MatchKey = (entry.get("team") or "", "DEF")
     else:

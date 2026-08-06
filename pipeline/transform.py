@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from match import build_sleeper_match_index, match_ffc_entry
+from match import MatchKey, match_ffc_entry, normalize_ffc_position
 
 # Stat keys Sleeper embeds in projection rows that aren't real box-score
 # components (its own ADP figures, games-played bookkeeping). Dropped so the
@@ -96,7 +96,12 @@ def build_player_meta(
             continue
 
         if position == "DEF":
-            name = p.get("full_name") or f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
+            # `.get(key, '')` only supplies the default when the key is
+            # absent; Sleeper sometimes sends first_name/last_name as an
+            # explicit JSON null, which `.get` would pass through as None
+            # and stringify into a literal "None None" name. `or ''` covers
+            # both the missing-key and explicit-null cases.
+            name = p.get("full_name") or f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip()
         else:
             name = p.get("full_name")
         if not name:
@@ -111,8 +116,12 @@ def build_player_meta(
             ("fantasypros", None, "fantasypros_id"),
             ("mfl", None, "mfl_id"),
         ):
+            # `p.get(sleeper_field)` alone would treat a legitimate id of 0
+            # as missing; check presence via `is not None` instead of
+            # truthiness so a real (if unusual) 0 id isn't discarded.
+            sleeper_value = p.get(sleeper_field) if sleeper_field else None
             value = _first_non_empty(
-                str(p[sleeper_field]) if sleeper_field and p.get(sleeper_field) else None,
+                str(sleeper_value) if sleeper_value is not None else None,
                 dp.get(dp_field) if dp_field else None,
             )
             if value:
@@ -140,8 +149,16 @@ def build_season_projections(
     out: list[SeasonProjection] = []
     for row in raw_projections:
         player = row.get("player") or {}
-        player_id = player.get("player_id") or row.get("player_id")
-        if not player_id or player_id not in valid_player_ids:
+        raw_player_id = player.get("player_id") or row.get("player_id")
+        if not raw_player_id:
+            continue
+        # Coerce before the membership check: valid_player_ids is a set of
+        # sleeper_id strings (players.json's keys), but Sleeper's projections
+        # payload isn't guaranteed to type player_id as a string the way
+        # /players/nfl's dict keys are — an int here would silently fail the
+        # `in` check and drop a real match, or leak a non-string PlayerId.
+        player_id = str(raw_player_id)
+        if player_id not in valid_player_ids:
             continue
         stats = _clean_stats(row.get("stats") or {})
         if not _has_meaningful_projection(stats):
@@ -152,11 +169,16 @@ def build_season_projections(
 
 def build_adp_entries(
     ffc_players: list[dict[str, Any]],
-    sleeper_players: dict[str, dict[str, Any]],
+    sleeper_index: dict[MatchKey, str],
 ) -> tuple[list[AdpEntry], dict[str, Any]]:
-    """Returns (entries, match_diagnostics). Diagnostics feed DataManifest.crosswalk."""
-    sleeper_index = build_sleeper_match_index(sleeper_players)
+    """Returns (entries, match_diagnostics). Diagnostics feed DataManifest.crosswalk.
 
+    Takes a prebuilt `sleeper_index` (see match.build_sleeper_match_index)
+    rather than the raw player pool: the index depends only on
+    sleeper_players, which is identical across every ADP format build_data.py
+    calls this for, so the caller builds it once and reuses it instead of
+    this function rebuilding it from scratch on every call.
+    """
     entries: list[AdpEntry] = []
     for p in sorted(ffc_players, key=lambda x: x["adp"]):
         player_id = match_ffc_entry(p, sleeper_index)
@@ -164,7 +186,12 @@ def build_adp_entries(
             AdpEntry(
                 playerId=player_id,
                 name=p["name"],
-                position=p["position"],
+                # Same alias match_ffc_entry uses internally to find
+                # player_id — applied here too so the committed artifact's
+                # position vocabulary matches Sleeper's ("K"), not FFC's
+                # raw ("PK"). Applying it in only one of the two places
+                # left the matching correct but the stored value wrong.
+                position=normalize_ffc_position(p["position"]),
                 team=p.get("team"),
                 adp=p["adp"],
                 stdev=p.get("stdev", 0.0),
@@ -177,7 +204,12 @@ def build_adp_entries(
 
     top_n = entries[:300]
     unmatched = [e.name for e in top_n if e.playerId is None]
-    match_rate = (len(top_n) - len(unmatched)) / len(top_n) if top_n else 1.0
+    # An empty top_n means FFC returned no rows to sample at all (bad
+    # response, schema change, outage) — that's a failure of the gate's
+    # precondition, not 100% success. Failing closed (0.0) here means the
+    # coverage gate in build_data.py rejects the run instead of vacuously
+    # passing and letting degraded/empty ADP data get committed.
+    match_rate = (len(top_n) - len(unmatched)) / len(top_n) if top_n else 0.0
     diagnostics = {
         "top300MatchRate": round(match_rate, 4),
         "unmatchedTop300": unmatched,

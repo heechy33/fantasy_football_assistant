@@ -1,5 +1,12 @@
 name: Refresh data
 
+# Cost call-out (per repo CLAUDE.md's $0/month hosting target): this runs on
+# GitHub-hosted ubuntu-latest runners. On a public repo, Actions minutes are
+# unlimited/free; on a private repo they draw from the free-tier monthly
+# minutes bucket (2,000 min/month as of writing). One run here is a few
+# minutes (checkout + pip install + pipeline + commit), well within that
+# budget even run daily plus occasional push/dispatch triggers — no paid
+# runners, no self-hosted infra, no other cost surface.
 on:
   schedule:
     # 9am UTC daily (~4-5am ET), ahead of evening drafts and Track B's Tuesday-morning waiver window.
@@ -10,6 +17,14 @@ on:
     paths:
       - 'pipeline/**'
       - '.github/workflows/refresh-data.yml'
+
+# schedule/workflow_dispatch/push can all fire close together (e.g. a
+# pipeline change pushed right around the daily cron); without this, two
+# overlapping runs can both regenerate data/ from the same base commit and
+# the second `git push` fails as non-fast-forward. Queue instead of racing.
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
 
 permissions:
   contents: write

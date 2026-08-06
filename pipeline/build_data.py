@@ -13,11 +13,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import match
 import sources
 import transform
 
@@ -27,7 +27,7 @@ COVERAGE_GATE_THRESHOLD = 0.97  # verified achievable at 1.00 on the initial sna
 
 
 def _write_json(path: Path, obj: Any) -> int:
-    payload = json.dumps(obj, separators=(",", ":"), default=lambda o: asdict(o) if hasattr(o, "__dataclass_fields__") else o)
+    payload = json.dumps(obj, separators=(",", ":"), default=transform.to_json_ready)
     path.write_text(payload, encoding="utf-8")
     return len(payload.encode("utf-8"))
 
@@ -88,10 +88,16 @@ def main() -> int:
     players = transform.build_player_meta(sleeper_players, dp_rows)
     projections = transform.build_season_projections(raw_projections, set(players.keys()))
 
+    # Built once and reused across every ADP format below: the index depends
+    # only on sleeper_players, which doesn't change between formats, so
+    # rebuilding it per format was pure repeated work over the ~12k-14k
+    # player pool.
+    sleeper_index = match.build_sleeper_match_index(sleeper_players)
+
     adp_by_format: dict[str, list[transform.AdpEntry]] = {}
     gate_diagnostics: dict[str, Any] | None = None
     for fmt, raw in ffc_by_format.items():
-        entries, diagnostics = transform.build_adp_entries(raw, sleeper_players)
+        entries, diagnostics = transform.build_adp_entries(raw, sleeper_index)
         adp_by_format[fmt] = entries
         if fmt == COVERAGE_GATE_FORMAT:
             gate_diagnostics = diagnostics
