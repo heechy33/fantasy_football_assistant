@@ -1,0 +1,24 @@
+{
+  "name": "ffa-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -w -p tsconfig.json",
+    "start": "npm run build && func start",
+    "test": "vitest --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.10.0",
+    "@azure/functions": "^4.16.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "azure-functions-core-tools": "^4.12.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

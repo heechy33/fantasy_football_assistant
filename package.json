@@ -1,0 +1,17 @@
+{
+  "name": "fantasy-football-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Live fantasy football draft assistant and season co-pilot for Sleeper, ESPN, and Yahoo",
+  "scripts": {
+    "install:all": "npm --prefix frontend install && npm --prefix api install",
+    "build": "npm --prefix api run build && npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev",
+    "test": "npm --prefix frontend run test -- --run && npm --prefix api run test -- --run",
+    "typecheck": "npm --prefix frontend run typecheck && npm --prefix api run typecheck",
+    "pipeline": "python pipeline/build_data.py"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

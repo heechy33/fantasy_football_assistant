@@ -1,0 +1,31 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Azure Functions
+local.settings.json
+bin/
+obj/
+.python_packages/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Env / secrets — never commit credentials
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Pipeline scratch (raw upstream payloads, not the built artifacts in data/)
+pipeline/.cache/
