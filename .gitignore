@@ -1,31 +1,76 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
 build/
+out/
+.azure/
 *.tsbuildinfo
+
+# Logs & debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
 
 # Azure Functions
 local.settings.json
 bin/
 obj/
 .python_packages/
+.func/
 
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 .venv/
 venv/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Env / secrets — never commit credentials
 .env
 .env.*
 !.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.publishsettings
+**/credentials.json
+**/secrets.json
+**/serviceAccount*.json
+
+# Azure / SWA local
+.azure/
+swa-db.json
+.swa/
 
 # Editors / OS
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Pipeline scratch (raw upstream payloads, not the built artifacts in data/)
 pipeline/.cache/
+
+# Misc local
+*.local
+.cache/
+tmp/
+temp/
