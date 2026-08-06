@@ -1,0 +1,47 @@
+name: Refresh data
+
+on:
+  schedule:
+    # 9am UTC daily (~4-5am ET), ahead of evening drafts and Track B's Tuesday-morning waiver window.
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'pipeline/**'
+      - '.github/workflows/refresh-data.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pipeline dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Run pipeline
+        # Exits non-zero on a coverage-gate failure (see pipeline/build_data.py),
+        # which fails this step and skips the commit below — degraded
+        # crosswalk data never gets committed, it just leaves data/ stale
+        # until the next successful run.
+        run: python pipeline/build_data.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No data changes, nothing to commit."
+            exit 0
+          fi
+          git commit -m "data: refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
