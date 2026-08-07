@@ -1,0 +1,24 @@
+{
+  "provider": "sleeper",
+  "leagueId": "fx-league-1",
+  "name": "Fixture League",
+  "season": "2026",
+  "teams": 12,
+  "startingSlots": ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
+  "rosterSlots": { "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1, "BN": 6 },
+  "scoring": {
+    "pass_yd": 0.04,
+    "pass_td": 4,
+    "pass_int": -2,
+    "rush_yd": 0.1,
+    "rush_td": 6,
+    "rec": 1,
+    "rec_yd": 0.1,
+    "rec_td": 6,
+    "fum_lost": -2
+  },
+  "format": { "reception": "ppr", "qb": "one-qb", "draft": "snake" },
+  "waiverType": "faab",
+  "waiverBudget": 100,
+  "playoffStartWeek": 15
+}

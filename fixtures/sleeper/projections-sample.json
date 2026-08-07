@@ -1,0 +1,8 @@
+[
+  { "playerId": "9001", "source": "rotowire", "stats": { "rush_yd": 1250, "rush_td": 11, "rec": 40, "rec_yd": 300, "rec_td": 1, "fum_lost": 2 } },
+  { "playerId": "9002", "source": "rotowire", "stats": { "rush_yd": 1100, "rush_td": 9, "rec": 55, "rec_yd": 420, "rec_td": 2, "fum_lost": 1 } },
+  { "playerId": "9003", "source": "rotowire", "stats": { "rec": 95, "rec_yd": 1300, "rec_td": 9, "fum_lost": 0 } },
+  { "playerId": "9004", "source": "rotowire", "stats": { "rec": 78, "rec_yd": 1050, "rec_td": 6, "fum_lost": 1 } },
+  { "playerId": "9005", "source": "rotowire", "stats": { "pass_yd": 4200, "pass_td": 28, "pass_int": 11, "rush_yd": 300, "rush_td": 3 } },
+  { "playerId": "9006", "source": "rotowire", "stats": { "rec": 62, "rec_yd": 700, "rec_td": 5, "fum_lost": 0 } }
+]

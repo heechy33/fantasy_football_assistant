@@ -1,0 +1,8 @@
+[
+  { "playerId": "9001", "name": "RB One", "position": "RB", "team": "AAA", "adp": 2.4, "stdev": 1.1, "high": 1, "low": 6, "timesDrafted": 180, "byeWeek": 9 },
+  { "playerId": "9002", "name": "RB Two", "position": "RB", "team": "BBB", "adp": 5.8, "stdev": 2.0, "high": 2, "low": 12, "timesDrafted": 175, "byeWeek": 7 },
+  { "playerId": "9003", "name": "WR One", "position": "WR", "team": "CCC", "adp": 3.1, "stdev": 1.4, "high": 1, "low": 8, "timesDrafted": 182, "byeWeek": 11 },
+  { "playerId": "9004", "name": "WR Two", "position": "WR", "team": "DDD", "adp": 14.6, "stdev": 4.2, "high": 6, "low": 30, "timesDrafted": 140, "byeWeek": 5 },
+  { "playerId": "9005", "name": "QB One", "position": "QB", "team": "EEE", "adp": 38.2, "stdev": 9.5, "high": 18, "low": 70, "timesDrafted": 60, "byeWeek": 10 },
+  { "playerId": "9007", "name": "TE Sleeper", "position": "TE", "team": "FFF", "adp": 145.0, "stdev": 22.3, "high": 90, "low": 210, "timesDrafted": 8, "byeWeek": 6 }
+]

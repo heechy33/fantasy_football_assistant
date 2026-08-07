@@ -71,6 +71,19 @@ export type ScoringMap = Record<string, number>;
 // League
 // ---------------------------------------------------------------------------
 
+/**
+ * Reception scoring, QB format, and draft type are independent — a league can
+ * be PPR *and* two-QB at once, so these are separate dimensions rather than
+ * one combined union. They select ADP sets and UI defaults; they never
+ * replace the raw `LeagueSettings.scoring` map or roster slots, which stay
+ * authoritative for actual scoring/lineup logic.
+ */
+export interface LeagueFormat {
+  reception: 'standard' | 'half-ppr' | 'ppr' | 'custom';
+  qb: 'one-qb' | 'two-qb' | 'superflex';
+  draft: 'snake' | 'linear' | 'auction';
+}
+
 export interface LeagueRef {
   provider: Provider;
   leagueId: string;
@@ -94,8 +107,8 @@ export interface LeagueSettings {
   /** Counts including bench/IR, e.g. { QB:1, RB:2, FLEX:1, BN:6 }. */
   rosterSlots: Partial<Record<RosterSlot, number>>;
   scoring: ScoringMap;
-  /** Half/full PPR etc., derived from `scoring.rec`. Drives which ADP set to load. */
-  scoringFormat: 'standard' | 'half-ppr' | 'ppr' | '2qb';
+  /** Independent reception/QB/draft-type dimensions. See {@link LeagueFormat}. */
+  format: LeagueFormat;
   waiverType?: 'faab' | 'rolling' | 'reverse';
   waiverBudget?: number;
   playoffStartWeek?: number;
@@ -259,7 +272,22 @@ export interface DataManifest {
   season: string;
   /** Populated in-season; null during the preseason. */
   week: number | null;
-  sources: Record<string, { url: string; rows: number; fetchedAt: string }>;
+  sources: Record<
+    string,
+    {
+      url: string;
+      rows: number;
+      fetchedAt: string;
+      /** Bumped when this source's manifest entry shape changes. */
+      schemaVersion: number;
+      /**
+       * 'ok' unless/until the pipeline gains a fallback path that reuses
+       * stale data after a failed fetch — today a failed fetch raises and no
+       * manifest is written at all, so 'error' never appears yet.
+       */
+      status: 'ok' | 'stale' | 'error';
+    }
+  >;
   crosswalk: {
     totalPlayers: number;
     /** Match rate against the top-N players by ADP — the CI coverage gate. */

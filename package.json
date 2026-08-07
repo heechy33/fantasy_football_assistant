@@ -9,6 +9,7 @@
     "dev": "npm --prefix frontend run dev",
     "test": "npm --prefix frontend run test -- --run && npm --prefix api run test -- --run",
     "typecheck": "npm --prefix frontend run typecheck && npm --prefix api run typecheck",
+    "verify:artifact": "node scripts/verify-artifact.mjs",
     "pipeline": "python pipeline/build_data.py"
   },
   "engines": {

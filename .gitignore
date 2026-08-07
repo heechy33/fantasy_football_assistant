@@ -69,6 +69,10 @@ Desktop.ini
 # Pipeline scratch (raw upstream payloads, not the built artifacts in data/)
 pipeline/.cache/
 
+# Data staged into the frontend build by frontend/scripts/stage-data.mjs — generated
+# from data/ at build time, not a second committed copy.
+frontend/public/data/
+
 # Misc local
 *.local
 .cache/

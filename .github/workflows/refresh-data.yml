@@ -35,6 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Rebase on latest main
+        run: |
+          git fetch origin main
+          git rebase origin/main
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

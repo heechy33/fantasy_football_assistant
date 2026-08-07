@@ -1,0 +1,39 @@
+{
+  "provider": "sleeper",
+  "draftId": "fx-draft-1",
+  "leagueId": "fx-league-1",
+  "draftType": "snake",
+  "teams": 12,
+  "rounds": 15,
+  "slotToTeam": {
+    "1": "team-1", "2": "team-2", "3": "team-3", "4": "team-4",
+    "5": "team-5", "6": "team-6", "7": "team-7", "8": "team-8",
+    "9": "team-9", "10": "team-10", "11": "team-11", "12": "team-12"
+  },
+  "myTeamId": "team-3",
+  "mySlot": 3,
+  "settings": {
+    "provider": "sleeper",
+    "leagueId": "fx-league-1",
+    "name": "Fixture League",
+    "season": "2026",
+    "teams": 12,
+    "startingSlots": ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
+    "rosterSlots": { "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1, "BN": 6 },
+    "scoring": {
+      "pass_yd": 0.04,
+      "pass_td": 4,
+      "pass_int": -2,
+      "rush_yd": 0.1,
+      "rush_td": 6,
+      "rec": 1,
+      "rec_yd": 0.1,
+      "rec_td": 6,
+      "fum_lost": -2
+    },
+    "format": { "reception": "ppr", "qb": "one-qb", "draft": "snake" },
+    "waiverType": "faab",
+    "waiverBudget": 100,
+    "playoffStartWeek": 15
+  }
+}

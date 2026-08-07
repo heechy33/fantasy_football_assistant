@@ -25,6 +25,24 @@ DEFAULT_SEASON = "2026"
 COVERAGE_GATE_FORMAT = "ppr"  # largest FFC sample (~4600+ drafts) -> most stable signal
 COVERAGE_GATE_THRESHOLD = 0.97  # verified achievable at 1.00 on the initial snapshot; buffer left for future edge cases
 
+# Bumped whenever a source's manifest entry shape changes (fields added/removed/
+# retyped) so consumers can detect a manifest from an older pipeline version
+# instead of guessing from field presence.
+SOURCE_SCHEMA_VERSION = 1
+
+
+def _source_entry(url: str, rows: int, fetched_at: str, status: str = "ok") -> dict[str, Any]:
+    """One `manifest.sources[*]` entry. `status` is 'ok' unless/until the
+    pipeline gains a fallback path that can reuse stale data after a failed
+    fetch — today a failed fetch raises and no manifest is written at all."""
+    return {
+        "url": url,
+        "rows": rows,
+        "fetchedAt": fetched_at,
+        "schemaVersion": SOURCE_SCHEMA_VERSION,
+        "status": status,
+    }
+
 
 def _write_json(path: Path, obj: Any) -> int:
     payload = json.dumps(obj, separators=(",", ":"), default=transform.to_json_ready)
@@ -52,37 +70,31 @@ def main() -> int:
 
     print(f"[1/5] Fetching Sleeper player pool (season {args.season})...")
     sleeper_players = sources.fetch_sleeper_players()
-    manifest_sources["sleeper_players"] = {
-        "url": f"{sources.SLEEPER_BASE}/v1/players/nfl",
-        "rows": len(sleeper_players),
-        "fetchedAt": fetched_at,
-    }
+    manifest_sources["sleeper_players"] = _source_entry(
+        f"{sources.SLEEPER_BASE}/v1/players/nfl", len(sleeper_players), fetched_at
+    )
 
     print("[2/5] Fetching Sleeper season projections...")
     raw_projections = sources.fetch_sleeper_season_projections(args.season)
-    manifest_sources["sleeper_season_projections"] = {
-        "url": f"{sources.SLEEPER_BASE}/projections/nfl/{args.season}",
-        "rows": len(raw_projections),
-        "fetchedAt": fetched_at,
-    }
+    manifest_sources["sleeper_season_projections"] = _source_entry(
+        f"{sources.SLEEPER_BASE}/projections/nfl/{args.season}", len(raw_projections), fetched_at
+    )
 
     print("[3/5] Fetching DynastyProcess player ID crosswalk...")
     dp_rows = sources.fetch_dynastyprocess_crosswalk()
-    manifest_sources["dynastyprocess_playerids"] = {
-        "url": sources.DYNASTYPROCESS_PLAYERIDS_URL,
-        "rows": len(dp_rows),
-        "fetchedAt": fetched_at,
-    }
+    manifest_sources["dynastyprocess_playerids"] = _source_entry(
+        sources.DYNASTYPROCESS_PLAYERIDS_URL, len(dp_rows), fetched_at
+    )
 
     print("[4/5] Fetching FFC ADP for", ", ".join(sources.ADP_FORMATS))
     ffc_by_format: dict[str, list[dict[str, Any]]] = {}
     for fmt in sources.ADP_FORMATS:
         ffc_by_format[fmt] = sources.fetch_ffc_adp(fmt, teams=args.teams, year=int(args.season))
-        manifest_sources[f"ffc_adp_{fmt}"] = {
-            "url": f"{sources.FFC_BASE}/adp/{fmt}?teams={args.teams}&year={args.season}",
-            "rows": len(ffc_by_format[fmt]),
-            "fetchedAt": fetched_at,
-        }
+        manifest_sources[f"ffc_adp_{fmt}"] = _source_entry(
+            f"{sources.FFC_BASE}/adp/{fmt}?teams={args.teams}&year={args.season}",
+            len(ffc_by_format[fmt]),
+            fetched_at,
+        )
 
     print("[5/5] Transforming and writing data/*.json...")
     players = transform.build_player_meta(sleeper_players, dp_rows)

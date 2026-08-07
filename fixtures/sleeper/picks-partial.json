@@ -1,0 +1,12 @@
+{
+  "status": "drafting",
+  "picks": [
+    { "overall": 1, "round": 1, "slot": 1, "teamId": "team-1", "playerId": "9001", "providerPlayerId": "9001", "providerPlayerName": "RB One" },
+    { "overall": 2, "round": 1, "slot": 2, "teamId": "team-2", "playerId": "9002", "providerPlayerId": "9002", "providerPlayerName": "RB Two" },
+    { "overall": 3, "round": 1, "slot": 3, "teamId": "team-3", "playerId": "9003", "providerPlayerId": "9003", "providerPlayerName": "WR One" },
+    { "overall": 4, "round": 1, "slot": 4, "teamId": "team-4", "playerId": null, "providerPlayerId": "unmatched-9099", "providerPlayerName": "Rookie Not Yet In Crosswalk" },
+    { "overall": 5, "round": 1, "slot": 5, "teamId": "team-5", "playerId": "9004", "providerPlayerId": "9004", "providerPlayerName": "WR Two" }
+  ],
+  "onTheClock": { "teamId": "team-6", "slot": 6, "round": 1, "overall": 6 },
+  "fetchedAt": 1786060800000
+}

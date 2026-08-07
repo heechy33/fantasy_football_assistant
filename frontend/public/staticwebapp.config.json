@@ -12,7 +12,7 @@
     { "route": "/login", "redirect": "/.auth/login/github" },
     { "route": "/logout", "redirect": "/.auth/logout" },
     { "route": "/.auth/login/twitter", "statusCode": 404 },
-    { "route": "/api/*", "allowedRoles": ["authenticated"] },
+    { "route": "/api/*", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/data/*", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/*", "allowedRoles": ["anonymous", "authenticated"] }
   ],
