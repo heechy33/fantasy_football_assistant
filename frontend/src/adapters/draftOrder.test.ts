@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeOnTheClock, deriveDraftStatus } from './draftOrder';
+import { computeOnTheClock, deriveDraftStatus, nextPickForTeam } from './draftOrder';
 
 const TEAMS = 12;
 const ROUNDS = 15;
@@ -96,5 +96,13 @@ describe('deriveDraftStatus', () => {
     // rawStatus reflects init()-time reality only; picks() never refetches it,
     // so a real pick having landed is itself proof drafting has started.
     expect(deriveDraftStatus('pre_draft', 1, TEAMS, ROUNDS)).toBe('drafting');
+  });
+});
+describe('nextPickForTeam', () => {
+  it('finds the following personal turn when the user is currently on the clock', () => {
+    expect(nextPickForTeam('snake', TEAMS, ROUNDS, 0, SLOT_TO_TEAM, 'team-1', true)).toBe(24);
+  });
+  it('finds the upcoming personal turn when someone else is on the clock', () => {
+    expect(nextPickForTeam('snake', TEAMS, ROUNDS, 15, SLOT_TO_TEAM, 'team-3')).toBe(22);
   });
 });

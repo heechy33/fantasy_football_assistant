@@ -30,9 +30,31 @@ export function computeOnTheClock(
   return { teamId, slot, round, overall };
 }
 
-/**
- * `rawStatus` is a snapshot captured once at init() time and never refreshed
- * (picks() must stay a single upstream GET, so it can't re-fetch the draft's
+/** Return the next selection owned by teamId. When the team is currently on
+ * the clock, `afterCurrentPick` finds its following turn, which is the pick
+ * relevant to a "can I wait?" availability estimate. */
+export function nextPickForTeam(
+  draftType: DraftType,
+  teams: number,
+  rounds: number,
+  picksCount: number,
+  slotToTeam: Record<number, string>,
+  teamId: string | null,
+  afterCurrentPick = false,
+): number | null {
+  if (!teamId || teams <= 0 || rounds <= 0 || draftType === 'auction') return null;
+  const firstOverall = picksCount + 1 + (afterCurrentPick ? 1 : 0);
+  for (let overall = firstOverall; overall <= teams * rounds; overall += 1) {
+    const round = Math.ceil(overall / teams);
+    const posInRound = overall - (round - 1) * teams;
+    const slot = draftType === 'snake' && round % 2 === 0 ? teams - posInRound + 1 : posInRound;
+    if (slotToTeam[slot] === teamId) return overall;
+  }
+  return null;
+}
+
+/** `rawStatus` is refreshed from Sleeper's draft endpoint alongside picks.
+ * A full picks count still provides a safe fallback if that status lags.
  * status field). Trusting it alone would leave the derived status frozen at
  * whatever it was when the draft was connected — e.g. stuck on 'pre' for an
  * entire live draft if the user connected before the first pick landed. Any
@@ -47,8 +69,8 @@ export function deriveDraftStatus(
   rounds: number,
 ): DraftStatus {
   if (teams > 0 && rounds > 0 && picksCount >= teams * rounds) return 'complete';
-  if (picksCount > 0) return 'drafting';
   if (rawStatus === 'complete') return 'complete';
+  if (picksCount > 0) return 'drafting';
   if (rawStatus === 'drafting') return 'drafting';
   return 'pre';
 }

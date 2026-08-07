@@ -278,6 +278,10 @@ export interface DataManifest {
       url: string;
       rows: number;
       fetchedAt: string;
+      /** Optional upstream display date, e.g. FFToday's Updated date. */
+      upstreamUpdatedAt?: string;
+      role?: string;
+      termsUrl?: string;
       /** Bumped when this source's manifest entry shape changes. */
       schemaVersion: number;
       /**
@@ -293,6 +297,12 @@ export interface DataManifest {
     /** Match rate against the top-N players by ADP — the CI coverage gate. */
     top300MatchRate: number;
     unmatchedTop300: string[];
+  };
+  projection?: {
+    source: string;
+    updatedAt: string | null;
+    positionRows?: Record<string, number>;
+    diagnostics?: Record<string, unknown>;
   };
 }
 

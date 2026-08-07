@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import defaultdict
 from typing import Any
 
 _SUFFIX_RE = re.compile(r"\b(jr|sr|ii|iii|iv|v)\.?$", re.IGNORECASE)
@@ -26,6 +27,13 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 # FFC's own position vocabulary diverges from Sleeper's in exactly one place.
 FFC_POSITION_ALIAS = {"PK": "K"}
+
+TEAM_ALIASES = {
+    "ARZ": "ARI", "BLT": "BAL", "CLV": "CLE", "HST": "HOU",
+    "JAC": "JAX", "KAN": "KC", "LA": "LAR", "STL": "LAR",
+    "SD": "LAC", "OAK": "LV", "NWE": "NE", "NOR": "NO",
+    "SFO": "SF", "TAM": "TB", "OTI": "TEN", "WSH": "WAS",
+}
 
 
 def normalize_ffc_position(position: str) -> str:
@@ -72,6 +80,16 @@ def normalize_name(name: str) -> str:
     s = _NON_ALNUM_RE.sub("", s)
     s = _WHITESPACE_RE.sub(" ", s).strip()
     return s
+
+
+def normalize_team(team: str | None) -> str | None:
+    """Return a Sleeper-style abbreviation; unsigned states become None."""
+    if not team:
+        return None
+    value = team.strip().upper().replace(".", "")
+    if value in {"FA", "UFA", "N/A", "NA", "-", ""}:
+        return None
+    return TEAM_ALIASES.get(value, value)
 
 
 MatchKey = tuple[str, str]

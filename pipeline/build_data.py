@@ -20,6 +20,7 @@ from typing import Any
 import match
 import sources
 import transform
+from fftoday import FFTodayProjectionProvider, validate_projection_gates
 
 DEFAULT_SEASON = "2026"
 COVERAGE_GATE_FORMAT = "ppr"  # largest FFC sample (~4600+ drafts) -> most stable signal
@@ -68,25 +69,19 @@ def main() -> int:
     fetched_at = datetime.now(timezone.utc).isoformat()
     manifest_sources: dict[str, dict[str, Any]] = {}
 
-    print(f"[1/5] Fetching Sleeper player pool (season {args.season})...")
+    print(f"[1/4] Fetching Sleeper player pool (season {args.season})...")
     sleeper_players = sources.fetch_sleeper_players()
     manifest_sources["sleeper_players"] = _source_entry(
         f"{sources.SLEEPER_BASE}/v1/players/nfl", len(sleeper_players), fetched_at
     )
 
-    print("[2/5] Fetching Sleeper season projections...")
-    raw_projections = sources.fetch_sleeper_season_projections(args.season)
-    manifest_sources["sleeper_season_projections"] = _source_entry(
-        f"{sources.SLEEPER_BASE}/projections/nfl/{args.season}", len(raw_projections), fetched_at
-    )
-
-    print("[3/5] Fetching DynastyProcess player ID crosswalk...")
+    print("[2/4] Fetching DynastyProcess player ID crosswalk...")
     dp_rows = sources.fetch_dynastyprocess_crosswalk()
     manifest_sources["dynastyprocess_playerids"] = _source_entry(
         sources.DYNASTYPROCESS_PLAYERIDS_URL, len(dp_rows), fetched_at
     )
 
-    print("[4/5] Fetching FFC ADP for", ", ".join(sources.ADP_FORMATS))
+    print("[3/4] Fetching FFC ADP for", ", ".join(sources.ADP_FORMATS))
     ffc_by_format: dict[str, list[dict[str, Any]]] = {}
     for fmt in sources.ADP_FORMATS:
         ffc_by_format[fmt] = sources.fetch_ffc_adp(fmt, teams=args.teams, year=int(args.season))
@@ -96,9 +91,8 @@ def main() -> int:
             fetched_at,
         )
 
-    print("[5/5] Transforming and writing data/*.json...")
+    print("[4/4] Transforming and writing data/*.json...")
     players = transform.build_player_meta(sleeper_players, dp_rows)
-    projections = transform.build_season_projections(raw_projections, set(players.keys()))
 
     # Built once and reused across every ADP format below: the index depends
     # only on sleeper_players, which doesn't change between formats, so
@@ -117,12 +111,33 @@ def main() -> int:
 
     assert gate_diagnostics is not None, f"COVERAGE_GATE_FORMAT={COVERAGE_GATE_FORMAT!r} not in ADP_FORMATS"
 
+    # Coverage-gate ADP entries double as the projection provider's top-ADP
+    # sample, so a rookie/traded player who is highly drafted but silently
+    # unmatched by FFToday fails loudly instead of just vanishing from boards.
+    top_adp_ids = [entry.playerId for entry in adp_by_format[COVERAGE_GATE_FORMAT][:300] if entry.playerId]
+    projection_result = FFTodayProjectionProvider(sleeper_players).load(args.season, top_adp_ids=top_adp_ids)
+    projections = projection_result.projections
+    manifest_sources['fftoday_projections'] = {
+        'url': projection_result.source_url,
+        'rows': len(projections),
+        'fetchedAt': projection_result.fetched_at,
+        'upstreamUpdatedAt': projection_result.upstream_updated_at,
+        'schemaVersion': SOURCE_SCHEMA_VERSION,
+        'status': 'ok',
+    }
+
     # Numeric sleeper_ids sort numerically; DEF entries (team abbreviations
     # like "DEN") sort alphabetically after them.
     def _player_sort_key(pid: str) -> tuple[int, int | str]:
         return (0, int(pid)) if pid.isdigit() else (1, pid)
 
     players_sorted = [players[pid] for pid in sorted(players.keys(), key=_player_sort_key)]
+
+    # All source and coverage validation happens before the first artifact is
+    # written, so a failed refresh leaves the last successful snapshot intact.
+    if gate_diagnostics['top300MatchRate'] < args.coverage_threshold:
+        print('COVERAGE GATE FAILED: preserving the last successful artifact.')
+        return 1
 
     sizes = {
         "players.json": _write_json(out_dir / "players.json", players_sorted),
@@ -154,15 +169,6 @@ def main() -> int:
         f"Crosswalk coverage (top {gate_diagnostics['sampleSize']} by {COVERAGE_GATE_FORMAT} ADP): "
         f"{gate_diagnostics['top300MatchRate']:.1%}"
     )
-
-    if gate_diagnostics["top300MatchRate"] < args.coverage_threshold:
-        print()
-        print(
-            f"COVERAGE GATE FAILED: {gate_diagnostics['top300MatchRate']:.1%} "
-            f"< required {args.coverage_threshold:.1%}"
-        )
-        print("Unmatched:", ", ".join(gate_diagnostics["unmatchedTop300"]))
-        return 1
 
     print("Coverage gate passed.")
     return 0

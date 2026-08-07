@@ -5,6 +5,7 @@ import { ConnectSleeper } from './components/ConnectSleeper';
 import { DataHealth } from './components/DataHealth';
 import { DraftBoard } from './components/DraftBoard';
 import { ManualPickCorrection } from './components/ManualPickCorrection';
+import { RecommendationPanel } from './components/RecommendationPanel';
 import { loadRankedPlayers, type AdpFormat, type RankedPlayer } from './data/loadPlayerPool';
 import { useDraftBoardState } from './hooks/useDraftBoardState';
 import { useDraftPoll } from './hooks/useDraftPoll';
@@ -157,7 +158,9 @@ export default function App() {
                 dataAgeMs={poll.dataAgeMs}
                 onCorrectPick={(overall) => setCorrecting({ mode: 'correct-existing', overall })}
               />
+              <RecommendationPanel draftInit={poll.draftInit} picks={board.effectivePicks} manifest={manifest} adpFormat={adpFormat} />
               <button type="button" onClick={poll.reconnect}>Reconnect</button>
+              <button type="button" onClick={handleChooseAnotherDraft}>Choose another draft</button>
             </>
           )}
         </>

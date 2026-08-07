@@ -13,7 +13,10 @@ player ids — don't rely on them matching anything in the committed `data/` pip
 - `picks-partial.json` — a `DraftPicks` object mid-draft: 5 picks in, pick 6 on the clock, one
   unmatched pick (`playerId: null`) to exercise the "never silently drop" path.
 - `scoring-ppr.json` — a standalone `ScoringMap`, standard full-PPR weights.
-- `projections-sample.json` — a handful of `SeasonProjection` entries.
+- `players-sample.json` — a `PlayerMeta[]` covering ids 9001-9007, matching the names/positions used
+  by `picks-partial.json`/`adp-sample.json`/`projections-sample.json`.
+- `projections-sample.json` — a handful of `SeasonProjection` entries. Deliberately jagged against
+  `adp-sample.json`: 9006 has a projection but no ADP entry, 9007 has an ADP entry but no projection.
 - `adp-sample.json` — a handful of `AdpEntry` entries, including one with a wide `stdev` (low
   sample size / low confidence case).
 

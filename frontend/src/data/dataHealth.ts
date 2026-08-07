@@ -19,7 +19,7 @@ export interface DataHealthOptions {
   now?: number;
 }
 
-const DEFAULT_PROJECTION_SOURCE_KEY = 'sleeper_season_projections';
+const DEFAULT_PROJECTION_SOURCE_KEY = 'fftoday_projections';
 const DEFAULT_ADP_SOURCE_KEY = 'ffc_adp_ppr';
 const DEFAULT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
@@ -51,7 +51,8 @@ export function resolveDataMode(manifest: DataManifest, options: DataHealthOptio
     now = Date.now(),
   } = options;
 
-  const hasProjection = isSourceHealthy(manifest, projectionSourceKey, maxAgeMs, now);
+  const projectionKey = manifest.sources[projectionSourceKey] ? projectionSourceKey : 'sleeper_season_projections';
+  const hasProjection = isSourceHealthy(manifest, projectionKey, maxAgeMs, now);
   const hasAdp = isSourceHealthy(manifest, adpSourceKey, maxAgeMs, now);
 
   if (hasProjection && hasAdp) return 'full';

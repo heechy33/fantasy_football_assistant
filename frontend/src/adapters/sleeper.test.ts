@@ -171,6 +171,7 @@ describe('sleeperAdapter.init — standalone mock draft', () => {
       },
     });
     expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(expect.stringContaining('/league/null'));
+    expect(result.settings.scoring).toMatchObject({ pass_yd: 0.04, pass_td: 4, rush_yd: 0.1, rec: 1, rec_yd: 0.1, rec_td: 6 });
   });
 });
 
@@ -194,14 +195,14 @@ describe('sleeperAdapter.picks', () => {
     await expect(sleeperAdapter.picks(CRED, 'never-inited-draft-xyz')).rejects.toThrow(/init/);
   });
 
-  it('normalizes picks, computes onTheClock, and resolves to exactly one upstream GET', async () => {
+  it('normalizes picks, computes onTheClock, and refreshes the draft status alongside picks', async () => {
     const fetchMock = installFetchMock();
     await sleeperAdapter.init(CRED, 'raw-draft-ppr');
     const callsAfterInit = fetchMock.mock.calls.length;
 
     const draftPicks = await sleeperAdapter.picks(CRED, 'raw-draft-ppr');
 
-    expect(fetchMock.mock.calls.length - callsAfterInit).toBe(1);
+    expect(fetchMock.mock.calls.length - callsAfterInit).toBe(2);
     expect(draftPicks.status).toBe('drafting');
     expect(draftPicks.picks).toHaveLength(15);
 
@@ -228,6 +229,21 @@ describe('sleeperAdapter.picks', () => {
 
     // 15 picks made; next pick (16) is round 2, slot 9 per snake math
     expect(draftPicks.onTheClock).toEqual({ teamId: '109', slot: 9, round: 2, overall: 16 });
+  });
+
+  it('reports a Sleeper-completed mock even when its picks array is partial', async () => {
+    const completedDraft = { ...rawDraft, status: 'complete' };
+    const fetchMock = vi.fn((input: string) => {
+      const url = String(input);
+      if (url === '/data/players.json') return jsonResponse(knownPlayerPool);
+      if (url.endsWith('/draft/raw-draft-ppr/picks')) return jsonResponse(rawDraftPicks);
+      if (url.endsWith('/draft/raw-draft-ppr')) return jsonResponse(completedDraft);
+      if (url.endsWith('/league/raw-league-ppr')) return jsonResponse(rawLeagues[0]);
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await sleeperAdapter.init(CRED, 'raw-draft-ppr');
+    await expect(sleeperAdapter.picks(CRED, 'raw-draft-ppr')).resolves.toMatchObject({ status: 'complete' });
   });
 
   it('rejects a non-Sleeper credential', async () => {

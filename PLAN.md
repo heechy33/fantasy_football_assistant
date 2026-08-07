@@ -2,9 +2,13 @@
 
 ## Status and decision
 
-**Plan revised:** August 6, 2026
+**Plan revised:** August 7, 2026
 **Active objective:** prove that the recommendation engine creates a measurable drafting edge in
 **PPR redraft snake drafts on Sleeper** before expanding the product.
+
+**Progress:** Gate 0, S0, S1, and S2 are complete and verified (see "Active execution plan" below
+for measured exit-criteria results). S3 (VONA rollout engine) is next. Nothing past S2 is built —
+`vona` is deliberately `null` on every `Recommendation` today.
 
 The long-term product is still a season-long assistant for Sleeper, ESPN, and Yahoo:
 
@@ -41,44 +45,42 @@ this document passes, or when the user explicitly changes the priority.
 
 ## What exists today
 
-The repository is a healthy scaffold, not yet a working draft assistant.
+As of August 7, 2026 this is a working live-draft assistant for one narrow case (Sleeper PPR
+one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phase build record.
 
 ### Implemented
 
-- React/Vite/TypeScript frontend scaffold
-- Node 22 Azure Functions scaffold with a health endpoint
-- Shared frontend/API type declarations
-- Azure Static Web Apps and Cosmos DB Bicep scaffold
-- GitHub Actions deployment and daily data-refresh workflows
-- Python pipeline for Sleeper players/projections, Fantasy Football Calculator ADP, and the
-  DynastyProcess player-ID crosswalk
-- Generated 2026 data committed under `data/`
-
-### Verified locally on August 6, 2026
-
-- `npm run typecheck` passes
-- `npm run build` passes
-- `npm test` exits successfully, but **there are no test files yet**; this is not meaningful test
-  coverage
-- Generated artifacts contain:
-  - 4,383 normalized player records
-  - 3,299 season-projection records
-  - 633 records with positive PPR projected points
-  - 249 PPR ADP records
-  - 100% player-ID match coverage in the top-300 gate
+- Sleeper connection, league/draft init, 2-3s poll with backoff/stale display, and manual
+  mode with undo/correction (S1)
+- Deterministic PPR engine: linear scoring with diagnostics, slot-aware lineup optimizer (exact
+  bitmask-DP solver, handles FLEX correctly), MRV, draining-pool replacement/VOR, leader-anchored
+  tiers, survival-conditioned availability, and a ranked recommendation board with explanations
+  (S2, `frontend/src/engine/`)
+- `RecommendationPanel` wired into the live-Sleeper session (not yet into manual mode — S4 gap)
+- FFToday-sourced season projections via the offline Python pipeline (`pipeline/fftoday.py`),
+  normalized into `SeasonProjection`, behind the `SeasonProjectionProvider` boundary
+- Azure Static Web Apps deploy with staged `data/`, `staticwebapp.config.json`, and artifact
+  verification (`npm run verify:artifact`); Node 22 Azure Functions scaffold with a health endpoint
+- Python pipeline for Sleeper players, FFToday projections, FFC ADP, and the DynastyProcess
+  player-ID crosswalk, with a top-300 coverage gate
+- Azure Static Web Apps and Cosmos DB Bicep scaffold (roadmap, unprovisioned)
 
 ### Not implemented
 
-- Draft board and recommendation UI
-- Any engine modules
-- Sleeper live-draft integration
-- Provider adapters
-- Manual draft tracking/correction
-- Engine, adapter, or UI tests
-- Edge backtesting or availability calibration
+- VONA / opponent-pick rollout simulation (S3) — `vona` is `null` on every recommendation today
+- Draft-experience polish: filters/search, tier-cliff visualization, manual pin/avoid, data
+  freshness panel (S4)
+- Reliability/clock testing under real conditions, edge validation against baselines (S5-S6)
+- Provider adapters beyond Sleeper, Cosmos DB, SWA auth (roadmap, gated by the Edge Validation Gate)
+- Real recorded Sleeper mock-draft fixtures — `fixtures/sleeper/` is still hand-authored
 
-The current frontend accurately describes itself as a scaffold. Future agents must not infer that a
-green build means any draft functionality exists.
+### Verified locally on August 7, 2026
+
+- `npm test`: 104/104 passing across 9 files (engine, adapters, data, state)
+- `npm run typecheck`, `npm run build`, `npm run verify:artifact`: all pass
+- `pipeline/test_fftoday.py`: 2/2 passing
+- Generated data artifacts and crosswalk coverage: see the data manifest; the top-300 coverage gate
+  is enforced in `pipeline/build_data.py` and fails the build below threshold
 
 ---
 
@@ -160,6 +162,15 @@ Before recommendation logic lands:
   finite projected scores, and source freshness.
 
 ### P0.5 — Lock the draft-data strategy, provenance, and top-player coverage
+
+**Current implementation status (2026-08-07):** the target design below is the role-separated,
+FantasyPros-primary stack — that has not changed. What's actually running for the S2 prototype is
+narrower: FFToday season-projection tables are the sole implemented performance-projection source
+(`pipeline/fftoday.py`), not Rotowire or FantasyPros. Neither the FantasyPros API access nor the
+Rotowire/ECR/no-lost-player-union pipeline described below has been built. Treat this section as
+the target architecture for when a second source is added, not a description of what runs today —
+see S2 in "Active execution plan" for what's actually implemented and its prototype-only
+constraints (unmonetized, attribution, `noindex`, legally unverified redistribution).
 
 **Decision (2026-08-06):** use a role-separated, multi-source stack for the private Sleeper PPR
 edge test. FantasyPros' official preseason consensus projections are the primary performance
@@ -340,10 +351,12 @@ implementation knowledge here, including the distinction between per-event (`eac
 
 ### Projection-source conclusion
 
-The implemented pipeline currently has **one performance-projection source**: Rotowire data exposed
-through an undocumented Sleeper endpoint. Research now selects the official FantasyPros consensus
-projection API as the primary source for the private edge test, subject to the P0.5 access gate. FFC
-ADP remains an independent market signal, not a projection model.
+The implemented pipeline has **one performance-projection source**: FFToday season-projection
+tables (see P0.5's "Current implementation status" and S2 in "Active execution plan"), not the
+Rotowire-via-Sleeper endpoint originally scoped here. Research still selects the official
+FantasyPros consensus projection API as the eventual primary source for the private edge test,
+subject to the P0.5 access gate — that has not been pursued yet. FFC ADP remains an independent
+market signal, not a projection model.
 
 Therefore:
 
@@ -647,17 +660,17 @@ measured step and prove that they improve historical results.
 
 Time estimates are planning aids, not permission to skip exit criteria.
 
-### S0 — Blocking fixes and deployable artifact (1–2 days)
+### S0 — Blocking fixes and deployable artifact — ✅ Complete
 
 Exit criteria:
 
-- Every P0 item above is resolved or has an explicit, user-approved deferment.
-- Production artifact includes config and all required data.
-- Deployed `/data/manifest.json` and `/api/health` work.
-- League format dimensions are corrected.
-- First fixtures/tests exist and “no tests” can no longer pass silently.
+- Every P0 item above is resolved or has an explicit, user-approved deferment. ✅
+- Production artifact includes config and all required data. ✅ (`npm run verify:artifact`)
+- Deployed `/data/manifest.json` and `/api/health` work. ✅
+- League format dimensions are corrected. ✅ (independent `reception`/`qb`/`draft` fields)
+- First fixtures/tests exist and "no tests" can no longer pass silently. ✅
 
-### S1 — Sleeper connection and live/manual board (2 days)
+### S1 — Sleeper connection and live/manual board — ✅ Complete
 
 Build:
 
@@ -668,28 +681,56 @@ Build:
 - Add a universal manual mode plus undo/correction.
 - Surface unmatched players instead of silently treating them as available.
 
-Exit criteria:
+Exit criteria — met, verified against a real Sleeper mock draft (`674c7e5`, "sleeper mock draft
+connection"):
 
 - A real Sleeper mock draft updates within one poll interval.
 - Refresh/reconnect reconstructs the complete board.
 - Manual correction recovers from a bad/missing match without corrupting availability.
 
-### S2 — Deterministic PPR engine (2–3 days)
+`fixtures/sleeper/` is still hand-authored, not a recording of that mock — swapping in a real
+recorded fixture set remains open (see "What exists today").
 
-Build:
+### S2 — Deterministic PPR engine — ✅ Complete
 
-- Linear scoring with diagnostics
-- Eligibility/slot optimizer
-- MRV and documented replacement/VOR
-- Correct tiers and tier gaps
-- PPR ADP/value comparison
-- Initial availability probability with confidence/sample-size warnings
+The active S2 source is FFToday's public season-projection tables, fetched only by the offline
+Python pipeline and normalized into the existing `SeasonProjection` shape behind the
+`SeasonProjectionProvider` boundary, so a permitted licensed feed can replace FFToday later without
+changing the engine. The browser makes no FFToday request during a live draft.
 
-Exit criteria:
+FFToday is prototype-only and redistribution permission is legally unverified. The prototype must
+remain unmonetized, carry source attribution and update age, use `noindex`, and retain the last
+successful artifact when a refresh fails. Do not launch a paid or commercial product without
+FFToday permission or a licensed replacement. FFToday's fantasy-point column is never used as the
+league score — points are always recomputed from components. Generic CSV imports, licensed feeds,
+source consensus, VONA simulations, and K/DEF high-confidence advice are post-S2 scope.
+
+Built (`frontend/src/engine/`):
+
+- Linear scoring with diagnostics (`scoring.ts`) — unsupported/missing keys classified
+  minor/material, never silently "unknown means zero" without a visible warning
+- Slot-aware lineup optimizer (`eligibility.ts`) — exact bitmask-DP solver over (slot, remaining
+  players), correctly handles FLEX/SUPER_FLEX counterexamples instead of a positional cutoff
+- MRV and draining-pool replacement/VOR (`replacement.ts`) — replacement rank shrinks as a position
+  is consumed rather than staying fixed to the static full-pool level
+- Leader-anchored tiers with bounded, non-inverted urgency (`tiers.ts`)
+- Survival-conditioned availability (`availability.ts`) — climbs monotonically as the player keeps
+  surviving picks, guarded against near-zero-denominator noise
+- Ranked recommendation board with explanations (`recommend.ts`) — sorts on
+  `replacementAdjustedValue` (not raw points, fixing the old open-slot degeneracy), `vona` is
+  explicitly `null` with every value pending S3
+
+Exit criteria — met, verified August 7, 2026:
 
 - Unit tests cover scoring, FLEX counterexamples, replacement, tiers, and probability boundaries.
-- Known Sleeper league projections reconcile within an explained tolerance.
-- Recommendations update deterministically after every fixture pick.
+  104/104 tests passing in `frontend/src/engine/engine.test.ts` and related suites, including
+  draining-pool replacement invariants, tier-boundary vs. adjacent-gap distinctions, and
+  survival-conditioned availability monotonicity.
+- Known Sleeper league projections reconcile within an explained tolerance. Five real committed
+  `data/` player totals reconcile exactly (±1e-6) under standard PPR scoring.
+- Recommendations update deterministically after every fixture pick. Verified: identical input
+  produces identical output including tie order; re-ranks correctly after an opponent pick; MRV
+  degenerates to raw points only on a genuinely open slot.
 
 ### S3 — VONA rollout engine (2–3 days)
 

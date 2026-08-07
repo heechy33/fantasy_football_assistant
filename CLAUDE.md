@@ -24,8 +24,10 @@ kept in the repo deliberately — they're future work, not dead code to delete.
   timers/Durable Functions — no code should assume a server-side scheduler exists). Currently just
   a `/api/health` scaffold endpoint; no provider endpoints exist yet.
 - **Data pipeline**: Python, runs via GitHub Actions cron (not Azure — that's the scheduler)
-- **Draft engine**: pure TypeScript running client-side in a Web Worker, not the API — see
-  "Why no auth/Cosmos in the active path" below. Nothing under this is built yet either.
+- **Draft engine**: pure TypeScript running client-side, not the API — see "Why no auth/Cosmos in
+  the active path" below. The deterministic S2 engine (`frontend/src/engine/`) is built and tested;
+  it currently runs on the main thread. Moving it into a Web Worker is S3 scope, once VONA rollout
+  cost makes that necessary.
 - **DB**: Cosmos DB, free tier (1000 RU/s + 25 GB), provisioned throughput — **not serverless**,
   and `enableFreeTier` can only be set at account creation, never after. **Roadmap only** — not
   needed or provisioned for the active Sleeper path.
@@ -37,42 +39,38 @@ kept in the repo deliberately — they're future work, not dead code to delete.
 
 ## Repo layout
 
-What's actually on disk right now (mostly scaffold — no engine, no components, no provider
-adapters exist yet):
+What's actually on disk (S0-S2 complete — Sleeper connection, manual mode, and the deterministic
+PPR engine are real and tested; see `PLAN.md`'s "Active execution plan" for phase status):
 
 ```
-frontend/src/       App.tsx, main.tsx, vite-env.d.ts   (default Vite scaffold, nothing built)
-frontend/public/    staticwebapp.config.json, (generated) data/
+frontend/src/
+  engine/            pure functions, no network/provider awareness (S2, deterministic)
+    scoring.ts eligibility.ts replacement.ts tiers.ts availability.ts recommend.ts
+    (opponentModel.ts / simulate.ts land with S3 — VONA is `null` until then)
+  adapters/sleeper.ts, draftOrder.ts   the only active adapter — espn.ts/yahoo.ts are roadmap
+  data/              manifest/data-health/invariants/player-pool helpers, not engine logic
+    dataInvariants.ts dataHealth.ts loadPlayerPool.ts
+  state/             draftBoardState.ts, persistence.ts   local draft-board reducer + storage
+  hooks/             useDraftPoll.ts, useDraftBoardState.ts
+  components/
+    ConnectSleeper DraftBoard RecommendationPanel
+    DataHealth ManualPickCorrection
+  App.tsx
+frontend/public/    staticwebapp.config.json, robots.txt, (staged at build time) data/
 api/src/
   index.ts
   functions/health.ts   the only endpoint that exists
 shared/types.d.ts   the frontend/api contract — type-only, see below (NOT types.ts)
-pipeline/           build_data.py, sources.py, transform.py, match.py, requirements.txt
+pipeline/           build_data.py, sources.py, transform.py, match.py, fftoday.py, requirements.txt
 data/               generated JSON, committed to the repo (served from the CDN)
+fixtures/sleeper/    hand-authored Sleeper league/draft/picks fixtures — not yet swapped for a
+                     real recorded mock draft (open item, see PLAN.md)
 infra/main.bicep    Cosmos DB + SWA Bicep — roadmap infra, not provisioned/active
 ```
 
-The **active target layout** for the Sleeper-only build (`PLAN.md`, "Active repository layout") —
-build toward this, not the older ESPN/Yahoo-inclusive layout:
-
-```
-frontend/src/
-  engine/            pure functions, no network/provider awareness
-    scoring.ts eligibility.ts lineupValue.ts replacement.ts tiers.ts
-    availability.ts opponentModel.ts simulate.ts recommend.ts
-  workers/draftEngine.worker.ts
-  adapters/sleeper.ts        the only active adapter — espn.ts/yahoo.ts are roadmap
-  data/              manifest/data-health helpers (not engine logic, not provider-aware)
-    dataInvariants.ts dataHealth.ts
-  components/
-    ConnectSleeper DraftBoard MyRoster RecommendationPanel
-    DataHealth ManualPickCorrection
-  hooks/useDraftPoll.ts
-shared/types.d.ts
-pipeline/
-data/
-fixtures/sleeper/    hand-authored/recorded Sleeper league/draft/picks fixtures for tests
-```
+Not yet built: `workers/draftEngine.worker.ts` (recommend.ts runs on the main thread until S3's
+rollout cost makes a worker necessary) and a dedicated `MyRoster` component (folded into
+`DraftBoard`/`RecommendationPanel` for now).
 
 `api/_shared/providers/` (`espn.ts`, `yahoo.ts`, `cosmos.ts`, `crypto.ts`) is a **roadmap** path
 from the pre-revision plan — don't create it until Yahoo/ESPN work actually starts. The API and
@@ -155,15 +153,18 @@ active Sleeper path anyway — not something to run unprompted.
 
 ## Testing philosophy
 
-- Engine logic: unit tests on committed fixtures, no mocks (see "pure functions" above). Engine
-  modules don't exist yet — the exit criterion is that `npm test` fails on zero test files, not
-  that it silently passes (`--passWithNoTests` is removed once real tests exist).
+- Engine logic: unit tests on committed fixtures and the real committed `data/` output, no mocks
+  (see "pure functions" above). `frontend/src/engine/engine.test.ts` covers scoring diagnostics,
+  FLEX/SUPER_FLEX counterexamples, draining-pool replacement/VOR, tier boundaries, availability
+  probability boundaries, crosswalk-miss handling, and end-to-end determinism. `--passWithNoTests`
+  is removed; `npm test` fails on zero test files.
 - Data-layer helpers (`frontend/src/data/`): tested against the real committed `data/*.json` for
   invariants — unique player IDs, finite/non-negative stats, valid ADP ranges — and against
   `fixtures/sleeper/` for the degraded-data-mode resolver.
-- `fixtures/sleeper/` currently holds **hand-authored** fixtures matching Sleeper's documented API
-  shapes and `shared/types.d.ts` — not recordings of a real draft. Swap these for real recorded
-  Sleeper mock-draft fixtures once S1 (live Sleeper connection) lands.
+- `fixtures/sleeper/` still holds **hand-authored** fixtures matching Sleeper's documented API
+  shapes and `shared/types.d.ts` — not recordings of a real draft. S1 (live Sleeper connection) has
+  since landed against a real mock draft, but swapping these fixtures for a real recorded one
+  remains open; don't assume it's done.
 - Adapters: one shared contract-test suite run against each provider's recorded fixtures —
   asserts monotonic `overall`, `slotToTeam` covering all teams, no duplicate `playerId`.
   (Roadmap — only relevant once more than the Sleeper adapter exists.)

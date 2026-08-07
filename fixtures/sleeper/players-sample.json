@@ -1,0 +1,9 @@
+[
+  { "playerId": "9001", "name": "RB One", "position": "RB", "eligiblePositions": ["RB"], "team": "AAA", "byeWeek": 9, "age": 24, "yearsExp": 2, "injuryStatus": null, "ids": {} },
+  { "playerId": "9002", "name": "RB Two", "position": "RB", "eligiblePositions": ["RB"], "team": "BBB", "byeWeek": 7, "age": 26, "yearsExp": 4, "injuryStatus": null, "ids": {} },
+  { "playerId": "9003", "name": "WR One", "position": "WR", "eligiblePositions": ["WR"], "team": "CCC", "byeWeek": 11, "age": 25, "yearsExp": 3, "injuryStatus": null, "ids": {} },
+  { "playerId": "9004", "name": "WR Two", "position": "WR", "eligiblePositions": ["WR"], "team": "DDD", "byeWeek": 5, "age": 23, "yearsExp": 1, "injuryStatus": null, "ids": {} },
+  { "playerId": "9005", "name": "QB One", "position": "QB", "eligiblePositions": ["QB"], "team": "EEE", "byeWeek": 10, "age": 27, "yearsExp": 5, "injuryStatus": null, "ids": {} },
+  { "playerId": "9006", "name": "TE Two", "position": "TE", "eligiblePositions": ["TE"], "team": "GGG", "byeWeek": 8, "age": 25, "yearsExp": 3, "injuryStatus": null, "ids": {} },
+  { "playerId": "9007", "name": "TE Sleeper", "position": "TE", "eligiblePositions": ["TE"], "team": "FFF", "byeWeek": 6, "age": 22, "yearsExp": 0, "injuryStatus": null, "ids": {} }
+]
