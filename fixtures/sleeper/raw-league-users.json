@@ -1,0 +1,5 @@
+[
+  { "user_id": "u-1", "username": "user_one", "display_name": "User One", "avatar": null, "metadata": { "team_name": "Team One" }, "is_owner": false },
+  { "user_id": "u-2", "username": "user_two", "display_name": "User Two", "avatar": null, "metadata": { "team_name": "Team Two" }, "is_owner": false },
+  { "user_id": "u-3", "username": "coach_hodgetwins", "display_name": "CoachH", "avatar": "abc123", "metadata": { "team_name": "Coach's Crew" }, "is_owner": true }
+]

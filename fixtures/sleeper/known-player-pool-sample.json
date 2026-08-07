@@ -1,0 +1,16 @@
+[
+  { "playerId": "1001", "name": "Aaron Rushmore", "position": "RB", "eligiblePositions": ["RB"], "team": "SF", "byeWeek": 9, "age": 25, "yearsExp": 3, "injuryStatus": null, "ids": {} },
+  { "playerId": "1002", "name": "Beau Wideout", "position": "WR", "eligiblePositions": ["WR"], "team": "MIA", "byeWeek": 6, "age": 24, "yearsExp": 2, "injuryStatus": null, "ids": {} },
+  { "playerId": "1003", "name": "Casey Fastcatch", "position": "WR", "eligiblePositions": ["WR"], "team": "DAL", "byeWeek": 7, "age": 27, "yearsExp": 5, "injuryStatus": null, "ids": {} },
+  { "playerId": "1004", "name": "Deon Groundgame", "position": "RB", "eligiblePositions": ["RB"], "team": "BUF", "byeWeek": 12, "age": 23, "yearsExp": 1, "injuryStatus": null, "ids": {} },
+  { "playerId": "1005", "name": "Ezra Redzone", "position": "TE", "eligiblePositions": ["TE"], "team": "KC", "byeWeek": 10, "age": 28, "yearsExp": 6, "injuryStatus": null, "ids": {} },
+  { "playerId": "1006", "name": "Finn Slinger", "position": "QB", "eligiblePositions": ["QB"], "team": "CIN", "byeWeek": 7, "age": 26, "yearsExp": 4, "injuryStatus": null, "ids": {} },
+  { "playerId": "SF", "name": "San Francisco 49ers", "position": "DEF", "eligiblePositions": ["DEF"], "team": "SF", "byeWeek": 9, "age": null, "yearsExp": null, "injuryStatus": null, "ids": {} },
+  { "playerId": "1007", "name": "Gus Sideline", "position": "WR", "eligiblePositions": ["WR"], "team": "PHI", "byeWeek": 5, "age": 29, "yearsExp": 7, "injuryStatus": null, "ids": {} },
+  { "playerId": "1008", "name": "Hank Powerback", "position": "RB", "eligiblePositions": ["RB"], "team": "DET", "byeWeek": 9, "age": 22, "yearsExp": 0, "injuryStatus": null, "ids": {} },
+  { "playerId": "1009", "name": "Ivan Deepthreat", "position": "WR", "eligiblePositions": ["WR"], "team": "GB", "byeWeek": 10, "age": 25, "yearsExp": 3, "injuryStatus": null, "ids": {} },
+  { "playerId": "1010", "name": "Jax Seambuster", "position": "TE", "eligiblePositions": ["TE"], "team": "BAL", "byeWeek": 14, "age": 24, "yearsExp": 2, "injuryStatus": null, "ids": {} },
+  { "playerId": "1011", "name": "Kian Backfield", "position": "RB", "eligiblePositions": ["RB"], "team": "LAR", "byeWeek": 6, "age": 26, "yearsExp": 4, "injuryStatus": null, "ids": {} },
+  { "playerId": "1012", "name": "Leo Slotman", "position": "WR", "eligiblePositions": ["WR"], "team": "MIN", "byeWeek": 6, "age": 23, "yearsExp": 1, "injuryStatus": null, "ids": {} },
+  { "playerId": "1013", "name": "Milo Gunslinger", "position": "QB", "eligiblePositions": ["QB"], "team": "HOU", "byeWeek": 14, "age": 27, "yearsExp": 5, "injuryStatus": null, "ids": {} }
+]

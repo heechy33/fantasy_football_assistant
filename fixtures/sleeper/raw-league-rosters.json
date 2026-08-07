@@ -1,0 +1,5 @@
+[
+  { "starters": [], "settings": { "wins": 0, "losses": 0, "ties": 0, "fpts": 0, "fpts_against": 0 }, "roster_id": 101, "reserve": [], "players": ["1001"], "owner_id": "u-1", "league_id": "raw-league-ppr" },
+  { "starters": [], "settings": { "wins": 0, "losses": 0, "ties": 0, "fpts": 0, "fpts_against": 0 }, "roster_id": 102, "reserve": [], "players": ["1002"], "owner_id": "u-2", "league_id": "raw-league-ppr" },
+  { "starters": [], "settings": { "wins": 0, "losses": 0, "ties": 0, "fpts": 0, "fpts_against": 0 }, "roster_id": 103, "reserve": [], "players": ["1003"], "owner_id": "u-3", "league_id": "raw-league-ppr" }
+]

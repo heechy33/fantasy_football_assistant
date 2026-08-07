@@ -1,0 +1,41 @@
+{
+  "type": "snake",
+  "status": "drafting",
+  "start_time": 1786060800000,
+  "sport": "nfl",
+  "settings": {
+    "teams": 12,
+    "slots_qb": 1,
+    "slots_rb": 2,
+    "slots_wr": 2,
+    "slots_te": 1,
+    "slots_flex": 1,
+    "slots_k": 1,
+    "slots_def": 1,
+    "slots_bn": 6,
+    "rounds": 15,
+    "pick_timer": 120
+  },
+  "season_type": "regular",
+  "season": "2026",
+  "metadata": {
+    "scoring_type": "ppr",
+    "name": "Raw Fixture League PPR",
+    "description": ""
+  },
+  "league_id": "raw-league-ppr",
+  "last_picked": 1786061400000,
+  "last_message_time": 1786061400000,
+  "last_message_id": "raw-msg-1",
+  "draft_order": {
+    "u-1": 1, "u-2": 2, "u-3": 3, "u-4": 4, "u-5": 5, "u-6": 6,
+    "u-7": 7, "u-8": 8, "u-9": 9, "u-10": 10, "u-11": 11, "u-12": 12
+  },
+  "slot_to_roster_id": {
+    "1": 101, "2": 102, "3": 103, "4": 104, "5": 105, "6": 106,
+    "7": 107, "8": 108, "9": 109, "10": 110, "11": 111, "12": 112
+  },
+  "draft_id": "raw-draft-ppr",
+  "creators": null,
+  "created": 1786000000000
+}

@@ -1,0 +1,71 @@
+[
+  {
+    "total_rosters": 12,
+    "status": "drafting",
+    "sport": "nfl",
+    "settings": { "num_teams": 12 },
+    "season_type": "regular",
+    "season": "2026",
+    "scoring_settings": {
+      "pass_yd": 0.04, "pass_td": 4, "pass_int": -2,
+      "rush_yd": 0.1, "rush_td": 6,
+      "rec": 1, "rec_yd": 0.1, "rec_td": 6,
+      "fum_lost": -2
+    },
+    "roster_positions": [
+      "QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF",
+      "BN", "BN", "BN", "BN", "BN", "BN"
+    ],
+    "previous_league_id": null,
+    "name": "Raw Fixture League PPR",
+    "league_id": "raw-league-ppr",
+    "draft_id": "raw-draft-ppr",
+    "avatar": null
+  },
+  {
+    "total_rosters": 10,
+    "status": "pre_draft",
+    "sport": "nfl",
+    "settings": { "num_teams": 10 },
+    "season_type": "regular",
+    "season": "2026",
+    "scoring_settings": {
+      "pass_yd": 0.04, "pass_td": 4, "pass_int": -2,
+      "rush_yd": 0.1, "rush_td": 6,
+      "rec": 0.5, "rec_yd": 0.1, "rec_td": 6,
+      "fum_lost": -2
+    },
+    "roster_positions": [
+      "QB", "QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF",
+      "BN", "BN", "BN", "BN"
+    ],
+    "previous_league_id": null,
+    "name": "Raw Fixture League Half-PPR Two-QB",
+    "league_id": "raw-league-half",
+    "draft_id": "raw-draft-half",
+    "avatar": null
+  },
+  {
+    "total_rosters": 12,
+    "status": "complete",
+    "sport": "nfl",
+    "settings": { "num_teams": 12 },
+    "season_type": "regular",
+    "season": "2025",
+    "scoring_settings": {
+      "pass_yd": 0.04, "pass_td": 4, "pass_int": -2,
+      "rush_yd": 0.1, "rush_td": 6,
+      "rec_yd": 0.1, "rec_td": 6,
+      "fum_lost": -2
+    },
+    "roster_positions": [
+      "QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "SUPER_FLEX", "K", "DEF",
+      "BN", "BN", "BN", "BN"
+    ],
+    "previous_league_id": null,
+    "name": "Raw Fixture League Standard Superflex",
+    "league_id": "raw-league-sf",
+    "draft_id": "raw-draft-sf",
+    "avatar": null
+  }
+]
