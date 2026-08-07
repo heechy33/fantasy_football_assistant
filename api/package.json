@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json",
-    "start": "npm run build && func start",
+    "start": "npm run build && npx --yes azure-functions-core-tools@4 start",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -17,7 +17,6 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "azure-functions-core-tools": "^4.12.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

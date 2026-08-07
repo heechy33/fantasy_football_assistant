@@ -35,6 +35,12 @@ jobs:
       - name: Verify production artifact
         run: npm run verify:artifact
 
+      # SWA managed Functions reject oversized API zips (~100–250 MB). Full
+      # install:all includes vitest/typescript; prune to runtime deps only
+      # before upload. skip_api_build keeps Oryx from reinstalling everything.
+      - name: Prune API to production dependencies
+        run: npm --prefix api ci --omit=dev
+
       - name: Deploy to Azure Static Web Apps
         id: deploy
         uses: Azure/static-web-apps-deploy@v1
