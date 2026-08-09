@@ -1,4 +1,4 @@
-import type { DraftStatus, DraftType, OnTheClock } from '../../../shared/types';
+import type { DraftStatus, DraftType, OnTheClock, Pick } from '../../../shared/types';
 
 /**
  * Pure, provider-agnostic draft-order arithmetic. Sleeper's picks endpoint has
@@ -51,6 +51,62 @@ export function nextPickForTeam(
     if (slotToTeam[slot] === teamId) return overall;
   }
   return null;
+}
+
+/**
+ * The pair of pick numbers S3's rollout engine actually needs, disambiguated from `nextPick` in
+ * `RecommendationPanel.tsx`. That existing field means two different things depending on who's on
+ * the clock: the user's *upcoming* decision when an opponent is picking right now, or the user's
+ * *following* turn when the user is on the clock. Forcing a rollout candidate onto whichever pick
+ * `nextPick` happens to mean at the moment would assign the user's own pick to an opponent's roster
+ * on the majority of renders (PLAN.md's S3 stage-B note).
+ *
+ * - `decisionPick` — the user's next actual selection. Never occupied by a simulated opponent pick.
+ * - `followUpPick` — the user's selection after that, or `null` if the draft ends first.
+ *
+ * Opponents are simulated over `decisionPick + 1 … followUpPick − 1` only — see `simulate.ts`.
+ */
+export interface UserPickBoundaries {
+  decisionPick: number | null;
+  followUpPick: number | null;
+}
+
+export function userPickBoundaries(
+  draftType: DraftType,
+  teams: number,
+  rounds: number,
+  picksCount: number,
+  slotToTeam: Record<number, string>,
+  myTeamId: string | null,
+): UserPickBoundaries {
+  const decisionPick = nextPickForTeam(draftType, teams, rounds, picksCount, slotToTeam, myTeamId, false);
+  if (decisionPick == null) return { decisionPick: null, followUpPick: null };
+  // Passing `decisionPick` itself as the "picks so far" count (with afterCurrentPick left false)
+  // scans forward from decisionPick + 1 — i.e. "this team's next pick after decisionPick."
+  const followUpPick = nextPickForTeam(draftType, teams, rounds, decisionPick, slotToTeam, myTeamId, false);
+  return { decisionPick, followUpPick };
+}
+
+/**
+ * Canonical, order-independent signature of the full pick list — the RNG seed input (via
+ * `rng.ts`'s `hashStateSeed`), not a UI memo key. Must include `teamId` and `slot`: B3's
+ * opponent-need modeling depends on which team owns each pick, so two draft states that differ only
+ * in a pick's team ownership (e.g. a manual correction reassigning one) must hash to different
+ * seeds rather than silently reusing a stale simulation. `RecommendationPanel.tsx`'s lighter
+ * `${overall}:${playerId}` memo key stays as-is for its own render-optimization purpose; it is not
+ * a substitute for this.
+ */
+export function canonicalPicksSignature(picks: readonly Pick[]): string {
+  const frame = (value: string): string => `${value.length}:${value}`;
+  return picks
+    .map((pick) => [
+      frame(String(pick.overall)),
+      frame(pick.teamId),
+      frame(String(pick.slot)),
+      frame(pick.playerId ?? '~'),
+    ].join(''))
+    .sort()
+    .join('');
 }
 
 /** `rawStatus` is refreshed from Sleeper's draft endpoint alongside picks.

@@ -45,13 +45,22 @@ export function RecommendationPanel({ draftInit, picks, manifest, adpFormat }: P
     );
     if (nextPick == null) return null;
     const currentPick = onTheClock?.overall ?? picks.length + 1;
-    return buildRecommendationBoard({ settings: draftInit.settings, players, projections, adp, picks, myTeamId: draftInit.myTeamId, nextPick, currentPick, limit: 5 });
+    // Sleeper mock-draft settings carry no BN entry in rosterSlots (normalizeMockDraftSettings only
+    // sets slots_qb..slots_def), so the engine's own rosterSlots-derived fallback under-counts
+    // bench capacity. draftInit.rounds is the real per-team spot count — pass it explicitly so
+    // positional demand drains into the correct universe (see replacement.ts's doc).
+    return buildRecommendationBoard({
+      settings: draftInit.settings, players, projections, adp, picks, myTeamId: draftInit.myTeamId,
+      nextPick, currentPick, limit: 5, rosterSpotsPerTeam: draftInit.rounds, draftRounds: draftInit.rounds,
+    });
     // picksSignature stands in for `picks` here — see comment above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adp, draftInit, picksSignature, players, projections]);
 
   const recommendations = board?.recommendations ?? [];
   const diagnostics = board?.diagnostics ?? null;
+  const specialTeams = diagnostics?.specialTeamsDraft ?? null;
+  const specialTeamsRemaining = specialTeams ? specialTeams.remaining.K + specialTeams.remaining.DEF : 0;
 
   const source = manifest?.sources.fftoday_projections;
   if (!draftInit) return null;
@@ -67,6 +76,29 @@ export function RecommendationPanel({ draftInit, picks, manifest, adpFormat }: P
         <p className="warning-banner" role="alert">
           {diagnostics.unmatchedPickCount} drafted pick{diagnostics.unmatchedPickCount === 1 ? '' : 's'} (overall {diagnostics.unmatchedPickOveralls.join(', ')}) couldn't be matched to a player —
           someone recommended below may already be gone. Use "Correct" on the draft board above to fix it.
+        </p>
+      )}
+      {diagnostics != null && diagnostics.positionalDemand.source !== 'adp' && (
+        <p className="warning-banner">
+          {diagnostics.positionalDemand.source === 'adp-extrapolated'
+            ? 'Replacement levels are estimated from a shallow ADP board, extrapolated to the full roster universe.'
+            : 'Replacement levels use a default positional mix because usable ADP coverage was below 50% of the full roster universe.'}
+        </p>
+      )}
+      {diagnostics != null && specialTeamsRemaining > 0 && !diagnostics.coreStartingSlotsFilled && (
+        <p className="muted">Core QB/RB/WR/TE/FLEX starters stay ahead of K/DEF, even inside the late-draft window.</p>
+      )}
+      {diagnostics != null && diagnostics.coreStartingSlotsFilled && specialTeams != null && specialTeamsRemaining > 0 && specialTeams.remainingPicks != null && (
+        <p className={specialTeams.impossibleToFill ? 'warning-banner' : 'muted'} role={specialTeams.impossibleToFill ? 'alert' : undefined}>
+          {specialTeams.impossibleToFill
+            ? `Only ${specialTeams.remainingPicks} selection${specialTeams.remainingPicks === 1 ? '' : 's'} remain for ${specialTeamsRemaining} unfilled K/DEF slots. Overdue D/ST slots stay ahead of kicker.`
+            : specialTeams.due.length > 0
+              ? `${specialTeams.due.map((position) => position === 'DEF' ? 'D/ST' : 'K').join(' and ')} ${specialTeams.due.length === 1 ? 'is' : 'are'} due under the late-draft plan.`
+              : specialTeams.remaining.DEF > 0 && specialTeams.remaining.K > 0
+                ? `Late-draft plan: reserve D/ST for the selection immediately before kicker, and kicker for your final team selection (${specialTeams.remainingPicks} picks remain).`
+                : specialTeams.remaining.K > 0
+                  ? `Late-draft plan: reserve kicker for your final team selection (${specialTeams.remainingPicks} picks remain).`
+                  : `Late-draft plan: reserve D/ST for your final team selection (${specialTeams.remainingPicks} picks remain).`}
         </p>
       )}
       {recommendations.length === 0 ? <p>Waiting for a validated projection snapshot.</p> : (
@@ -103,7 +135,7 @@ export function RecommendationPanel({ draftInit, picks, manifest, adpFormat }: P
           })}
         </ol>
       )}
-      <p className="muted">Custom scoring is recomputed from normalized components. Replacement levels are modeled estimates, not observed league truth. S2 values starter impact only, so bench depth is not yet priced. K/DEF are not high-confidence custom-scoring values.</p>
+      <p className="muted">Custom scoring is recomputed from normalized components. Replacement levels are modeled estimates of the last rosterable player at a position, not observed league truth. S2 values starter impact only, so bench depth is not yet priced. K/DEF timing is a late-draft strategy guardrail, and their custom-scoring values remain low-confidence even when due.</p>
     </section>
   );
 }

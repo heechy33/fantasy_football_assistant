@@ -2,7 +2,7 @@
 
 ## Status and decision
 
-**Plan revised:** August 7, 2026
+**Plan revised:** August 8, 2026
 **Active objective:** prove that the recommendation engine creates a measurable drafting edge in
 **PPR redraft snake drafts on Sleeper** before expanding the product.
 
@@ -74,10 +74,13 @@ one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phas
 - Provider adapters beyond Sleeper, Cosmos DB, SWA auth (roadmap, gated by the Edge Validation Gate)
 - Real recorded Sleeper mock-draft fixtures — `fixtures/sleeper/` is still hand-authored
 
-### Verified locally on August 7, 2026
+### Verified locally on August 8, 2026
 
-- `npm test`: 104/104 passing across 9 files (engine, adapters, data, state)
-- `npm run typecheck`, `npm run build`, `npm run verify:artifact`: all pass
+- `npm test`: frontend 207/207 passing across 15 files; API 1/1 passing in 1 file
+- Stage B focused selection: 100/100 passing across 6 files
+- `npm run typecheck`: frontend and API pass
+- Recommendation performance guard passes its 250 ms median ceiling; `git diff --check` passes
+- `npm run build` passes; `npm run verify:artifact` was last verified on August 7, 2026
 - `pipeline/test_fftoday.py`: 2/2 passing
 - Generated data artifacts and crosswalk coverage: see the data manifest; the top-300 coverage gate
   is enforced in `pipeline/build_data.py` and fails the build below threshold
@@ -300,7 +303,9 @@ Do not begin the next engine phase until all of these are complete:
 The app must still function when an upstream artifact is missing or stale:
 
 1. Projection + ADP available: full engine.
-2. Projection available, ADP missing: projected-value board; no availability claim.
+2. Projection available, but usable ADP coverage is below 50% of the full roster universe:
+   projected-value board with default-mix replacement demand; make no board-wide availability
+   claim. This fallback describes insufficient coverage, not necessarily total ADP absence.
 3. ADP available, projection missing: clearly labeled market-rank board; no “best roster” claim.
 4. Both missing/stale: manual board only with a blocking data-health warning.
 
@@ -713,17 +718,30 @@ Built (`frontend/src/engine/`):
   players), correctly handles FLEX/SUPER_FLEX counterexamples instead of a positional cutoff
 - MRV and draining-pool replacement/VOR (`replacement.ts`) — replacement rank shrinks as a position
   is consumed rather than staying fixed to the static full-pool level
+- ADP-derived replacement demand (`replacement.ts`) uses full scored-ADP counts at complete
+  coverage, extrapolates at 50% or better usable coverage, and uses a frozen default positional
+  mix below 50%. Starter demand is a floor; K/DEF demand is capped at named starting capacity.
 - Leader-anchored tiers with bounded, non-inverted urgency (`tiers.ts`)
 - Survival-conditioned availability (`availability.ts`) — climbs monotonically as the player keeps
   surviving picks, guarded against near-zero-denominator noise
 - Ranked recommendation board with explanations (`recommend.ts`) — sorts on
   `replacementAdjustedValue` (not raw points, fixing the old open-slot degeneracy), `vona` is
-  explicitly `null` with every value pending S3
+  explicitly `null` with every value pending S3. K/DEF remain below the displayed skill-player
+  board until every non-K/DEF core starter slot, including FLEX, is filled and the user's
+  settings-aware late-draft window arrives. In the standard one-D/ST, one-K format, D/ST is due at
+  the penultimate team selection and kicker at the final selection. The schedule adapts to total
+  rounds, multiple/absent/already-filled slots, never recommends a backup beyond configured
+  capacity, and preserves the old core-only fallback when reliable team-clock data is unavailable.
+- The late-draft K/DEF schedule is an S2 strategy guardrail, not a high-confidence projection claim.
+  Standard redraft guidance favors reserving both for the final selections and streaming based on
+  weekly matchup because preseason positional separation is small and volatile. The safe default
+  still drafts one kicker in the final round when a K slot exists; intentionally ending without a
+  kicker remains deferred until the product can model platform rules and provide a Week 1 reminder.
 
-Exit criteria — met, verified August 7, 2026:
+Exit criteria — met, verified August 8, 2026:
 
 - Unit tests cover scoring, FLEX counterexamples, replacement, tiers, and probability boundaries.
-  104/104 tests passing in `frontend/src/engine/engine.test.ts` and related suites, including
+  207/207 frontend tests and 1/1 API test passing, including
   draining-pool replacement invariants, tier-boundary vs. adjacent-gap distinctions, and
   survival-conditioned availability monotonicity.
 - Known Sleeper league projections reconcile within an explained tolerance. Five real committed
@@ -740,6 +758,12 @@ Build:
 - Next-turn and optional two-turn rollouts
 - Web Worker, seeded randomness, caching, and time budget
 - MRV/VOR fallback if simulation misses its deadline
+- Stage C rollout pool = the union of the global `max(3 * limit, 15)` deterministic S2 leaders
+  and up to two positive-MRV, non-deprioritized leaders from each of QB/RB/WR/TE, deduplicated and
+  returned in deterministic S2 order. S2's displayed ordering receives no positional quota.
+- Stage C's final recommendation sort must reapply the complete S2 special-teams policy: the
+  `isDeprioritized` core/clock gate, due/overdue priority, and configured-capacity exclusion.
+  Opponent drafting and the full survivor pool remain ungated.
 
 Exit criteria:
 

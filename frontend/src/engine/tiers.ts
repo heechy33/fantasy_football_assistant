@@ -1,4 +1,5 @@
 import type { PlayerId, PlayerMeta } from '../../../shared/types';
+import { comparePlayersByScoreDesc } from './ranking';
 
 export interface TierInfo {
   playerId: PlayerId;
@@ -32,7 +33,7 @@ export function buildTiers(players: PlayerMeta[], projectedPoints: ReadonlyMap<P
   const result = new Map<PlayerId, TierInfo>();
   for (const position of ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']) {
     const ranked = players.filter((player) => player.position === position && projectedPoints.has(player.playerId))
-      .sort((a, b) => (projectedPoints.get(b.playerId) ?? 0) - (projectedPoints.get(a.playerId) ?? 0) || a.playerId.localeCompare(b.playerId));
+      .sort(comparePlayersByScoreDesc(projectedPoints));
 
     const rows: { playerId: PlayerId; points: number; tier: number; gapAfter: number }[] = [];
     let tier = 1;
