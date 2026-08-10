@@ -6,9 +6,9 @@
 **Active objective:** prove that the recommendation engine creates a measurable drafting edge in
 **PPR redraft snake drafts on Sleeper** before expanding the product.
 
-**Progress:** Gate 0, S0, S1, and S2 are complete and verified (see "Active execution plan" below
-for measured exit-criteria results). S3 (VONA rollout engine) is next. Nothing past S2 is built —
-`vona` is deliberately `null` on every `Recommendation` today.
+**Progress:** Gate 0, S0, S1, S2, and Phase 1 player context are complete and verified (see
+"Active execution plan" below for measured exit-criteria results). S3 (VONA rollout engine) is
+next. `vona` is deliberately `null` on every `Recommendation` today.
 
 The long-term product is still a season-long assistant for Sleeper, ESPN, and Yahoo:
 
@@ -45,7 +45,7 @@ this document passes, or when the user explicitly changes the priority.
 
 ## What exists today
 
-As of August 7, 2026 this is a working live-draft assistant for one narrow case (Sleeper PPR
+As of August 8, 2026 this is a working live-draft assistant for one narrow case (Sleeper PPR
 one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phase build record.
 
 ### Implemented
@@ -63,6 +63,10 @@ one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phas
   verification (`npm run verify:artifact`); Node 22 Azure Functions scaffold with a health endpoint
 - Python pipeline for Sleeper players, FFToday projections, FFC ADP, and the DynastyProcess
   player-ID crosswalk, with a top-300 coverage gate
+- Fail-open nflverse player context: prior-season snap/target/carry shares, three-season
+  availability history, specific recurring-injury episodes, current Sleeper depth/injury/practice
+  metadata, separate source provenance, durability score (display-only, not injury probability),
+  opportunity evolution/profile context, and a non-predictive recommendation-card details modal
 - Azure Static Web Apps and Cosmos DB Bicep scaffold (roadmap, unprovisioned)
 
 ### Not implemented
@@ -76,14 +80,29 @@ one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phas
 
 ### Verified locally on August 8, 2026
 
-- `npm test`: frontend 207/207 passing across 15 files; API 1/1 passing in 1 file
+- `npm test`: frontend 213/213 passing across 16 files; API 1/1 passing in 1 file
 - Stage B focused selection: 100/100 passing across 6 files
 - `npm run typecheck`: frontend and API pass
 - Recommendation performance guard passes its 250 ms median ceiling; `git diff --check` passes
-- `npm run build` passes; `npm run verify:artifact` was last verified on August 7, 2026
-- `pipeline/test_fftoday.py`: 2/2 passing
+- `npm run build` and `npm run verify:artifact` pass
+- Pipeline tests: 13/13 passing, including nflverse failure and season-leakage fail-open cases
 - Generated data artifacts and crosswalk coverage: see the data manifest; the top-300 coverage gate
   is enforced in `pipeline/build_data.py` and fails the build below threshold
+
+### Phase 1 context coverage snapshot — August 8, 2026
+
+- Draft season: 2026; usage season: 2025; durability/injury window: 2023-2025.
+- FFC PPR population: 5,187 twelve-team PPR mock drafts and 256 returned rows. The manifest records
+  mock drafts, team count, season, format, and row count separately for every FFC format.
+- Report-only cohort: 190 top-ADP PPR QB/RB/WR/TE veterans available in the current 256-row feed.
+- Crosswalks in cohort: PFR 190/190 and GSIS 190/190.
+- Covered: 190; verified known absent: 2; missing: 0; match rate: 100.0%.
+- Missing player IDs: `[]`.
+- Weekly-roster diagnostics reported, without guessing, 2 rows with unknown status `E01`.
+- This is a report, not a blocking threshold. Usage, availability, and injury history do not affect
+  recommendation math, and no low/medium/high injury-risk label is produced.
+- Opportunity quality fields use direct weekly statistics and optional PBP red-zone/end-zone/goal-line
+  counts; unavailable denominators remain null rather than being imputed.
 
 ---
 

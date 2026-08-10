@@ -3,9 +3,8 @@ import type { DataManifest, PlayerId, SleeperCred } from '../../shared/types';
 import { sleeperAdapter } from './adapters/sleeper';
 import { ConnectSleeper } from './components/ConnectSleeper';
 import { DataHealth } from './components/DataHealth';
-import { DraftBoard } from './components/DraftBoard';
+import { DraftWorkspace } from './components/DraftWorkspace';
 import { ManualPickCorrection } from './components/ManualPickCorrection';
-import { RecommendationPanel } from './components/RecommendationPanel';
 import { loadRankedPlayers, type AdpFormat, type RankedPlayer } from './data/loadPlayerPool';
 import { useDraftBoardState } from './hooks/useDraftBoardState';
 import { useDraftPoll } from './hooks/useDraftPoll';
@@ -149,16 +148,16 @@ export default function App() {
           )}
           {poll.phase !== 'init-error' && (
             <>
-              <DraftBoard
+              <DraftWorkspace
                 draftInit={poll.draftInit}
                 effectivePicks={board.effectivePicks}
-                onTheClock={poll.draftPicks?.onTheClock ?? null}
                 status={poll.draftPicks?.status ?? poll.phase}
                 isStale={poll.isStale}
                 dataAgeMs={poll.dataAgeMs}
                 onCorrectPick={(overall) => setCorrecting({ mode: 'correct-existing', overall })}
+                manifest={manifest}
+                adpFormat={adpFormat}
               />
-              <RecommendationPanel draftInit={poll.draftInit} picks={board.effectivePicks} manifest={manifest} adpFormat={adpFormat} />
               <button type="button" onClick={poll.reconnect}>Reconnect</button>
               <button type="button" onClick={handleChooseAnotherDraft}>Choose another draft</button>
             </>
@@ -201,6 +200,7 @@ export default function App() {
           dataAgeMs={session.kind === 'connected' ? poll.dataAgeMs : null}
           consecutiveFailures={session.kind === 'connected' ? poll.consecutiveFailures : 0}
           lastError={session.kind === 'connected' ? poll.lastError : null}
+          adpFormat={adpFormat}
         />
       )}
 

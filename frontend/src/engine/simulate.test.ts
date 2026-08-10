@@ -28,7 +28,7 @@ function player(id: string, position: Position, eligiblePositions: Position[] = 
 }
 
 function adpEntry(playerId: PlayerId, adp: number, stdev = 3, position = 'RB'): AdpEntry {
-  return { playerId, name: playerId, position, team: null, adp, stdev, high: adp - 10, low: adp + 10, timesDrafted: 100, byeWeek: null };
+  return { playerId, name: playerId, position, team: null, adp, stdev, high: adp - 10, low: adp + 10, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
 }
 
 /** A modest pool: a few RBs/WRs with real ADP, a QB, and enough depth that opponents in a 6-pick

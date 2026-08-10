@@ -20,7 +20,13 @@ export interface DataHealthOptions {
 }
 
 const DEFAULT_PROJECTION_SOURCE_KEY = 'fftoday_projections';
-const DEFAULT_ADP_SOURCE_KEY = 'ffc_adp_ppr';
+// `adp_active_<format>` always names whichever upstream actually produced the
+// committed adp-<format>.json that day — Sleeper's draft-lobby ADP normally,
+// falling back to the FFC-derived board when Sleeper's (undocumented) ADP
+// endpoint is unavailable or too sparse (see pipeline/build_data.py). Reading
+// this key (not `sleeper_adp_ppr` or `ffc_adp_ppr` directly) means a fallback
+// day still reports ADP as healthy, since a board was in fact produced.
+const DEFAULT_ADP_SOURCE_KEY = 'adp_active_ppr';
 const DEFAULT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
 function isSourceHealthy(

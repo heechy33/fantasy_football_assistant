@@ -1,13 +1,11 @@
 # Runtime deps for pipeline/build_data.py (Task: data pipeline + crosswalk).
 requests>=2.32
 pandas>=2.2
+nflreadpy>=0.1.5,<0.2
+polars>=1,<2
 
-# Kept for reference/cross-checking during development, NOT imported by the
-# pipeline's hot path — see PLAN.md "Correction" section for why: we hand-roll
-# the actual fetches (Sleeper/FFC/DynastyProcess are plain unauthenticated
-# GETs), but these libraries encode real production knowledge worth checking
-# our output against (ESPN's position/team integer maps, its 401 retry
-# behavior, Yahoo's OAuth quirks).
+# The remaining provider wrappers are kept for reference/cross-checking during
+# development and are not imported by the pipeline's hot path.
 espn-api>=0.46.0
 yfpy>=17.0.0
 sleeper-api-wrapper>=1.2.1

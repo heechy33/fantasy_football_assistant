@@ -19,7 +19,7 @@ function syntheticAdp(counts: Record<string, number>): AdpEntry[] {
   for (const [position, count] of Object.entries(counts)) {
     for (let i = 0; i < count; i += 1) {
       const playerId = `${position}-${i}` as PlayerId;
-      rows.push({ playerId, name: playerId, position, team: null, adp, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null });
+      rows.push({ playerId, name: playerId, position, team: null, adp, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' });
       adp += 1;
     }
   }
@@ -175,9 +175,9 @@ describe('positionalDemand', () => {
     // depending on N, and the choice must be the same regardless of how the caller ordered them.
     const base = syntheticAdp({ RB: N - 2, WR: 0, QB: 0, TE: 0, DEF: 0, K: 0 });
     const tied: AdpEntry[] = [
-      { playerId: 'tie-b' as PlayerId, name: 'B Player', position: 'WR', team: null, adp: base.length + 1, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null },
-      { playerId: 'tie-a' as PlayerId, name: 'A Player', position: 'WR', team: null, adp: base.length + 1, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null },
-      { playerId: 'tie-c' as PlayerId, name: 'A Player', position: 'TE', team: null, adp: base.length + 1, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null },
+      { playerId: 'tie-b' as PlayerId, name: 'B Player', position: 'WR', team: null, adp: base.length + 1, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' },
+      { playerId: 'tie-a' as PlayerId, name: 'A Player', position: 'WR', team: null, adp: base.length + 1, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' },
+      { playerId: 'tie-c' as PlayerId, name: 'A Player', position: 'TE', team: null, adp: base.length + 1, stdev: 5, high: 1, low: 1, timesDrafted: 50, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' },
     ];
     const forward = positionalDemand({ settings, adp: [...base, ...tied] });
     const reversed = positionalDemand({ settings, adp: [...base, ...tied].reverse() });

@@ -18,7 +18,7 @@ function player(id: string, position: Position | null, eligiblePositions: Positi
 }
 
 function adpEntry(overrides: Partial<AdpEntry> & { playerId: PlayerId }): AdpEntry {
-  return { name: overrides.playerId, position: 'RB', team: null, adp: 50, stdev: 10, high: 40, low: 60, timesDrafted: 100, byeWeek: null, ...overrides };
+  return { name: overrides.playerId, position: 'RB', team: null, adp: 50, stdev: 10, high: 40, low: 60, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed', ...overrides };
 }
 
 describe('buildOpponentPool', () => {

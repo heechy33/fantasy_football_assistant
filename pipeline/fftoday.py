@@ -26,6 +26,21 @@ PAGE_SIZE = 50
 MIN_POSITION_ROWS = {"QB": 50, "RB": 80, "WR": 110, "TE": 50, "K": 25, "DEF": 25}
 SCHEMA_VERSION = 1
 
+# Fraction of `top_adp_ids` (the top-300-by-ADP seed from build_data.py) that
+# must resolve to a real FFToday projection. Was an inline 0.97, calibrated
+# against FFC's shallower ~256-row mock-lobby board, whose top-300 was really
+# its entire list. Since the ADP switch to Sleeper's broader draft-lobby board
+# (see PLAN.md's ADP-switch writeup), the same top-300 cut reaches further into
+# genuinely speculative/deep-bench territory FFToday never projects at all —
+# verified live (2026-08-09) by direct name search against FFToday's raw page
+# output: Tyreek Hill, Joe Mixon, Najee Harris, Keenan Allen, and others simply
+# never appear on FFToday's page, not a crosswalk/matching miss. Measured
+# coverage against the new population that day was 94.0% (18/300 missing, all
+# verified real absences); 0.90 keeps a buffer for that expected depth effect
+# while still catching an actual matching regression (which would fail far
+# below this, the same way COVERAGE_GATE_THRESHOLD in build_data.py works).
+TOP_ADP_PROJECTION_COVERAGE_THRESHOLD = 0.90
+
 _UPDATED_RE = re.compile(r"Updated\s*:\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})", re.I)
 _NUM_RE = re.compile(r"^-?(?:\d+(?:\.\d*)?|\.\d+)$")
 _DEF_TEAM_NAMES = {
@@ -213,6 +228,14 @@ def parse_fftoday_page(html: str, position: str) -> tuple[list[dict[str, Any]], 
 
 _NameIndex = dict[tuple[str, str], list[tuple[str, dict[str, Any]]]]
 
+# FFToday occasionally uses a player's formal first name while Sleeper uses
+# the established football name. Keep this deliberately tiny and exact rather
+# than introducing fuzzy matching at the identity boundary.
+_FFTODAY_NAME_ALIASES = {
+    "kenneth gainwell": "kenny gainwell",
+    "chigoziem okonkwo": "chig okonkwo",
+}
+
 
 def _build_name_index(sleeper_players: dict[str, dict[str, Any]]) -> _NameIndex:
     """(normalized_full_name, position) -> candidates, built once and reused
@@ -236,6 +259,7 @@ def _build_name_index(sleeper_players: dict[str, dict[str, Any]]) -> _NameIndex:
 
 def _match_projection(row: dict[str, Any], name_index: _NameIndex) -> str | None:
     name_key = normalize_name(str(row["name"]))
+    name_key = _FFTODAY_NAME_ALIASES.get(name_key, name_key)
     position = row["position"]
     source_team = normalize_team(row.get("team"))
     candidates = list(name_index.get(((source_team or name_key) if position == "DEF" else name_key, position), ()))
@@ -274,8 +298,10 @@ def validate_projection_gates(
         projected = set(ids)
         matched = sum(player_id in projected for player_id in top_adp_ids)
         rate = matched / len(top_adp_ids)
-        if rate < 0.97:
-            issues.append(f"top-300 PPR ADP projection coverage {rate:.1%} < 97.0%")
+        if rate < TOP_ADP_PROJECTION_COVERAGE_THRESHOLD:
+            issues.append(
+                f"top-300 PPR ADP projection coverage {rate:.1%} < {TOP_ADP_PROJECTION_COVERAGE_THRESHOLD:.1%}"
+            )
     for projection in projections:
         for key, value in projection.stats.items():
             if not math.isfinite(value) or value < 0:

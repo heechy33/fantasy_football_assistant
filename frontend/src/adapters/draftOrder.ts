@@ -55,7 +55,7 @@ export function nextPickForTeam(
 
 /**
  * The pair of pick numbers S3's rollout engine actually needs, disambiguated from `nextPick` in
- * `RecommendationPanel.tsx`. That existing field means two different things depending on who's on
+ * `DraftWorkspace.tsx`. That existing field means two different things depending on who's on
  * the clock: the user's *upcoming* decision when an opponent is picking right now, or the user's
  * *following* turn when the user is on the clock. Forcing a rollout candidate onto whichever pick
  * `nextPick` happens to mean at the moment would assign the user's own pick to an opponent's roster
@@ -92,7 +92,7 @@ export function userPickBoundaries(
  * `rng.ts`'s `hashStateSeed`), not a UI memo key. Must include `teamId` and `slot`: B3's
  * opponent-need modeling depends on which team owns each pick, so two draft states that differ only
  * in a pick's team ownership (e.g. a manual correction reassigning one) must hash to different
- * seeds rather than silently reusing a stale simulation. `RecommendationPanel.tsx`'s lighter
+ * seeds rather than silently reusing a stale simulation. `DraftWorkspace.tsx`'s lighter
  * `${overall}:${playerId}` memo key stays as-is for its own render-optimization purpose; it is not
  * a substitute for this.
  */

@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import type { PlayerId } from '../../../shared/types';
 import type { RankedPlayer } from '../data/loadPlayerPool';
+import { useModalFocus } from '../hooks/useModalFocus';
 import type { PickOverride } from '../state/draftBoardState';
 
 export interface ManualPickCorrectionProps {
@@ -47,6 +48,7 @@ export function ManualPickCorrection({
   const trimmedTeamId = teamIdInput.trim();
   const parsedRound = Number(roundInput);
   const canSubmit = selected != null && (!isAddManual || (trimmedTeamId !== '' && Number.isFinite(parsedRound)));
+  const dialogRef = useModalFocus(onClose);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,8 +67,17 @@ export function ManualPickCorrection({
   }
 
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <section className="pick-dialog" role="dialog" aria-modal="true" aria-label={mode === 'add-manual' ? 'Log pick' : 'Correct pick'}>
+    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
+      if (event.currentTarget === event.target) onClose();
+    }}>
+      <section
+        ref={dialogRef}
+        className="pick-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === 'add-manual' ? 'Log pick' : 'Correct pick'}
+        tabIndex={-1}
+      >
         <header>
           <div>
             <p className="eyebrow">{isAddManual ? 'Manual draft' : 'Draft correction'}</p>

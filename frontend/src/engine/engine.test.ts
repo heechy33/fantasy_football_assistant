@@ -207,7 +207,7 @@ describe('deterministic S2 engine', () => {
   });
 
   it('handles deterministic availability boundaries', () => {
-    const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 20, stdev: 0, high: 0, low: 0, timesDrafted: 1, byeWeek: null };
+    const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 20, stdev: 0, high: 0, low: 0, timesDrafted: 1, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
     expect(estimateAvailability(entry, { currentPick: 1, nextPick: 20 })?.probability).toBe(0);
     expect(estimateAvailability(entry, { currentPick: 1, nextPick: 21 })?.probability).toBe(0);
   });
@@ -355,7 +355,7 @@ describe('deterministic S2 engine', () => {
 
   describe('E: survival-conditioned availability', () => {
     it('climbs (never falls) relative to the unconditional estimate as the pick clock advances', () => {
-      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null };
+      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
       for (const currentPick of [5, 10, 15, 20, 25, 30]) {
         const estimate = estimateAvailability(entry, { currentPick, nextPick: currentPick + 8 });
         expect(estimate).not.toBeNull();
@@ -364,7 +364,7 @@ describe('deterministic S2 engine', () => {
     });
 
     it('is a non-increasing sequence as currentPick advances with a fixed lookahead window', () => {
-      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null };
+      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
       const probabilities = [5, 10, 15, 20, 25, 30].map(
         (currentPick) => estimateAvailability(entry, { currentPick, nextPick: currentPick + 8 })!.probability,
       );
@@ -374,7 +374,7 @@ describe('deterministic S2 engine', () => {
     });
 
     it('handles the nextPick<=currentPick and degenerate-denominator guards without NaN', () => {
-      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null };
+      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
       expect(estimateAvailability(entry, { currentPick: 10, nextPick: 10 })?.probability).toBe(1);
       const farOut = estimateAvailability(entry, { currentPick: 200, nextPick: 210 });
       expect(farOut?.degenerate).toBe(true);
@@ -383,9 +383,90 @@ describe('deterministic S2 engine', () => {
     });
 
     it('preserves the existing stdev<=0 boundary behavior', () => {
-      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 20, stdev: 0, high: 0, low: 0, timesDrafted: 1, byeWeek: null };
+      const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 20, stdev: 0, high: 0, low: 0, timesDrafted: 1, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
       expect(estimateAvailability(entry, { currentPick: 1, nextPick: 20 })?.probability).toBe(0);
       expect(estimateAvailability(entry, { currentPick: 1, nextPick: 21 })?.probability).toBe(0);
+    });
+  });
+
+  describe('E2: lowConfidence rebased off stdevSource, not just null timesDrafted', () => {
+    it('a Sleeper-sourced entry (timesDrafted null, stdev fitted) is lowConfidence even with a well-drafted adp', () => {
+      const entry: AdpEntry = {
+        playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 5, stdev: 1.2,
+        high: null, low: null, timesDrafted: null, byeWeek: null, adpSource: 'sleeper', stdevSource: 'fitted',
+      };
+      const estimate = estimateAvailability(entry, { currentPick: 1, nextPick: 8 });
+      expect(estimate?.sampleSize).toBeNull();
+      expect(estimate?.lowConfidence).toBe(true);
+    });
+
+    it('an FFC-sourced entry with a real large sample is not lowConfidence merely for being FFC', () => {
+      const entry: AdpEntry = {
+        playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 5, stdev: 1.2,
+        high: 1, low: 10, timesDrafted: 500, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed',
+      };
+      const estimate = estimateAvailability(entry, { currentPick: 1, nextPick: 8 });
+      expect(estimate?.sampleSize).toBe(500);
+      expect(estimate?.lowConfidence).toBe(false);
+    });
+
+    it('an FFC-sourced entry with a genuinely sparse sample is still lowConfidence (existing threshold preserved)', () => {
+      const entry: AdpEntry = {
+        playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 5, stdev: 1.2,
+        high: 1, low: 10, timesDrafted: 5, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed',
+      };
+      const estimate = estimateAvailability(entry, { currentPick: 1, nextPick: 8 });
+      expect(estimate?.lowConfidence).toBe(true);
+    });
+
+    it('fitted stdev keeps availability lowConfidence but does not demote Recommendation.confidence', () => {
+      // Regression: mapping availability.lowConfidence (true for every fitted-stdev
+      // Sleeper row) straight into Recommendation.confidence made the whole board
+      // uniformly "medium" while players missing ADP stayed "high".
+      const sleeperAdp: AdpEntry = {
+        playerId: 'rb1', name: 'rb1', position: 'RB', team: 'BUF', adp: 3, stdev: 0.9,
+        high: null, low: null, timesDrafted: null, byeWeek: null, adpSource: 'sleeper', stdevSource: 'fitted',
+      };
+      const estimate = estimateAvailability(sleeperAdp, { currentPick: 1, nextPick: 6 });
+      expect(estimate?.lowConfidence).toBe(true);
+      expect(estimate?.degenerate).toBe(false);
+      expect(estimate?.probability).toBeGreaterThan(0);
+      expect(estimate?.probability).toBeLessThan(1);
+
+      const board = buildRecommendations({
+        settings: smallLeagueSettings,
+        players: smallPlayers,
+        projections: smallProjections,
+        adp: [sleeperAdp],
+        picks: [],
+        myTeamId: null,
+        nextPick: 6,
+        currentPick: 1,
+        limit: 6,
+      });
+      const rb1 = board.find((recommendation) => recommendation.playerId === 'rb1');
+      expect(rb1).toBeDefined();
+      expect(rb1!.confidence).toBe('high');
+      expect(rb1!.warnings.some((warning) => /spread is estimated/i.test(warning))).toBe(true);
+    });
+
+    it('a genuinely sparse observed ADP sample still demotes Recommendation.confidence', () => {
+      const sparseFfc: AdpEntry = {
+        playerId: 'rb1', name: 'rb1', position: 'RB', team: 'BUF', adp: 3, stdev: 0.9,
+        high: 1, low: 10, timesDrafted: 5, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed',
+      };
+      const board = buildRecommendations({
+        settings: smallLeagueSettings,
+        players: smallPlayers,
+        projections: smallProjections,
+        adp: [sparseFfc],
+        picks: [],
+        myTeamId: null,
+        nextPick: 6,
+        currentPick: 1,
+        limit: 6,
+      });
+      expect(board.find((recommendation) => recommendation.playerId === 'rb1')?.confidence).toBe('medium');
     });
   });
 
@@ -499,6 +580,8 @@ describe('deterministic S2 engine', () => {
       low: 220,
       timesDrafted: 100,
       byeWeek: null,
+      adpSource: 'ffc',
+      stdevSource: 'observed',
     }));
     const base = {
       settings: smallLeagueSettings, players: smallPlayers, projections: smallProjections,

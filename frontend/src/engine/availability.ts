@@ -18,7 +18,9 @@ export interface AvailabilityEstimate {
   /** The conditioning denominator was too small to trust (or the model already implies the player
    * is gone), so `probability` is a floor/guard value rather than a real estimate. */
   degenerate: boolean;
-  sampleSize: number;
+  /** Null when the source doesn't expose a sample size (Sleeper's lobby ADP) rather than zero
+   * observed drafts — see `lowConfidence`'s doc for how that's folded into confidence instead. */
+  sampleSize: number | null;
 }
 
 function normalCdf(z: number): number {
@@ -45,11 +47,17 @@ export function estimateAvailability(entry: AdpEntry | null | undefined, context
   if (!entry || !Number.isFinite(currentPick) || !Number.isFinite(nextPick) || !Number.isFinite(entry.adp) || entry.adp < 0) {
     return null;
   }
-  const sampleSize = entry.timesDrafted ?? 0;
+  const sampleSize = entry.timesDrafted ?? null;
+  // `lowConfidence` labels the *availability estimate* as approximate: fitted stdev (Sleeper's
+  // lobby publishes no dispersion) and sparse observed samples both qualify. recommend.ts must NOT
+  // map this flag straight into Recommendation.confidence — fitted alone would demote every
+  // Sleeper-sourced card to medium — and instead demotes only for degenerate/broken estimates or a
+  // genuinely sparse observed `timesDrafted`. The warning string still surfaces via lowConfidence.
+  const sparseSample = entry.stdevSource === 'fitted' || (sampleSize != null && sampleSize < 20);
 
   // Nothing left to condition on: the "next" pick being evaluated isn't actually in the future.
   if (nextPick <= currentPick) {
-    return { probability: 1, unconditionalProbability: 1, survivalToCurrentPick: 1, lowConfidence: sampleSize < 20, degenerate: false, sampleSize };
+    return { probability: 1, unconditionalProbability: 1, survivalToCurrentPick: 1, lowConfidence: sparseSample, degenerate: false, sampleSize };
   }
 
   if (!Number.isFinite(entry.stdev) || entry.stdev <= 0) {
@@ -70,5 +78,5 @@ export function estimateAvailability(entry: AdpEntry | null | undefined, context
 
   const probability = Math.max(0, Math.min(1, unconditionalProbability / survivalToCurrentPick));
   const degenerate = survivalToCurrentPick < 0.02; // model says he should already be gone
-  return { probability, unconditionalProbability, survivalToCurrentPick, lowConfidence: sampleSize < 20 || degenerate, degenerate, sampleSize };
+  return { probability, unconditionalProbability, survivalToCurrentPick, lowConfidence: sparseSample || degenerate, degenerate, sampleSize };
 }

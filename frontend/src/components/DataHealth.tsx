@@ -1,5 +1,6 @@
 import type { DataManifest, Pick } from '../../../shared/types';
 import { resolveDataMode, type DataMode } from '../data/dataHealth';
+import type { AdpFormat } from '../data/loadPlayerPool';
 
 export interface DataHealthProps {
   manifest: DataManifest | null;
@@ -8,6 +9,7 @@ export interface DataHealthProps {
   dataAgeMs: number | null;
   consecutiveFailures: number;
   lastError: unknown;
+  adpFormat: AdpFormat;
 }
 
 function findDuplicatePlayerIds(picks: Pick[]): string[] {
@@ -35,8 +37,11 @@ export function DataHealth({
   dataAgeMs,
   consecutiveFailures,
   lastError,
+  adpFormat,
 }: DataHealthProps) {
-  const dataMode: DataMode | 'unknown' = manifest ? resolveDataMode(manifest) : 'unknown';
+  const dataMode: DataMode | 'unknown' = manifest
+    ? resolveDataMode(manifest, { adpSourceKey: `adp_active_${adpFormat}` })
+    : 'unknown';
   const duplicates = findDuplicatePlayerIds(effectivePicks);
   const isHealthy = dataMode === 'full' && !isStale && consecutiveFailures === 0 && duplicates.length === 0;
 

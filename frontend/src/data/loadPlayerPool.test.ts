@@ -111,9 +111,9 @@ describe('loadKnownPlayerIds', () => {
 describe('rankPlayers', () => {
   it('uses ascending ADP as the displayed rank and omits unresolved player ids', () => {
     const adp: AdpEntry[] = [
-      { playerId: 'SF', name: 'San Francisco', position: 'DEF', team: 'SF', adp: 9.2, stdev: 1, high: 8, low: 11, timesDrafted: 12, byeWeek: 9 },
-      { playerId: 'missing', name: 'Missing Player', position: 'WR', team: 'NO', adp: 4.2, stdev: 1, high: 3, low: 5, timesDrafted: 12, byeWeek: 9 },
-      { playerId: '1001', name: 'Aaron Rushmore', position: 'RB', team: 'SF', adp: 2.1, stdev: 1, high: 1, low: 3, timesDrafted: 12, byeWeek: 9 },
+      { playerId: 'SF', name: 'San Francisco', position: 'DEF', team: 'SF', adp: 9.2, stdev: 1, high: 8, low: 11, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+      { playerId: 'missing', name: 'Missing Player', position: 'WR', team: 'NO', adp: 4.2, stdev: 1, high: 3, low: 5, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+      { playerId: '1001', name: 'Aaron Rushmore', position: 'RB', team: 'SF', adp: 2.1, stdev: 1, high: 1, low: 3, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
     ];
 
     expect(rankPlayers(SAMPLE, adp)).toMatchObject([

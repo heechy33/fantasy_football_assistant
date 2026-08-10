@@ -210,14 +210,118 @@ export interface PlayerMeta {
   age: number | null;
   yearsExp: number | null;
   injuryStatus: string | null;
+  depthChartPosition?: string | null;
+  depthChartOrder?: number | null;
+  injuryBodyPart?: string | null;
+  practiceParticipation?: string | null;
   ids: {
     espn?: string;
     yahoo?: string;
     fantasypros?: string;
     gsis?: string;
     mfl?: string;
+    pfr?: string;
   };
 }
+
+export interface DurabilitySeason {
+  season: number;
+  teamGamesWhileRostered: number;
+  gamesWithAnySnap: number;
+  availabilityRate: number;
+  injuryReportWeeks: number;
+  outWeeks: number;
+}
+
+export type DurabilityBand = 'low concern' | 'mild concern' | 'moderate concern' | 'elevated concern' | 'high concern';
+
+export interface DurabilityScoreComponents {
+  baseline: number;
+  recentGamesMissedPenalty: number;
+  recurringInjuryPenalty: number;
+  sameBodyPartPenalty: number;
+  recentInjuryPenalty: number;
+  highExposureAdjustment: number;
+  agePositionBaselineAdjustment: number;
+}
+
+export interface DurabilityScore {
+  score: number;
+  band: DurabilityBand;
+  components: DurabilityScoreComponents;
+}
+
+export interface OpportunityPeriod {
+  season: number;
+  games: number;
+  targets: number;
+  carries: number;
+  touches: number;
+  targetsPerGame: number | null;
+  carriesPerGame: number | null;
+  touchesPerGame: number | null;
+  targetShare: number | null;
+  carryShare: number | null;
+  airYards: number | null;
+  airYardsPerGame: number | null;
+  airYardsShare: number | null;
+  receivingYardsAfterCatch: number | null;
+  redZoneTargets: number | null;
+  endZoneTargets: number | null;
+  goalLineCarries: number | null;
+  snapPct: number | null;
+}
+
+export interface OpportunityProfile {
+  season: OpportunityPeriod;
+  finalFive: OpportunityPeriod | null;
+  roleEvolution: {
+    targetsPerGameDelta: number | null;
+    targetShareDelta: number | null;
+    airYardsShareDelta: number | null;
+    touchesPerGameDelta: number | null;
+  };
+}
+
+export interface InjuryReportHistory {
+  season: number;
+  week: number;
+  /** Raw, source-provided injury labels; no broad anatomical merging. */
+  labels: string[];
+}
+
+export interface InjuryBodyPartHistory {
+  normalizedBodyPart: string;
+  episodes: number;
+  recurring: boolean;
+  reports: InjuryReportHistory[];
+}
+
+/** Descriptive prior-season context. None of these fields are recommendation inputs. */
+export interface PlayerUsage {
+  season: number;
+  /**
+   * True when the usage season has roster and/or snap evidence. False means
+   * older durability/injury history exists, but this season's usage block
+   * should not be presented as observed zeros.
+   */
+  usageSeasonObserved: boolean;
+  snapPct: number | null;
+  targetShare: number | null;
+  carryShare: number | null;
+  gamesWithAnySnap: number;
+  recentTeam: string | null;
+  teamChanged: boolean | null;
+  knownAbsent: boolean;
+  /** Pooled observed availability, not a forecast or medical probability. */
+  availabilityRate: number | null;
+  seasons: DurabilitySeason[];
+  injuryHistory: InjuryBodyPartHistory[];
+  durabilityScore: DurabilityScore | null;
+  opportunity: OpportunityProfile | null;
+}
+
+export type PlayerUsageArtifact = Record<PlayerId, PlayerUsage>;
 
 export interface SeasonProjection {
   playerId: PlayerId;
@@ -252,12 +356,29 @@ export interface AdpEntry {
    * Standard deviation of draft position. The quiet MVP of this whole product:
    * it's what turns ADP from a point estimate into P(still available at my next
    * pick), which is the flagship feature DraftKick charges for.
+   *
+   * When `stdevSource` is `'fitted'` this is a synthesized estimate, not an
+   * observed one (see `stdevSource`) — Sleeper's draft-lobby ADP carries no
+   * dispersion field at all, unlike FFC's.
    */
   stdev: number;
-  high: number;
-  low: number;
-  timesDrafted: number;
+  /** Null when the source has no population-shape data (Sleeper's lobby ADP) rather than genuinely
+   * zero — never coerce this to 0, which would read as "always the exact same pick." */
+  high: number | null;
+  low: number | null;
+  /** Null when the source doesn't expose a sample size (Sleeper's lobby ADP), not zero drafts. */
+  timesDrafted: number | null;
   byeWeek: number | null;
+  /** Which upstream produced this entry's adp value. 'sleeper' is Sleeper's own draft-lobby ADP
+   * (the population this product actually drafts against); 'ffc' is Fantasy Football Calculator's
+   * self-selected mock lobby, kept as the calibration input for `stdevSource: 'fitted'` and as the
+   * automatic fallback when Sleeper's (undocumented) ADP endpoint is unavailable or too sparse. */
+  adpSource: 'sleeper' | 'ffc';
+  /** 'observed' when `stdev` came directly from the source (FFC). 'fitted' when it was synthesized
+   * from FFC's coefficient-of-variation curve applied to a non-FFC adp mean (Sleeper has no
+   * dispersion field) — see `pipeline/transform.py`'s `fitted_stdev`. Not a measurement of Sleeper's
+   * actual draft-position spread; treat as experimental until calibrated against captured history. */
+  stdevSource: 'observed' | 'fitted';
 }
 
 /** League-wide add/drop velocity from Sleeper. Powers waiver recommendations. */
@@ -282,12 +403,26 @@ export interface DataManifest {
       upstreamUpdatedAt?: string;
       role?: string;
       termsUrl?: string;
+      diagnostic?: string;
+      population?: {
+        mockDrafts: number | null;
+        teams: number;
+        season: number;
+        format: string;
+        rows: number;
+      };
+      /** Only present on `adp_active_<format>` entries — which upstream actually produced the
+       * committed `adp-<format>.json` for this pipeline run. 'ffc-fallback' means Sleeper's ADP
+       * endpoint was unavailable or returned too few usable rows, so the UI must disclose the FFC
+       * board is active rather than silently keeping a stale "Sleeper" label (see CLAUDE.md's
+       * "never switch sources silently" rule). */
+      activeAdpSource?: 'sleeper' | 'ffc-fallback';
       /** Bumped when this source's manifest entry shape changes. */
       schemaVersion: number;
       /**
-       * 'ok' unless/until the pipeline gains a fallback path that reuses
-       * stale data after a failed fetch — today a failed fetch raises and no
-       * manifest is written at all, so 'error' never appears yet.
+       * Core sources fail closed. Required nflverse context sources fail open
+       * (error status + cleared player-usage). Optional PBP fails open without
+       * clearing the rest of the context artifact.
        */
       status: 'ok' | 'stale' | 'error';
     }
@@ -303,6 +438,19 @@ export interface DataManifest {
     updatedAt: string | null;
     positionRows?: Record<string, number>;
     diagnostics?: Record<string, unknown>;
+  };
+  context?: {
+    usageSeason: number;
+    historySeasons: number[];
+    diagnostics: Record<string, unknown>;
+    coverage: {
+      total: number;
+      covered: number;
+      knownAbsent: number;
+      missing: number;
+      matchRate: number;
+      missingPlayerIds: PlayerId[];
+    };
   };
 }
 

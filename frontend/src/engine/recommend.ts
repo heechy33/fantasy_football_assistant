@@ -1,4 +1,4 @@
-import type { AdpEntry, LeagueSettings, Pick, PlayerId, PlayerMeta, RosterSlot, SeasonProjection } from '../../../shared/types';
+import type { AdpEntry, LeagueSettings, Pick, PlayerId, PlayerMeta, Position, RosterSlot, SeasonProjection } from '../../../shared/types';
 import { estimateAvailability } from './availability';
 import { addPlayerToLineup, coreStartingSlotsFilled, prepareLineup } from './eligibility';
 import { positionalDemand, replacementLevels, replacementPointsByPosition, vorForPlayer, type PositionalDemand, type ReplacementLevel } from './replacement';
@@ -32,8 +32,12 @@ export interface Recommendation {
   tierUrgency: number;
   availableNextPickProbability: number | null;
   availabilityAdp: number | null;
+  availabilityAdpHigh: number | null;
+  availabilityAdpLow: number | null;
   availabilityStdev: number | null;
   availabilitySampleSize: number | null;
+  /** Display-only indication that this card is within the active board's leader threshold. */
+  nearTieWithLeader: boolean;
   scoringDiagnosticSeverity: ScoringDiagnosticSeverity;
   missingScoringKeys: string[];
   confidence: 'low' | 'medium' | 'high';
@@ -55,6 +59,8 @@ export interface RecommendationInput {
    * `picks.length + 1` so existing callers keep compiling with the old unconditional behavior. */
   currentPick?: number;
   limit?: number;
+  /** Exact-position display filter. Null/omitted keeps the league-wide All board. */
+  displayPosition?: Position | null;
   /** Draftable spots per team, passed to `positionalDemand`. Defaults to
    * `rosterSpotsPerTeam(settings)`, which under-counts for Sleeper mock drafts (no `BN` entry in
    * `rosterSlots` — see `replacement.ts`'s doc). Pass `DraftInit.rounds` when available. */
@@ -339,7 +345,14 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
   const currentValue = preparedRoster.value;
   const coreFilled = coreStartingSlotsFilled(preparedRoster);
 
-  const candidates = selectCandidates(remainingPlayers, scores, limit);
+  // Display filtering belongs after every league-wide calculation above. In particular, positional
+  // demand, replacement levels, tiers, roster state, and K/DEF diagnostics must not change when the
+  // user switches tabs.
+  const displayPlayers = input.displayPosition == null
+    ? remainingPlayers
+    : remainingPlayers.filter((player) => player.position === input.displayPosition);
+  const candidates = selectCandidates(displayPlayers, scores, limit);
+  const isSpecialTeamsDisplay = input.displayPosition === 'K' || input.displayPosition === 'DEF';
 
   const replacementBaselineCache = new Map<string, number>();
   function replacementBaselineValue(player: PlayerMeta): number {
@@ -402,7 +415,7 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       warnings.push(`${player.position === 'DEF' ? 'D/ST' : 'Kicker'} is overdue; too few selections remain to follow the ideal late-draft schedule.`);
     }
     if (level?.floored) warnings.push(`Remaining ${player.position ?? ''} demand is nearly exhausted; the replacement baseline is a floor, not a market-derived estimate.`);
-    if (availability?.lowConfidence) warnings.push('ADP sample is sparse; availability is approximate.');
+    if (availability?.lowConfidence) warnings.push('ADP sample is sparse or its spread is estimated rather than observed; availability is approximate.');
     if (unmatchedPickCount > 0) {
       warnings.push(`${unmatchedPickCount} drafted pick${unmatchedPickCount === 1 ? '' : 's'} could not be matched to a player; someone shown here may already be gone.`);
     }
@@ -425,8 +438,21 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       reasons.push(`${player.position === 'DEF' ? 'D/ST' : 'Kicker'} is due under the late-draft roster plan.`);
     }
 
+    // Availability `lowConfidence` still fires for fitted stdev (every Sleeper lobby
+    // row) so the warning/disclosure above stay honest — but board confidence must
+    // not demote on that alone, or every skill-position card becomes uniformly
+    // "medium" while players missing ADP stay "high". Demote only when the
+    // estimate is actually broken (degenerate / non-positive stdev) or the
+    // *observed* sample is sparse.
+    const adpSpreadBroken = adpEntry != null && (!Number.isFinite(adpEntry.stdev) || adpEntry.stdev <= 0);
+    const availabilityDemotesConfidence = Boolean(
+      availability?.degenerate
+      || adpSpreadBroken
+      || (availability?.sampleSize != null && availability.sampleSize < 20),
+    );
+
     let confidence: Recommendation['confidence'] = 'high';
-    if (scoringSeverity === 'minor' || availability?.lowConfidence) confidence = 'medium';
+    if (scoringSeverity === 'minor' || availabilityDemotesConfidence) confidence = 'medium';
     if (scoringSeverity === 'material' || player.position === 'K' || player.position === 'DEF' || unmatchedPickCount > 0) confidence = 'low';
 
     return {
@@ -445,8 +471,11 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       tierUrgency: tier?.urgency ?? 0,
       availableNextPickProbability: availability?.probability ?? null,
       availabilityAdp: adpEntry?.adp ?? null,
+      availabilityAdpHigh: adpEntry?.high ?? null,
+      availabilityAdpLow: adpEntry?.low ?? null,
       availabilityStdev: adpEntry?.stdev ?? null,
       availabilitySampleSize: availability?.sampleSize ?? null,
+      nearTieWithLeader: false,
       scoringDiagnosticSeverity: scoringSeverity,
       missingScoringKeys: scoringDiagnostic?.unsupportedScoringKeys ?? [],
       confidence,
@@ -455,7 +484,11 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       reasons,
       warnings,
     } satisfies Recommendation;
-  }).filter((recommendation) => dispositionByPlayerId.get(recommendation.playerId) !== 'unavailable').sort((a, b) => {
+  });
+
+  const sorted = isSpecialTeamsDisplay
+    ? evaluated.sort((a, b) => b.projectedPoints - a.projectedPoints || a.playerId.localeCompare(b.playerId))
+    : evaluated.filter((recommendation) => dispositionByPlayerId.get(recommendation.playerId) !== 'unavailable').sort((a, b) => {
     const aPosition = playersById.get(a.playerId)?.position;
     const bPosition = playersById.get(b.playerId)?.position;
     const aOverdueBy = aPosition === 'K' || aPosition === 'DEF' ? overdueBy(aPosition, specialTeamsDraft) : 0;
@@ -469,8 +502,23 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
     || a.playerId.localeCompare(b.playerId);
   });
 
-  const recommendations = evaluated.slice(0, limit).map((recommendation, index) => {
-    const alternative = evaluated[index + 1];
+  const displayed = sorted.slice(0, limit);
+  const leader = displayed[0];
+  const nearTieThreshold = leader == null ? 0 : Math.max(1, 0.01 * leader.projectedPoints);
+  const nearTieIds = new Set<PlayerId>();
+  if (leader != null) {
+    const leaderValue = isSpecialTeamsDisplay ? leader.projectedPoints : leader.replacementAdjustedValue;
+    const qualifying = displayed.filter((recommendation) => {
+      const value = isSpecialTeamsDisplay ? recommendation.projectedPoints : recommendation.replacementAdjustedValue;
+      return Math.abs(value - leaderValue) <= nearTieThreshold;
+    });
+    if (qualifying.length >= 2) {
+      for (const recommendation of qualifying) nearTieIds.add(recommendation.playerId);
+    }
+  }
+
+  const recommendations = displayed.map((recommendation, index) => {
+    const alternative = sorted[index + 1];
     const altPlayer = alternative && playersById.get(alternative.playerId);
     const reasons = alternative && altPlayer
       ? [
@@ -480,7 +528,12 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
             : `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}).`,
         ]
       : recommendation.reasons;
-    return { ...recommendation, reasons, rank: index + 1 };
+    return {
+      ...recommendation,
+      reasons,
+      rank: index + 1,
+      nearTieWithLeader: nearTieIds.has(recommendation.playerId),
+    };
   });
 
   return {

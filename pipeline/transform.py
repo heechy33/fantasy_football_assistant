@@ -14,9 +14,12 @@ from match import MatchKey, match_ffc_entry, normalize_ffc_position
 
 # Stat keys Sleeper embeds in projection rows that aren't real box-score
 # components (its own ADP figures, games-played bookkeeping). Dropped so the
-# stats payload only contains things scoring.ts should ever multiply by a
-# league's scoring settings — canonical ADP comes from FFC (has stdev, FFC
-# has it; Sleeper's doesn't), not from here.
+# stats payload passed to build_season_projections only contains things
+# scoring.ts should ever multiply by a league's scoring settings — canonical
+# projections stay FFToday's, never Sleeper/Rotowire's. This does NOT apply to
+# the ADP path: build_sleeper_adp_entries (below) reads these same `adp_*` keys
+# directly off the raw row, before/independent of this stripping, since (unlike
+# projections) Sleeper's own ADP figures are exactly what's wanted there.
 _NON_STAT_KEY_PREFIXES = ("adp", "pos_adp")
 
 
@@ -54,6 +57,10 @@ class PlayerMeta:
     age: int | None
     yearsExp: int | None
     injuryStatus: str | None
+    depthChartPosition: str | None
+    depthChartOrder: int | None
+    injuryBodyPart: str | None
+    practiceParticipation: str | None
     ids: dict[str, str] = field(default_factory=dict)
 
 
@@ -72,10 +79,12 @@ class AdpEntry:
     team: str | None
     adp: float
     stdev: float
-    high: int
-    low: int
-    timesDrafted: int
+    high: int | None
+    low: int | None
+    timesDrafted: int | None
     byeWeek: int | None
+    adpSource: str = "ffc"  # 'sleeper' | 'ffc'
+    stdevSource: str = "observed"  # 'observed' | 'fitted'
 
 
 FANTASY_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
@@ -115,6 +124,7 @@ def build_player_meta(
             ("gsis", "gsis_id", "gsis_id"),
             ("fantasypros", None, "fantasypros_id"),
             ("mfl", None, "mfl_id"),
+            ("pfr", None, "pfr_id"),
         ):
             # `p.get(sleeper_field)` alone would treat a legitimate id of 0
             # as missing; check presence via `is not None` instead of
@@ -137,6 +147,10 @@ def build_player_meta(
             age=p.get("age"),
             yearsExp=p.get("years_exp"),
             injuryStatus=p.get("injury_status"),
+            depthChartPosition=p.get("depth_chart_position"),
+            depthChartOrder=p.get("depth_chart_order"),
+            injuryBodyPart=p.get("injury_body_part"),
+            practiceParticipation=p.get("practice_participation"),
             ids=ids,
         )
     return out
@@ -199,6 +213,8 @@ def build_adp_entries(
                 low=p.get("low", 0),
                 timesDrafted=p.get("times_drafted", 0),
                 byeWeek=p.get("bye"),
+                adpSource="ffc",
+                stdevSource="observed",
             )
         )
 
@@ -215,6 +231,134 @@ def build_adp_entries(
         "unmatchedTop300": unmatched,
         "sampleSize": len(top_n),
     }
+    return entries, diagnostics
+
+
+# Sleeper's per-player ADP is a mean with no dispersion field at all. Rather than
+# importing FFC's per-player stdev outright (the two sources disagree on the mean
+# by up to 20 picks at TE, so pairing FFC's spread-at-pick-41 onto a Sleeper mean
+# of pick-20 would be internally inconsistent), a spread is synthesized from
+# FFC's dispersion shape, which is close to a constant coefficient of variation
+# (stdev/adp) that decays with draft depth. Bands below are mean(sd/adp) measured
+# on the live 2026 FFC PPR board; deliberately mean-of-ratios (the per-player
+# quantity being fitted), not ratio-of-means, which gives a materially different
+# number at the top of the board (0.206 vs 0.247).
+_DEFAULT_ADP_CV_BANDS: tuple[tuple[float, float], ...] = (
+    (12, 0.247),
+    (24, 0.169),
+    (48, 0.124),
+    (float("inf"), 0.112),
+)
+# Observed floor at the very top of the board (FFC's own stdev bottoms out
+# around 0.7-0.8 for the consensus #1 overall pick) — without a floor, the CV
+# curve would let stdev shrink toward 0 as adp -> 0 and make the very top of
+# the board falsely look like a point mass.
+_ADP_STDEV_FLOOR = 0.7
+
+
+def fit_adp_cv_bands(entries: list[AdpEntry]) -> tuple[tuple[float, float], ...]:
+    lower = 0.0
+    fitted: list[tuple[float, float]] = []
+    for upper, fallback_cv in _DEFAULT_ADP_CV_BANDS:
+        ratios = [entry.stdev / entry.adp for entry in entries if lower <= entry.adp < upper and entry.adp > 0 and entry.stdev > 0]
+        fitted.append((upper, sum(ratios) / len(ratios) if ratios else fallback_cv))
+        lower = upper
+    return tuple(fitted)
+
+
+def fitted_stdev(
+    adp: float,
+    cv_bands: tuple[tuple[float, float], ...] = _DEFAULT_ADP_CV_BANDS,
+) -> float:
+    """Synthesize a plausible draft-position spread for an ADP mean that has none
+    of its own (Sleeper's lobby ADP). This is a labeled assumption
+    (`AdpEntry.stdevSource == 'fitted'`), not a measurement of Sleeper's actual
+    draft-position spread — treat as experimental until calibrated against
+    captured ADP history (PLAN.md's Edge Validation Gate, availability
+    calibration). Feeds both `availability.ts`'s survival CDF and, once wired up,
+    S3's VONA opponent-pick rollouts (`opponentModel.ts`), so an uncalibrated
+    curve here distorts more than just the displayed availability percentage.
+    """
+    for upper, cv in cv_bands:
+        if adp < upper:
+            return round(max(_ADP_STDEV_FLOOR, adp * cv), 4)
+    return round(max(_ADP_STDEV_FLOOR, adp * cv_bands[-1][1]), 4)
+
+
+# Sleeper's projections payload nests every format's ADP mean under `stats`
+# alongside real box-score stats; transform._clean_stats strips `adp*` keys back
+# out of that same payload before it's used as a season projection (canonical
+# projections stay FFToday, never Sleeper/Rotowire), so this mapping is read
+# before that stripping ever applies.
+SLEEPER_ADP_STAT_KEYS = {
+    "ppr": "adp_ppr",
+    "half-ppr": "adp_half_ppr",
+    "standard": "adp_std",
+    "2qb": "adp_2qb",
+}
+
+# Sleeper's "no ADP sample for this player/format" sentinel is 999.0, not a
+# missing key or null — verified live: ~90% of rows in the projections payload
+# carry this sentinel on adp_dynasty/adp_rookie/etc., and any given format has it
+# on the vast majority of rows too. >= 900 comfortably clears real ADP values
+# (which top out well under 300 picks) without risking a false-positive filter.
+SLEEPER_ADP_SENTINEL = 900.0
+
+
+def build_sleeper_adp_entries(
+    sleeper_rows: list[dict[str, Any]],
+    fmt: str,
+    cv_bands: tuple[tuple[float, float], ...] = _DEFAULT_ADP_CV_BANDS,
+) -> tuple[list[AdpEntry], dict[str, Any]]:
+    """Sleeper's own draft-lobby ADP for one format. `player_id` is already a
+    sleeper_id (a team abbreviation for DEF, e.g. "LAR" — same convention as
+    /v1/players/nfl), so unlike FFC's rows this needs no crosswalk at all.
+
+    The payload carries no dispersion field, so `stdev` is synthesized via
+    `fitted_stdev` and `high`/`low`/`timesDrafted` are genuinely unknown (None),
+    not zero — a 0 there would misleadingly read as "always this exact pick" or
+    "zero recorded drafts" instead of "this source doesn't expose that."
+    """
+    stat_key = SLEEPER_ADP_STAT_KEYS[fmt]
+    usable: list[tuple[float, dict[str, Any]]] = []
+    for row in sleeper_rows:
+        stats = row.get("stats") or {}
+        adp = stats.get(stat_key)
+        if not isinstance(adp, (int, float)) or adp >= SLEEPER_ADP_SENTINEL or adp < 0:
+            continue
+        usable.append((float(adp), row))
+    usable.sort(key=lambda pair: pair[0])
+
+    entries: list[AdpEntry] = []
+    for adp, row in usable:
+        player_id = row.get("player_id")
+        player = row.get("player") or {}
+        position = player.get("position")
+        # DEF rows split the team name across first_name/last_name (e.g.
+        # "Los Angeles" / "Rams") the same way build_player_meta constructs a
+        # DEF's display name from Sleeper's raw player object, so the two stay
+        # consistent with each other and with players.json.
+        name = f"{player.get('first_name') or ''} {player.get('last_name') or ''}".strip()
+        if not player_id or not position or not name:
+            continue
+        entries.append(
+            AdpEntry(
+                playerId=str(player_id),
+                name=name,
+                position=position,
+                team=player.get("team"),
+                adp=adp,
+                stdev=fitted_stdev(adp, cv_bands),
+                high=None,
+                low=None,
+                timesDrafted=None,
+                byeWeek=None,  # backfilled separately from the retained FFC board
+                adpSource="sleeper",
+                stdevSource="fitted",
+            )
+        )
+
+    diagnostics = {"sampleSize": len(entries)}
     return entries, diagnostics
 
 
