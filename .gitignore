@@ -70,10 +70,29 @@ Desktop.ini
 pipeline/.cache/
 .pytest-tmp/
 .pytest-fix-tmp/
+.pytest-fantasy-temp*/
+.tmp-pytest/
 
 # Data staged into the frontend build by frontend/scripts/stage-data.mjs — generated
 # from data/ at build time, not a second committed copy.
 frontend/public/data/
+
+# Local-only FantasyPros Upside/Bust/SOS decoration — display-only, never committed
+# or deployed; a clean checkout naturally lacks it. Source CSVs live locally via
+# --fantasypros-dir / FFA_FANTASYPROS_DIR (see pipeline/build_data.py).
+data/fantasypros-stars.json
+data/fantasypros-adp.json
+fantasypros/
+FantasyPros_*.csv
+
+# Opt-in benchmark harness output (npm run benchmark:availability) — generated
+# JSON/MD reports under benchmarks/reports/, not source fixtures.
+benchmarks/reports/
+
+# Local planning scratch — PLAN.md is the committed source of truth.
+DRAFT_SCORE_WAR_ROOM_REVISED_PLAN.md
+FRONTEND_OVERHAUL_PHASE_1_REVISED_PLAN.md
+*_REVISED_PLAN.md
 
 # Misc local
 *.local
