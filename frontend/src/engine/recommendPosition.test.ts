@@ -49,6 +49,17 @@ function board(overrides: Partial<Parameters<typeof buildRecommendationBoard>[0]
 }
 
 describe('position recommendation boards', () => {
+  it('derives every position view from one calculation without changing ranking', () => {
+    const snapshot = board({ limit: 5, displayPosition: null, includeRecommendationViews: true });
+    expect(snapshot.recommendationViews?.ALL.map((entry) => entry.playerId))
+      .toEqual(snapshot.recommendations.map((entry) => entry.playerId));
+    for (const position of POSITIONS) {
+      const direct = board({ limit: 5, displayPosition: position });
+      expect(snapshot.recommendationViews?.[position].map((entry) => entry.playerId), position)
+        .toEqual(direct.recommendations.map((entry) => entry.playerId));
+    }
+  });
+
   it('filters by exact metadata position and respects caller-provided limits', () => {
     for (const position of POSITIONS) {
       const result = board({ displayPosition: position });

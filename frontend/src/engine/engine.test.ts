@@ -6,7 +6,7 @@ import type { AdpEntry, DraftInit, DraftPicks, LeagueSettings, Pick, PlayerMeta,
 import { estimateAvailability } from './availability';
 import { optimizeLineup } from './eligibility';
 import { replacementLevels } from './replacement';
-import { buildRecommendationBoard, buildRecommendations, selectCandidates } from './recommend';
+import { buildRecommendationBoard, buildRecommendations, selectCandidates, type RecommendationResult } from './recommend';
 import { comparePlayersByScoreDesc } from './ranking';
 import { scoreProjection } from './scoring';
 import { buildTiers } from './tiers';
@@ -988,7 +988,7 @@ describe('deterministic S2 engine', () => {
         settings: l2Settings, players: players.filter((p) => p.position !== 'K' && p.position !== 'DEF'),
         projections, adp, picks, myTeamId: 'me', nextPick: 74, currentPick: 67, limit: 60,
       });
-      const nonKdSequence = (board: ReturnType<typeof buildRecommendationBoard>) => board.recommendations
+      const nonKdSequence = (board: RecommendationResult) => board.recommendations
         .filter((r) => { const pos = players.find((p) => p.playerId === r.playerId)?.position; return pos !== 'K' && pos !== 'DEF'; })
         .map((r) => r.playerId);
       expect(nonKdSequence(withoutKd)).toEqual(nonKdSequence(withKd));

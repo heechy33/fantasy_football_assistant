@@ -93,6 +93,7 @@ benchmarks/reports/
 DRAFT_SCORE_WAR_ROOM_REVISED_PLAN.md
 FRONTEND_OVERHAUL_PHASE_1_REVISED_PLAN.md
 *_REVISED_PLAN.md
+*.plan.md
 
 # Misc local
 *.local

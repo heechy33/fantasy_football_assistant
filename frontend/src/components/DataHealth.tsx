@@ -1,6 +1,8 @@
+import { useEffect, useState, type RefObject } from 'react';
 import type { DataManifest, Pick } from '../../../shared/types';
 import { resolveDataMode, type DataMode } from '../data/dataHealth';
 import type { AdpFormat } from '../data/loadPlayerPool';
+import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
 
 export interface DataHealthProps {
   manifest: DataManifest | null;
@@ -9,6 +11,8 @@ export interface DataHealthProps {
   dataAgeMs: number | null;
   consecutiveFailures: number;
   lastError: unknown;
+  /** Ref-backed live health avoids re-rendering the full workspace on no-op polls. */
+  pollHealthRef?: RefObject<PollHealth> | null;
   adpFormat: AdpFormat;
 }
 
@@ -37,13 +41,27 @@ export function DataHealth({
   dataAgeMs,
   consecutiveFailures,
   lastError,
+  pollHealthRef = null,
   adpFormat,
 }: DataHealthProps) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (pollHealthRef == null) return;
+    const id = setInterval(() => tick((value) => value + 1), 1000);
+    return () => clearInterval(id);
+  }, [pollHealthRef]);
+
+  const liveHealth = pollHealthRef?.current;
+  const freshness = liveHealth == null
+    ? { isStale, dataAgeMs }
+    : computeStaleness(liveHealth.lastSuccessfulPollAt, 2000, Date.now());
+  const liveFailures = liveHealth?.consecutiveFailures ?? consecutiveFailures;
+  const liveError = liveHealth?.lastError ?? lastError;
   const dataMode: DataMode | 'unknown' = manifest
     ? resolveDataMode(manifest, { adpSourceKey: `adp_active_${adpFormat}` })
     : 'unknown';
   const duplicates = findDuplicatePlayerIds(effectivePicks);
-  const isHealthy = dataMode === 'full' && !isStale && consecutiveFailures === 0 && duplicates.length === 0;
+  const isHealthy = dataMode === 'full' && !freshness.isStale && liveFailures === 0 && duplicates.length === 0;
 
   if (isHealthy) {
     return <p className="data-health data-health-ok">Data healthy — static data full, live poll current.</p>;
@@ -56,13 +74,13 @@ export function DataHealth({
         {dataMode !== 'full' && (
           <li>Static projection/ADP data is in &quot;{dataMode}&quot; mode.</li>
         )}
-        {isStale && (
-          <li>Live draft data is stale{dataAgeMs != null ? ` (${Math.round(dataAgeMs / 1000)}s old)` : ''}.</li>
+        {freshness.isStale && (
+          <li>Live draft data is stale{freshness.dataAgeMs != null ? ` (${Math.round(freshness.dataAgeMs / 1000)}s old)` : ''}.</li>
         )}
-        {consecutiveFailures > 0 && (
+        {liveFailures > 0 && (
           <li>
-            {consecutiveFailures} consecutive poll failure{consecutiveFailures === 1 ? '' : 's'}
-            {lastError instanceof Error ? `: ${lastError.message}` : ''}.
+            {liveFailures} consecutive poll failure{liveFailures === 1 ? '' : 's'}
+            {liveError instanceof Error ? `: ${liveError.message}` : ''}.
           </li>
         )}
         {duplicates.length > 0 && (

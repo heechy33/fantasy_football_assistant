@@ -308,4 +308,69 @@ describe('buildRecommendationBoard Stage C', () => {
     expect(board.recommendations.every((entry) => entry.vona != null && entry.lookaheadValue == null)).toBe(true);
     expect(board.recommendations.every((entry) => entry.rankingBasis === 'planValue')).toBe(true);
   });
+
+  it('builds a paint-sized S2 snapshot without planning, views, or the market board', () => {
+    const board = buildRecommendationBoard({
+      settings,
+      players,
+      projections,
+      adp,
+      picks: [],
+      myTeamId: 'me',
+      currentPick: 1,
+      nextPick: null,
+      limit: 24,
+      rolloutDisplayLimit: 24,
+      includeRecommendationViews: false,
+      includeMarketRecommendations: false,
+      includeExpansion: false,
+    });
+
+    expect(board.recommendationViews).toBeUndefined();
+    expect(board.marketRecommendations).toEqual([]);
+    expect(board.diagnostics.simulation).toBeNull();
+    expect(board.recommendations.every((entry) => entry.planningHorizon === 0)).toBe(true);
+  });
+
+  it('emits a deterministic snapshot then refines Stage C on the same evaluated set', async () => {
+    const snapshots: number[] = [];
+    const full = await buildRecommendationBoard({
+      settings,
+      players,
+      projections,
+      adp,
+      picks: [],
+      myTeamId: 'me',
+      nextPick: 8,
+      currentPick: 1,
+      limit: 5,
+      draftRounds: 4,
+      rosterSpotsPerTeam: 4,
+      includeRecommendationViews: false,
+      includeMarketRecommendations: false,
+      includeExpansion: false,
+      simulation: {
+        draftId: 'draft-stage-c-phased',
+        draftType: 'snake',
+        teams: 4,
+        rounds: 4,
+        slotToTeam,
+        decisionPick: 1,
+        followUpPick: 8,
+        executionMode: { mode: 'fixed', scenarios: 4 },
+      },
+    }, {
+      onDeterministicSnapshot: (snapshot): 'continue' => {
+        snapshots.push(snapshot.recommendations.length);
+        expect(snapshot.diagnostics.simulation).toBeNull();
+        expect(snapshot.recommendations.every((entry) => entry.planningHorizon === 0)).toBe(true);
+        expect(snapshot.marketRecommendations).toEqual([]);
+        return 'continue';
+      },
+    });
+    expect(snapshots).toEqual([5]);
+    expect(full).not.toBeNull();
+    expect(full!.diagnostics.simulation?.scenariosRun).toBe(4);
+    expect(full!.recommendations.some((entry) => entry.planningHorizon === 1)).toBe(true);
+  });
 });

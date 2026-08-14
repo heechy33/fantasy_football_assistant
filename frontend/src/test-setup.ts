@@ -22,6 +22,6 @@ afterEach(() => {
 // jsdom doesn't implement scrollIntoView (no real layout engine) — DraftLog calls it
 // unconditionally on mount/on-the-clock change, which throws in every test that renders it
 // without this stub, not just tests that click "Go to current pick".
-if (!Element.prototype.scrollIntoView) {
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }

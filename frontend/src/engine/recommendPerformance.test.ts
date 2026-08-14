@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { AdpEntry, LeagueSettings, Pick, PlayerMeta, SeasonProjection } from '../../../shared/types';
-import { buildRecommendationBoard, clearSimulationCache, DEFAULT_SCENARIOS } from './recommend';
+import type { AdpEntry, LeagueSettings, Pick, PlayerId, PlayerMeta, SeasonProjection } from '../../../shared/types';
+import { buildRecommendationBoard, clearSimulationCache, DEFAULT_SCENARIOS, type RecommendationInput } from './recommend';
+import { computeValueAnchor } from './replacement';
+import { scoreProjection, type ScoreDiagnostics } from './scoring';
 
 /**
  * S3.1's whole reason for existing: `buildRecommendationBoard` used to call the exponential
@@ -154,7 +156,19 @@ function buildWorstCaseStageCFixture() {
     },
   });
 
-  return { run, picks, teams, rounds, decisionPick, followUpPick };
+  const runWorkerSnapshot = () => buildRecommendationBoard({
+    settings, players, projections, adp, picks, myTeamId: 'me',
+    nextPick: followUpPick, currentPick: decisionPick, limit: 24, rolloutDisplayLimit: 5,
+    simulationCandidateLimit: 10, displayPosition: null, includeRecommendationViews: true,
+    draftRounds: rounds, rosterSpotsPerTeam: rounds,
+    simulation: {
+      draftId: 'stage-c-worker-snapshot', draftType: 'snake', teams, rounds, slotToTeam,
+      decisionPick, followUpPick,
+      executionMode: { mode: 'budgeted', scenarios: DEFAULT_SCENARIOS_FOR_TEST, timeBudgetMs: 1500, batchSize: 1 },
+    },
+  });
+
+  return { run, runWorkerSnapshot, picks, teams, rounds, decisionPick, followUpPick };
 }
 
 // Placeholder overridden per-call below; the fixture's `run()` closes over whatever this constant
@@ -233,6 +247,24 @@ describe.skipIf(!process.env.STAGE_C_BENCH)('Stage C scenario-count sweep (opt-i
  * accidental O(n^2) reintroduced upstream), not to pin a tight number.
  */
 describe('buildRecommendationBoard Stage C performance (worst-case rollout window)', () => {
+  it('builds the production all-position worker snapshot inside the clock budget', () => {
+    const { runWorkerSnapshot } = runStageCAt(DEFAULT_SCENARIOS);
+    runWorkerSnapshot();
+    const durations: number[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      clearSimulationCache();
+      const start = performance.now();
+      const snapshot = runWorkerSnapshot();
+      durations.push(performance.now() - start);
+      expect(snapshot.recommendationViews?.ALL.length).toBeGreaterThan(0);
+      expect(snapshot.recommendationViews?.RB.length).toBeGreaterThan(0);
+    }
+    const med = median(durations);
+    // eslint-disable-next-line no-console
+    console.log(`Production worker snapshot median over 5 cold-cache runs: ${med.toFixed(2)}ms (max ${Math.max(...durations).toFixed(2)}ms)`);
+    expect(med).toBeLessThan(3000);
+  }, 30_000);
+
   it('stays well under a generous ceiling for the shipped default scenario count', () => {
     const { run } = runStageCAt(DEFAULT_SCENARIOS);
 
@@ -352,6 +384,107 @@ describe('buildRecommendationBoard Stage C performance (worst-case rollout windo
     // Stage C's own rollout size — isolated runs measure ~300-350ms here; this ceiling keeps margin
     // for parallel-worker contention in a full-suite run, consistent with this file's "generous
     // ceiling, not a tight bound" philosophy (see the module doc above).
+    expect(med).toBeLessThan(900);
+  }, 30_000);
+});
+
+/**
+ * Draft-latency follow-up: the production worker now keeps one long-lived process, passes
+ * precomputed scoring diagnostics + VALUE_ANCHOR into every on-clock call, and runs its S2 fast
+ * path immediately before Stage C within the same compute — so the deterministic pass is paid
+ * once and caches survive every on-clock call (no clearSimulationCache between them). These
+ * guards pin that the precomputed inputs are output-identical and that a second on-clock call
+ * really does stay on the warm path.
+ */
+describe('precomputed worker inputs (draft latency follow-up)', () => {
+  function buildWorkerFixture() {
+    const players = loadRealData<PlayerMeta[]>('players.json');
+    const projections = loadRealData<SeasonProjection[]>('projections-season.json');
+    const adp = loadRealData<AdpEntry[]>('adp-ppr.json');
+
+    const teams = 12;
+    const rounds = 16;
+    const slotForOverall = (overall: number) => {
+      const round = Math.ceil(overall / teams);
+      const posInRound = overall - (round - 1) * teams;
+      return round % 2 === 0 ? teams - posInRound + 1 : posInRound;
+    };
+    const slotToTeam: Record<number, string> = {};
+    for (let slot = 1; slot <= teams; slot += 1) slotToTeam[slot] = slot === 1 ? 'me' : `opp-${slot}`;
+    const picks: Pick[] = adp
+      .filter((entry): entry is AdpEntry & { playerId: string } => entry.playerId != null)
+      .sort((a, b) => a.adp - b.adp)
+      .slice(0, 14 * teams)
+      .map((entry, index) => {
+        const overall = index + 1;
+        const slot = slotForOverall(overall);
+        return { overall, round: Math.ceil(overall / teams), slot, teamId: slotToTeam[slot] as string, playerId: entry.playerId, providerPlayerId: entry.playerId };
+      });
+
+    const baseInput: RecommendationInput = {
+      settings, players, projections, adp, picks, myTeamId: 'me',
+      nextPick: 192, currentPick: 169, limit: 5, displayPosition: null,
+      draftRounds: rounds, rosterSpotsPerTeam: rounds,
+      simulation: {
+        draftId: 'precomputed-worker', draftType: 'snake', teams, rounds, slotToTeam,
+        decisionPick: 169, followUpPick: 192,
+        executionMode: { mode: 'fixed', scenarios: DEFAULT_SCENARIOS },
+      },
+    };
+
+    // Mirror recommendation.worker.ts's getStaticScores: one scoreProjection pass plus the
+    // pick-invariant VALUE_ANCHOR, cached per (settings, rosterSpotsPerTeam).
+    const playersById = new Map(players.map((player) => [player.playerId, player]));
+    const scores = new Map<PlayerId, ScoreDiagnostics>();
+    for (const projection of projections) {
+      scores.set(projection.playerId, scoreProjection(projection, settings, playersById.get(projection.playerId)?.position));
+    }
+    const valueAnchor = computeValueAnchor({ settings, players, projections, adp, rosterSpotsPerTeam: rounds });
+
+    const board = (s2: boolean, draftId: string = 'precomputed-worker') => buildRecommendationBoard({
+      ...baseInput,
+      precomputedScores: scores,
+      precomputedValueAnchor: valueAnchor,
+      simulation: s2
+        ? { ...baseInput.simulation!, draftId, executionMode: { ...(baseInput.simulation!.executionMode ?? { mode: 'fixed' as const, scenarios: 0 }), scenarios: 0 } }
+        : { ...baseInput.simulation!, draftId },
+    });
+    return { baseInput, scores, valueAnchor, board };
+  }
+
+  it('produces an identical board when scores and VALUE_ANCHOR are precomputed', () => {
+    const { baseInput, scores, valueAnchor } = buildWorkerFixture();
+    clearSimulationCache();
+    const baseline = buildRecommendationBoard(baseInput);
+    clearSimulationCache();
+    const precomputed = buildRecommendationBoard({
+      ...baseInput,
+      precomputedScores: scores,
+      precomputedValueAnchor: valueAnchor,
+    });
+    expect(precomputed.recommendations).toEqual(baseline.recommendations);
+    expect(precomputed.diagnostics.candidatesEvaluated).toBe(baseline.diagnostics.candidatesEvaluated);
+    expect(precomputed.diagnostics.simulation?.scenariosRun).toBe(baseline.diagnostics.simulation?.scenariosRun);
+  }, 60_000);
+
+  it('a second on-clock call without clearSimulationCache stays on the warm path', () => {
+    const { board } = buildWorkerFixture();
+    clearSimulationCache();
+    board(true); // S2 fast path (cold) — deterministic pass, populates fingerprint/planning caches
+    board(false, 'precomputed-worker-init'); // first Stage C call of the session (cold team rosters)
+
+    const durations: number[] = [];
+    for (let i = 0; i < 7; i += 1) {
+      const start = performance.now();
+      const result = board(false, `precomputed-worker-${i}`); // draftId varies so simulationCache misses
+      durations.push(performance.now() - start);
+      // Sanity: the scenario loop genuinely ran (a null/zero-window follow-up would defeat this).
+      expect(result.diagnostics.simulation?.scenariosRun).toBe(DEFAULT_SCENARIOS);
+    }
+    const med = median(durations);
+    // eslint-disable-next-line no-console
+    console.log(`Worker-flow warm-cache median over 7 full Stage C calls after an S2 fast path: ${med.toFixed(2)}ms (min ${Math.min(...durations).toFixed(2)}ms, max ${Math.max(...durations).toFixed(2)}ms)`);
+    // Same generous ceiling as the existing follow-up-turn guard.
     expect(med).toBeLessThan(900);
   }, 30_000);
 });

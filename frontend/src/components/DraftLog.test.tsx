@@ -27,7 +27,6 @@ function baseProps() {
     effectivePicks: [] as Pick[],
     playersById,
     onTheClock: null,
-    onCorrectPick: vi.fn(),
     userNextOverall: null as number | null,
     picksUntilUserTurn: null as number | null,
   };
@@ -43,17 +42,17 @@ describe('DraftLog', () => {
       />,
     );
     // teams(2) * rounds(2) = 4 total pick slots.
-    expect(screen.getByText('1.01')).toBeInTheDocument();
-    expect(screen.getByText('2.02')).toBeInTheDocument();
+    expect(screen.getByText('#1')).toBeInTheDocument();
+    expect(screen.getByText('#4')).toBeInTheDocument();
     expect(screen.getByText('Known Player')).toBeInTheDocument();
   });
 
-  it('numbers every pick in round.pick format (the same helper as the top-bar hero)', () => {
+  it('numbers every pick with the overall pick number (e.g. #97)', () => {
     render(<DraftLog {...baseProps()} />);
-    expect(screen.getByText('1.01')).toBeInTheDocument();
-    expect(screen.getByText('1.02')).toBeInTheDocument();
-    expect(screen.getByText('2.01')).toBeInTheDocument();
-    expect(screen.getByText('2.02')).toBeInTheDocument();
+    expect(screen.getByText('#1')).toBeInTheDocument();
+    expect(screen.getByText('#2')).toBeInTheDocument();
+    expect(screen.getByText('#3')).toBeInTheDocument();
+    expect(screen.getByText('#4')).toBeInTheDocument();
   });
 
   it('shows the resolved team name and falls back to Team {slot} when unresolved', () => {
@@ -81,7 +80,7 @@ describe('DraftLog', () => {
   it("marks the user's upcoming pick with 'You're up in N picks'", () => {
     render(<DraftLog {...baseProps()} userNextOverall={3} picksUntilUserTurn={2} />);
     expect(screen.getByText("You're up in 2 picks")).toBeInTheDocument();
-    const row = screen.getByText('2.01').closest('li');
+    const row = screen.getByText('#3').closest('li');
     expect(row).toHaveAttribute('data-you-up', 'true');
   });
 
@@ -93,13 +92,13 @@ describe('DraftLog', () => {
   it("marks the user's upcoming pick with 'You're on the clock' when the count is zero", () => {
     render(<DraftLog {...baseProps()} userNextOverall={1} picksUntilUserTurn={0} />);
     expect(screen.getByText("You're on the clock")).toBeInTheDocument();
-    const row = screen.getByText('1.01').closest('li');
+    const row = screen.getByText('#1').closest('li');
     expect(row).toHaveAttribute('data-you-up', 'true');
   });
 
   it('does not render an empty you-up chip when the countdown is unknown', () => {
     render(<DraftLog {...baseProps()} userNextOverall={3} picksUntilUserTurn={null} />);
-    const row = screen.getByText('2.01').closest('li');
+    const row = screen.getByText('#3').closest('li');
     expect(row).toHaveAttribute('data-you-up', 'true');
     expect(screen.queryByText(/You're up/)).not.toBeInTheDocument();
     expect(screen.queryByText("You're on the clock")).not.toBeInTheDocument();
@@ -109,7 +108,7 @@ describe('DraftLog', () => {
     // Arithmetic slot for overall 1 in a 2-team snake is 1; a corrected/landed pick on slot 2
     // must still resolve Team 2, not My Squad.
     render(<DraftLog {...baseProps()} effectivePicks={[pick(1, 'them', 'p1', 'Known Player')]} />);
-    expect(screen.getByText('1.01').closest('li')).toHaveTextContent('Team 2');
+    expect(screen.getByText('#1').closest('li')).toHaveTextContent('Team 2');
   });
 
   it('renders a DST chip for a DEF player', () => {
@@ -133,75 +132,69 @@ describe('DraftLog', () => {
       />,
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByText('1.01').closest('li')).toHaveAttribute('data-on-clock', 'true');
+    expect(screen.getByText('#1').closest('li')).toHaveAttribute('data-on-clock', 'true');
   });
 
-  it('marks the on-the-clock row and mine rows, and offers Fix/Edit on landed picks', () => {
-    const onCorrectPick = vi.fn();
+  it('marks the on-the-clock row and mine rows for landed picks', () => {
     render(
       <DraftLog
         {...baseProps()}
         effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
         onTheClock={{ teamId: 'me', slot: 1, round: 2, overall: 3 }}
-        onCorrectPick={onCorrectPick}
       />,
     );
 
     expect(screen.getByText('Unmatched: Some Rookie')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Fix' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fix' })).not.toBeInTheDocument();
 
-    const onClockRow = screen.getByText('2.01').closest('li');
+    const onClockRow = screen.getByText('#3').closest('li');
     expect(onClockRow).toHaveAttribute('data-on-clock', 'true');
     expect(onClockRow).toHaveAttribute('data-mine', 'true');
     expect(onClockRow).toHaveAttribute('data-scroll-target', 'true');
 
-    const myPickRow = screen.getByText('1.01').closest('li');
+    const myPickRow = screen.getByText('#1').closest('li');
     expect(myPickRow).toHaveAttribute('data-mine', 'true');
     expect(myPickRow).not.toHaveAttribute('data-on-clock');
   });
 
-  it('calls onCorrectPick with the overall number when Fix/Edit is clicked', async () => {
-    const onCorrectPick = vi.fn();
+  it('opens player details when a matched pick card is clicked', async () => {
+    const onViewPlayer = vi.fn();
     const user = userEvent.setup();
     render(
       <DraftLog
         {...baseProps()}
-        effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
-        onCorrectPick={onCorrectPick}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+        onViewPlayer={onViewPlayer}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Fix' }));
-    expect(onCorrectPick).toHaveBeenCalledWith(2);
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(onCorrectPick).toHaveBeenCalledWith(1);
+    await user.click(screen.getByRole('button', { name: /Known Player/ }));
+    expect(onViewPlayer).toHaveBeenCalledWith('p1');
   });
 
-  it('invokes the newest onCorrectPick callback after a parent rerender', async () => {
-    const onCorrectPickFirst = vi.fn();
-    const onCorrectPickSecond = vi.fn();
+  it('invokes the newest onViewPlayer callback after a parent rerender', async () => {
+    const onViewPlayerFirst = vi.fn();
+    const onViewPlayerSecond = vi.fn();
     const user = userEvent.setup();
     const { rerender } = render(
       <DraftLog
         {...baseProps()}
-        effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
-        onCorrectPick={onCorrectPickFirst}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+        onViewPlayer={onViewPlayerFirst}
       />,
     );
 
-    // Simulate the 1s stale-banner tick from useDraftPoll: parent rerenders with a fresh
-    // callback identity but otherwise-identical props.
     rerender(
       <DraftLog
         {...baseProps()}
-        effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
-        onCorrectPick={onCorrectPickSecond}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+        onViewPlayer={onViewPlayerSecond}
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Fix' }));
-    expect(onCorrectPickFirst).not.toHaveBeenCalled();
-    expect(onCorrectPickSecond).toHaveBeenCalledWith(2);
+    await user.click(screen.getByRole('button', { name: /Known Player/ }));
+    expect(onViewPlayerFirst).not.toHaveBeenCalled();
+    expect(onViewPlayerSecond).toHaveBeenCalledWith('p1');
   });
 
   it('go-to-current-pick scrolls the on-the-clock row into view', async () => {
@@ -220,7 +213,7 @@ describe('DraftLog', () => {
     const scrolled = scrollSpy.mock.instances[0] as HTMLElement;
     expect(scrolled).toHaveAttribute('data-scroll-target', 'true');
     expect(scrolled).toHaveAttribute('data-on-clock', 'true');
-    expect(scrolled.textContent).toContain('1.01');
+    expect(scrolled.textContent).toContain('#1');
     scrollSpy.mockRestore();
   });
 
@@ -246,7 +239,95 @@ describe('DraftLog', () => {
     const scrolled = scrollSpy.mock.instances[0] as HTMLElement;
     expect(scrolled).toHaveAttribute('data-scroll-target', 'true');
     expect(scrolled).not.toHaveAttribute('data-on-clock');
-    expect(scrolled.textContent).toContain('2.02');
+    expect(scrolled.textContent).toContain('#4');
+    scrollSpy.mockRestore();
+  });
+
+  it('stops auto-following once the user scrolls the current row out of view', () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const { rerender } = render(
+      <DraftLog
+        {...baseProps()}
+        onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+      />,
+    );
+    scrollSpy.mockClear();
+
+    const list = document.querySelector('.draft-log-list')!;
+    const row = list.querySelector('[data-scroll-target]')!;
+    // jsdom has no layout engine: fake the current row fully below the list's visible band so the
+    // manual-scroll detector treats this scroll as "scrolled away."
+    Object.defineProperty(list, 'getBoundingClientRect', { configurable: true, value: () => ({ top: 0, bottom: 100 }) });
+    Object.defineProperty(row, 'getBoundingClientRect', { configurable: true, value: () => ({ top: 500, bottom: 600 }) });
+    list.dispatchEvent(new Event('scroll'));
+
+    // Advancing picks move the clock target, but auto-follow must stay silent after the user read away.
+    rerender(
+      <DraftLog
+        {...baseProps()}
+        onTheClock={{ teamId: 'them', slot: 2, round: 1, overall: 2 }}
+      />,
+    );
+    expect(scrollSpy).not.toHaveBeenCalled();
+    scrollSpy.mockRestore();
+  });
+
+  it('re-engages auto-follow when the user clicks Go to current pick after scrolling away', async () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <DraftLog
+        {...baseProps()}
+        onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+      />,
+    );
+    scrollSpy.mockClear();
+
+    const list = document.querySelector('.draft-log-list')!;
+    const row = list.querySelector('[data-scroll-target]')!;
+    Object.defineProperty(list, 'getBoundingClientRect', { configurable: true, value: () => ({ top: 0, bottom: 100 }) });
+    Object.defineProperty(row, 'getBoundingClientRect', { configurable: true, value: () => ({ top: 500, bottom: 600 }) });
+    list.dispatchEvent(new Event('scroll'));
+
+    await user.click(screen.getByRole('button', { name: 'Go to current pick' }));
+    expect(scrollSpy).toHaveBeenCalled();
+
+    scrollSpy.mockClear();
+    rerender(
+      <DraftLog
+        {...baseProps()}
+        onTheClock={{ teamId: 'them', slot: 2, round: 1, overall: 2 }}
+      />,
+    );
+    expect(scrollSpy).toHaveBeenCalled();
+    scrollSpy.mockRestore();
+  });
+
+  it('re-engages auto-follow when a new draft connects after the user scrolled away', () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const newDraft: DraftInit = { ...draftInit, draftId: 'd2' };
+    const { rerender } = render(
+      <DraftLog
+        {...baseProps()}
+        onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+      />,
+    );
+    scrollSpy.mockClear();
+
+    const list = document.querySelector('.draft-log-list')!;
+    const row = list.querySelector('[data-scroll-target]')!;
+    Object.defineProperty(list, 'getBoundingClientRect', { configurable: true, value: () => ({ top: 0, bottom: 100 }) });
+    Object.defineProperty(row, 'getBoundingClientRect', { configurable: true, value: () => ({ top: 500, bottom: 600 }) });
+    list.dispatchEvent(new Event('scroll'));
+
+    rerender(
+      <DraftLog
+        {...baseProps()}
+        draftInit={newDraft}
+        onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+      />,
+    );
+    expect(scrollSpy).toHaveBeenCalled();
     scrollSpy.mockRestore();
   });
 

@@ -1,14 +1,14 @@
-import type { CSSProperties, MouseEvent } from 'react';
+﻿import type { CSSProperties } from 'react';
 import type { AdpEntry, FantasyProsStars, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import { adpPositionalRank, displayPositionalRank } from '../data/positionalRank';
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { teamLogoUrl } from '../data/playerPortrait';
 import type { Recommendation } from '../engine/recommend';
-import { NextPickSurvivalMeter } from './NextPickSurvivalMeter';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
 import { StarRating } from './StarRating';
+import { boardUsageStat, formatBoardStat } from './playerBoardFace';
 
 export interface PlayerCardProps {
   playerId: PlayerId;
@@ -25,11 +25,11 @@ export interface PlayerCardProps {
   fantasyPros?: FantasyProsStars;
   /** Prior-season usage for the single role-volume cell; omitted when missing. */
   usage?: PlayerUsage;
-  /** Team-depth role for the Role tile — teamDepthRole.ts's display-only derivation. */
+  /** Team-depth role for the Role tile â€” teamDepthRole.ts's display-only derivation. */
   depthRole?: TeamDepthRole | null;
   /** K/DEF's Role-tile replacement: average PPR points/week from `weekly-stats.json`'s real
    * per-week scoring (kicking/DST stats have no receiving/rushing production to show instead).
-   * `usage.production` can't stand in here — it's built from `pprFromReceptions`/`pprFromRushes`
+   * `usage.production` can't stand in here â€” it's built from `pprFromReceptions`/`pprFromRushes`
    * only, so it's always ~0 for a kicker or defense. */
   avgPointsPerGame?: number | null;
 
@@ -37,26 +37,14 @@ export interface PlayerCardProps {
 }
 
 function formatStat(value: number | null | undefined): string {
-  return value == null ? '\u2014' : value.toFixed(1);
-}
-
-function formatShare(value: number): string {
-  return `${Math.round(value * 100)}%`;
+  return formatBoardStat(value);
 }
 
 function cardUsageStat(
   position: string | null | undefined,
   usage: PlayerUsage | undefined,
 ): { label: string; value: string } | null {
-  if (usage == null) return null;
-  if (position === 'RB' && usage.carryShare != null) return { label: 'Carry', value: formatShare(usage.carryShare) };
-  if ((position === 'WR' || position === 'TE') && usage.targetShare != null) {
-    return { label: 'Tgt', value: formatShare(usage.targetShare) };
-  }
-  if (position === 'QB' && usage.completionPct != null) {
-    return { label: 'Cmp%', value: formatShare(usage.completionPct) };
-  }
-  return null;
+  return boardUsageStat(position, usage);
 }
 
 function splitName(name: string): { first: string; last: string } {
@@ -70,7 +58,7 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
   return { '--team-logo': logo ? `url(${logo})` : 'none' } as CSSProperties;
 }
 
-/** Compact card face: labeled 2×2 stats, small headshot beside the name, contained team logo watermark. */
+/** Compact card face: labeled 2Ã—2 stats, small headshot beside the name, contained team logo watermark. */
 export function PlayerCard({
   playerId, recommendation, player, rank, adp, adpBoard, fantasyPros, usage, depthRole, avgPointsPerGame, onViewDetails,
 }: PlayerCardProps) {
@@ -86,15 +74,10 @@ export function PlayerCard({
   const statusTag = player ? playerStatusTag(player, usage) : null;
   const logoUrl = teamLogoUrl(player?.team);
   // K and DEF never get a depth-chart room (buildTeamDepthRoles only rooms QB/RB/WR/TE), so the
-  // Role tile would always read the unknown em dash for them — show average fantasy points per
+  // Role tile would always read the unknown em dash for them â€” show average fantasy points per
   // week (from real weekly scoring, passed in by the caller) instead of a tile that can never
   // say anything.
   const isRoleless = player?.position === 'K' || player?.position === 'DEF';
-
-  function onDetailsClick(event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation();
-    onViewDetails();
-  }
 
   return (
     <article
@@ -147,9 +130,7 @@ export function PlayerCard({
         {usageStat && <div><dt>{usageStat.label}</dt><dd>{usageStat.value}</dd></div>}
       </dl>
 
-      {recommendation ? (
-        <NextPickSurvivalMeter probability={recommendation.availableNextPickProbability} />
-      ) : (
+      {!recommendation && (
         <p className="player-card-reason player-card-no-projection">
           {'No projection \u2014 ADP only.'}
         </p>
@@ -163,9 +144,6 @@ export function PlayerCard({
         </div>
       )}
 
-      <button className="quiet-button player-card-details" type="button" onClick={onDetailsClick}>
-        View details
-      </button>
     </article>
   );
 }

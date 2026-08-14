@@ -1,14 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
 import type { DraftInit, OnTheClock, Pick, PlayerId, PlayerMeta, Position } from '../../../shared/types';
-import { roundForOverall, roundPickLabel, slotForOverall } from '../adapters/draftOrder';
+import { roundForOverall, slotForOverall } from '../adapters/draftOrder';
+import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 import { PositionBadge } from './PositionBadge';
 
 export interface DraftLogProps {
   draftInit: DraftInit | null;
   effectivePicks: Pick[];
+  /** Id of the poll response that changed `effectivePicks`; dev timing only. */
+  timingPollId?: number | null;
   playersById: ReadonlyMap<PlayerId, PlayerMeta>;
   onTheClock: OnTheClock | null;
-  onCorrectPick: (overall: number) => void;
   /** Row-click → player detail drawer, threaded from `DraftWorkspace`'s `handleViewDetails`.
    * Must stay a stable reference (see `stableViewPlayer` below) to honor the row memo contract. */
   onViewPlayer?: (playerId: PlayerId) => void;
@@ -21,7 +23,6 @@ export interface DraftLogProps {
 }
 
 interface DraftLogRowProps {
-  teams: number;
   overall: number;
   teamName: string;
   pick: Pick | undefined;
@@ -34,7 +35,6 @@ interface DraftLogRowProps {
   youUpText: string | null;
   isScrollTarget: boolean;
   currentRowRef: RefObject<HTMLLIElement | null>;
-  onCorrectPick: (overall: number) => void;
   onViewPlayer: ((playerId: PlayerId) => void) | undefined;
 }
 
@@ -53,7 +53,6 @@ function youUpLabel(picksUntilUserTurn: number | null): string | null {
  * reconciles that one row.
  */
 const DraftLogRow = memo(function DraftLogRow({
-  teams,
   overall,
   teamName,
   pick,
@@ -66,7 +65,6 @@ const DraftLogRow = memo(function DraftLogRow({
   youUpText,
   isScrollTarget,
   currentRowRef,
-  onCorrectPick,
   onViewPlayer,
 }: DraftLogRowProps) {
   const isUnmatched = pick != null && pick.playerId === null;
@@ -77,7 +75,7 @@ const DraftLogRow = memo(function DraftLogRow({
       : (playerName ?? pick.providerPlayerName ?? pick.playerId)
     : null;
 
-  const pickNo = roundPickLabel(teams, overall);
+  const pickNo = `#${overall}`;
   const cardBody = (
     <>
       <span className="draft-log-name">{displayName ?? '———'}</span>
@@ -110,11 +108,6 @@ const DraftLogRow = memo(function DraftLogRow({
           </div>
         )}
       </div>
-      {pick && (
-        <button className="quiet-button draft-log-fix" type="button" onClick={() => onCorrectPick(overall)}>
-          {isUnmatched ? 'Fix' : 'Edit'}
-        </button>
-      )}
     </li>
   );
 });
@@ -135,35 +128,36 @@ type LogEntry =
       isScrollTarget: boolean;
     };
 
+/** Whether the current row has scrolled fully out of the log's visible band. Auto-follow centers
+ * the row, so a programmatic scroll can never trip this; only a manual user scroll can. */
+function isRowOutOfView(row: HTMLElement, list: HTMLElement): boolean {
+  const rowRect = row.getBoundingClientRect();
+  const listRect = list.getBoundingClientRect();
+  return rowRect.bottom < listRect.top || rowRect.top > listRect.bottom;
+}
+
 /**
  * Left rail of the three-column workspace. DraftSharks-style card list: each pick is a discrete
- * card showing `round.pick`, the player name, the team nickname, and a colored position chip; the
- * user's own upcoming pick is the highlighted "You're Up!" card. Landed picks (matched or
- * unmatched) keep a Fix/Edit control so a wrong match or crosswalk miss can be corrected — a
- * silently wrong board corrupts every downstream recommendation (see `shared/types.d.ts`'s
- * `Pick.playerId` doc).
+ * card showing the overall pick number (`#97`), the player name, the team nickname, and a colored
+ * position chip; the user's own upcoming pick is the highlighted "You're Up!" card.
  */
-export function DraftLog({
+export const DraftLog = memo(function DraftLog({
   draftInit,
   effectivePicks,
+  timingPollId = null,
   playersById,
   onTheClock,
-  onCorrectPick,
   onViewPlayer,
   userNextOverall,
   picksUntilUserTurn,
 }: DraftLogProps) {
   const currentRowRef = useRef<HTMLLIElement | null>(null);
-  // App passes an inline onCorrectPick; keep a stable identity so memoized rows survive the 1s
-  // stale-banner re-render from useDraftPoll.
-  const onCorrectPickRef = useRef(onCorrectPick);
-  onCorrectPickRef.current = onCorrectPick;
-  const stableCorrectPick = useCallback((overall: number) => {
-    onCorrectPickRef.current(overall);
-  }, []);
+  const logListRef = useRef<HTMLOListElement | null>(null);
+  // True once the user has scrolled the current row out of view. Auto-follow then stays silent
+  // until they click "Go to current pick" or a new draft connects.
+  const userScrolledAwayRef = useRef(false);
+  const measuredPollIdRef = useRef<number | null>(null);
 
-  // Same stable-identity pattern for the card-click → player-detail handler, so ~192 memoized
-  // rows never see a fresh closure on a poll tick.
   const onViewPlayerRef = useRef(onViewPlayer);
   onViewPlayerRef.current = onViewPlayer;
   const stableViewPlayer = useCallback((playerId: PlayerId) => {
@@ -185,8 +179,6 @@ export function DraftLog({
       if (overall === (round - 1) * draftInit.teams + 1) {
         list.push({ kind: 'round', round });
       }
-      // Landed pick slots remain authoritative (including manually corrected picks) — only
-      // fall back to the arithmetic slot for picks that haven't landed yet.
       const pick = pickedByOverall.get(overall);
       const slot = pick?.slot ?? slotForOverall(draftInit.draftType, draftInit.teams, overall);
       const teamName = draftInit.slotToTeamName?.[slot] ?? `Team ${slot}`;
@@ -211,13 +203,69 @@ export function DraftLog({
   }, [draftInit, totalPicks, pickedByOverall, playersById, onTheClock, userNextOverall, scrollTargetOverall]);
 
   function scrollToCurrent() {
+    userScrolledAwayRef.current = false;
     currentRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
-  // Auto-follow on connect / clock advance / draft completion.
+  // A manual scroll that takes the current row fully out of view is a "scrolled away" gesture.
+  // Auto-follow's own scrollIntoView always centers the row, so it cannot trip this listener.
   useEffect(() => {
+    const list = logListRef.current;
+    if (!list) return;
+    const handleScroll = () => {
+      const row = currentRowRef.current;
+      if (row && isRowOutOfView(row, list)) userScrolledAwayRef.current = true;
+    };
+    list.addEventListener('scroll', handleScroll, { passive: true });
+    return () => list.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // A fresh draft re-engages auto-follow; the old draft's "scrolled away" state is meaningless.
+  // When it does re-engage (the flag was actually set), scroll now — the clock target may be
+  // unchanged, so the `scrollTargetOverall` effect alone would not fire again.
+  useEffect(() => {
+    const wasAway = userScrolledAwayRef.current;
+    userScrolledAwayRef.current = false;
+    if (wasAway) currentRowRef.current?.scrollIntoView({ block: 'center' });
+  }, [draftInit]);
+
+  // Auto-follow on connect / clock advance / draft completion — but never once the user has
+  // manually scrolled away from the current row (they are reading elsewhere in the log).
+  useEffect(() => {
+    if (userScrolledAwayRef.current) return;
     currentRowRef.current?.scrollIntoView({ block: 'center' });
   }, [scrollTargetOverall]);
+
+  // Layout effects happen before the browser paints, so call this a post-commit frame instead of
+  // pretending it proves paint. Two animation frames give the committed log an opportunity to be
+  // presented before we timestamp it.
+  useEffect(() => {
+    if (timingPollId == null || measuredPollIdRef.current === timingPollId) return;
+    measuredPollIdRef.current = timingPollId;
+    const responseMark = draftPollMarkName(timingPollId, 'response');
+    const frameMark = draftPollMarkName(timingPollId, 'log-next-frame');
+    const report = () => {
+      draftMark(frameMark);
+      if (!import.meta.env.DEV) return;
+      const frameMs = draftMeasure(`log: poll/${timingPollId}→next-frame`, responseMark, frameMark);
+      if (frameMs != null) {
+        // eslint-disable-next-line no-console
+        console.debug(`[draft-timing] poll→log next-frame ${frameMs.toFixed(1)}ms`);
+      }
+    };
+    if (typeof requestAnimationFrame !== 'function') {
+      report();
+      return;
+    }
+    let secondFrame: number | null = null;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(report);
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame != null) cancelAnimationFrame(secondFrame);
+    };
+  }, [entries, timingPollId]);
 
   if (!draftInit) {
     return <section className="draft-log"><p>No draft connected yet.</p></section>;
@@ -231,7 +279,7 @@ export function DraftLog({
           Go to Current Pick
         </button>
       </div>
-      <ol className="draft-log-list">
+      <ol ref={logListRef} className="draft-log-list">
         {entries.map((entry) => {
           if (entry.kind === 'round') {
             return (
@@ -246,7 +294,6 @@ export function DraftLog({
           return (
             <DraftLogRow
               key={overall}
-              teams={draftInit.teams}
               overall={overall}
               teamName={teamName}
               pick={pick}
@@ -259,7 +306,6 @@ export function DraftLog({
               youUpText={isYouUp ? youUpLabel(picksUntilUserTurn) : null}
               isScrollTarget={isScrollTarget}
               currentRowRef={currentRowRef}
-              onCorrectPick={stableCorrectPick}
               onViewPlayer={stableViewPlayer}
             />
           );
@@ -267,4 +313,4 @@ export function DraftLog({
       </ol>
     </section>
   );
-}
+});

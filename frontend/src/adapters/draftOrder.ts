@@ -77,7 +77,7 @@ export function pickLabel(round: number, slot: number): string {
  * (`overall - (round - 1) * teams`, i.e. 1..teams), not the snake slot. That is the DraftSharks
  * war-room convention and the way the round separators in DraftLog are keyed (`overall ===
  * (round - 1) * teams + 1` starts each round). `pickLabel` above remains the snake-slot formatter;
- * this is the shared helper for the top-bar hero and the draft log's pick numbering. */
+ * this is the shared helper for the top-bar hero pick numbering. */
 export function roundPickLabel(teams: number, overall: number): string {
   const round = roundForOverall(teams, overall);
   const pickInRound = overall - (round - 1) * teams;

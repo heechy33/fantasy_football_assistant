@@ -1,4 +1,6 @@
+import { useEffect, useState, type RefObject } from 'react';
 import type { AdpFormat } from '../data/loadPlayerPool';
+import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
 
 export const APP_NAME = 'Fantasy Assistant Bob';
 
@@ -18,6 +20,7 @@ export interface TopNavProps {
   adpFormat?: AdpFormat | null;
   isStale?: boolean;
   dataAgeMs?: number | null;
+  pollHealthRef?: RefObject<PollHealth> | null;
 }
 
 const NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
@@ -25,6 +28,28 @@ const NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
   { page: 'draft', label: 'Draft Room' },
   { page: 'teams', label: 'Teams' },
 ];
+
+function StaleStatus({ healthRef, fallbackIsStale, fallbackDataAgeMs }: {
+  healthRef: RefObject<PollHealth> | null;
+  fallbackIsStale: boolean;
+  fallbackDataAgeMs: number | null;
+}) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (healthRef == null) return;
+    const id = setInterval(() => tick((value) => value + 1), 1000);
+    return () => clearInterval(id);
+  }, [healthRef]);
+  const freshness = healthRef == null
+    ? { isStale: fallbackIsStale, dataAgeMs: fallbackDataAgeMs }
+    : computeStaleness(healthRef.current.lastSuccessfulPollAt, 2000, Date.now());
+  return (
+    <>
+      <span className={'top-nav-status-dot'} data-stale={freshness.isStale || undefined} aria-hidden={true} />
+      {freshness.isStale && freshness.dataAgeMs != null ? ` · ${Math.round(freshness.dataAgeMs / 1000)}s stale` : ''}
+    </>
+  );
+}
 
 /**
  * Persistent top nav + session controls for the app shell — one seamless navy bar (CommandBar
@@ -42,6 +67,7 @@ export function TopNav({
   adpFormat = null,
   isStale = false,
   dataAgeMs = null,
+  pollHealthRef = null,
 }: TopNavProps) {
   const showCountdown = picksUntilUserTurn != null && picksUntilUserTurn > 0;
   const showStatus = roundPick != null && (leagueName != null || adpFormat != null);
@@ -86,11 +112,7 @@ export function TopNav({
         </div>
         {showStatus && (
           <p className="top-nav-status">
-            <span
-              className="top-nav-status-dot"
-              data-stale={isStale || undefined}
-              aria-hidden="true"
-            />
+            <StaleStatus healthRef={pollHealthRef} fallbackIsStale={isStale} fallbackDataAgeMs={dataAgeMs} />
             Synced with {leagueName ?? 'draft'} · ADP {adpFormat}
             {isStale && dataAgeMs != null ? ` · ${Math.round(dataAgeMs / 1000)}s stale` : ''}
           </p>

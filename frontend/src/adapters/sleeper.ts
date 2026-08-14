@@ -116,10 +116,29 @@ interface RawLeagueUser {
 // Fetch helper
 // ---------------------------------------------------------------------------
 
-async function sleeperFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${SLEEPER_BASE}${path}`);
+function parseRetryAfter(value: string | null): number | null {
+  if (value == null) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : null;
+}
+
+export class SleeperApiError extends Error {
+  constructor(
+    path: string,
+    readonly status: number,
+    readonly retryAfterMs: number | null,
+  ) {
+    super(`Sleeper API ${path} failed: ${status}`);
+    this.name = 'SleeperApiError';
+  }
+}
+
+async function sleeperFetch<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${SLEEPER_BASE}${path}`, { cache: 'no-store', signal });
   if (!res.ok) {
-    throw new Error(`Sleeper API ${path} failed: ${res.status}`);
+    throw new SleeperApiError(path, res.status, parseRetryAfter(res.headers.get('Retry-After')));
   }
   return res.json() as Promise<T>;
 }
@@ -424,7 +443,7 @@ async function init(cred: Cred, draftId: string): Promise<DraftInit> {
   };
 }
 
-async function picks(cred: Cred, draftId: string): Promise<DraftPicks> {
+async function picks(cred: Cred, draftId: string, signal?: AbortSignal): Promise<DraftPicks> {
   requireSleeperCred(cred);
 
   const cached = initCache.get(draftId);
@@ -436,7 +455,7 @@ async function picks(cred: Cred, draftId: string): Promise<DraftPicks> {
   // Hot path: exactly one upstream GET. Status is derived from the init-cached rawStatus plus
   // pick count — `deriveDraftStatus` already treats any picks as drafting and a full board as
   // complete, so a second `/draft/{id}` poll is unnecessary for the live clock path.
-  const rawPicks = await sleeperFetch<RawPick[]>(`/draft/${encodeURIComponent(draftId)}/picks`);
+  const rawPicks = await sleeperFetch<RawPick[]>(`/draft/${encodeURIComponent(draftId)}/picks`, signal);
 
   const normalizedPicks = rawPicks.map((raw) => toPick(raw, knownPlayerIds));
   const status = deriveDraftStatus(cached.rawStatus, normalizedPicks.length, cached.teams, cached.rounds);

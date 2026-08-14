@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { LeagueSettings, Pick, PlayerId, PlayerMeta, Position, RosterSlot, SeasonProjection } from '../../../shared/types';
 import { optimizeLineup } from '../engine/eligibility';
 import { scoreProjection } from '../engine/scoring';
@@ -72,7 +72,7 @@ function groupCountLabel(group: RosterGroup): string {
  * out through a prop — negligible extra cost, and keeps this a pure-presentation addition with no
  * engine surface change.
  */
-export function MyTeamRail({ settings, effectivePicks, myTeamId, playersById, projections, rounds, onViewPlayer }: MyTeamRailProps) {
+export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, myTeamId, playersById, projections, rounds, onViewPlayer }: MyTeamRailProps) {
   const projectionById = useMemo(() => new Map(projections.map((p) => [p.playerId, p])), [projections]);
 
   const myPicks = useMemo(
@@ -274,4 +274,4 @@ export function MyTeamRail({ settings, effectivePicks, myTeamId, playersById, pr
       </div>
     </section>
   );
-}
+});

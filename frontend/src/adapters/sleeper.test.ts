@@ -283,6 +283,8 @@ describe('sleeperAdapter.picks', () => {
     const draftPicks = await sleeperAdapter.picks(CRED, 'raw-draft-ppr');
 
     expect(fetchMock.mock.calls.length - callsAfterInit).toBe(1);
+    const pickRequest = fetchMock.mock.calls[callsAfterInit] as unknown as [string, RequestInit];
+    expect(pickRequest[1]).toEqual({ cache: 'no-store' });
     expect(draftPicks.status).toBe('drafting');
     expect(draftPicks.picks).toHaveLength(15);
 

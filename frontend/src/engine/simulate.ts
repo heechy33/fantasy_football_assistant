@@ -248,6 +248,25 @@ export function bestFollowUpValue(
 }
 
 export function runSimulation(input: SimulationInput): SimulationResult {
+  return runSimulationLoop(input) as SimulationResult;
+}
+
+/** Same rollout as `runSimulation`, but yields to the event loop between batches so a worker can
+ * cooperatively cancel (and a queued S2 compute can start) instead of blocking until every
+ * scenario finishes. */
+export async function runSimulationAsync(
+  input: SimulationInput,
+  yieldBetweenBatches: () => Promise<void>,
+  shouldAbort?: () => boolean,
+): Promise<SimulationResult> {
+  return runSimulationLoop(input, yieldBetweenBatches, shouldAbort);
+}
+
+function runSimulationLoop(
+  input: SimulationInput,
+  yieldBetweenBatches?: () => Promise<void>,
+  shouldAbort?: () => boolean,
+): SimulationResult | Promise<SimulationResult> {
   // Defensive boundary: aggregate maps are keyed by player ID, so treating duplicate shortlist
   // rows as separate candidates would double-count a player while returning incoherent results.
   // Keep the first occurrence to preserve the caller’s deterministic ordering.
@@ -326,77 +345,99 @@ export function runSimulation(input: SimulationInput): SimulationResult {
   let scenariosRun = 0;
   let timedOut = false;
 
-  outer: while (scenariosRun < maxScenarios) {
-    const thisBatch = Math.min(batchSize, maxScenarios - scenariosRun);
-    for (let i = 0; i < thisBatch; i += 1) {
-      const scenarioIndex = scenariosRun; // prefix property: index is absolute, not batch-relative
-      const rng = createRng(deriveStream(baseSeed, scenarioIndex));
-      const priorities = computeScenarioPriorities(pool, rng, input.opponentConfig);
+  const runOneScenario = (scenarioIndex: number): void => {
+    const rng = createRng(deriveStream(baseSeed, scenarioIndex));
+    const priorities = computeScenarioPriorities(pool, rng, input.opponentConfig);
 
-      // Baseline: the user takes nobody at decisionPick (no-op — decisionPick itself is never
-      // simulated), then opponents run over the window only.
-      const baselineDrafted = simulateOpponentWindow(
+    // Baseline: the user takes nobody at decisionPick (no-op — decisionPick itself is never
+    // simulated), then opponents run over the window only.
+    const baselineDrafted = simulateOpponentWindow(
+      input.settings, input.draftType, input.teams, input.rounds, input.slotToTeam,
+      windowStart, windowEnd, baseTeamRosters, input.scores, input.playersById,
+      priorities, new Set(), input.opponentConfig, opponentWindowSchedule,
+    );
+    const bestSurvivorMrvThisScenario = bestFollowUpValue(
+      preparedRoster, survivorScanOrder, input.scores, baselineDrafted, null,
+    );
+    for (const c of candidates) {
+      if (baselineDrafted.has(c.playerId)) continue;
+      survivalCount.set(c.playerId, (survivalCount.get(c.playerId) ?? 0) + 1);
+    }
+    bestSurvivorMrvSum += bestSurvivorMrvThisScenario;
+
+    // Per candidate: force c at decisionPick, replay this scenario's shocks over the same
+    // window — the cascade differs only because c is unavailable to opponents this time.
+    for (const c of candidates) {
+      const after = afterCandidate.get(c.playerId)!;
+      const candidateDrafted = simulateOpponentWindow(
         input.settings, input.draftType, input.teams, input.rounds, input.slotToTeam,
         windowStart, windowEnd, baseTeamRosters, input.scores, input.playersById,
-        priorities, new Set(), input.opponentConfig, opponentWindowSchedule,
+        priorities, new Set([c.playerId]), input.opponentConfig, opponentWindowSchedule,
       );
-      const bestSurvivorMrvThisScenario = bestFollowUpValue(
-        preparedRoster, survivorScanOrder, input.scores, baselineDrafted, null,
-      );
-      for (const c of candidates) {
-        if (baselineDrafted.has(c.playerId)) continue;
-        survivalCount.set(c.playerId, (survivalCount.get(c.playerId) ?? 0) + 1);
-      }
-      bestSurvivorMrvSum += bestSurvivorMrvThisScenario;
-
-      // Per candidate: force c at decisionPick, replay this scenario's shocks over the same
-      // window — the cascade differs only because c is unavailable to opponents this time.
-      for (const c of candidates) {
-        const after = afterCandidate.get(c.playerId)!;
-        const candidateDrafted = simulateOpponentWindow(
-          input.settings, input.draftType, input.teams, input.rounds, input.slotToTeam,
-          windowStart, windowEnd, baseTeamRosters, input.scores, input.playersById,
-          priorities, new Set([c.playerId]), input.opponentConfig, opponentWindowSchedule,
-        );
-        const followUp = bestFollowUpValue(after.state, survivorScanOrder, input.scores, candidateDrafted, c.playerId);
-        perCandidateFinalValues.get(c.playerId)!.push(after.result.value + followUp);
-      }
-
-      scenariosRun += 1;
+      const followUp = bestFollowUpValue(after.state, survivorScanOrder, input.scores, candidateDrafted, c.playerId);
+      perCandidateFinalValues.get(c.playerId)!.push(after.result.value + followUp);
     }
-
-    if (input.executionMode.mode === 'fixed') continue;
-    const budget = input.executionMode.timeBudgetMs ?? Infinity;
-    if (now() - startedAt >= budget) {
-      timedOut = scenariosRun < maxScenarios;
-      break outer;
-    }
-  }
-
-  const elapsedMs = now() - startedAt;
-  const vonaSubtrahend = scenariosRun > 0 ? bestSurvivorMrvSum / scenariosRun : 0;
-
-  const results = candidates.map((c): CandidateSimulationResult => {
-    const after = afterCandidate.get(c.playerId)!;
-    const mrv = after.result.value - commonBaseline;
-    const values = perCandidateFinalValues.get(c.playerId) ?? [];
-    const expectedFinalStarterValue = values.length ? values.reduce((a, b) => a + b, 0) / values.length : after.result.value;
-    const sortedRelative = values.map((v) => v - commonBaseline).sort((a, b) => a - b);
-    return {
-      playerId: c.playerId,
-      expectedFinalStarterValue,
-      lookaheadValue: expectedFinalStarterValue - commonBaseline,
-      vona: mrv - vonaSubtrahend,
-      downside: sortedRelative.length ? nearestRankQuantile(sortedRelative, 0.10) : mrv,
-      simulatedSurvivalProbability: scenariosRun > 0 ? (survivalCount.get(c.playerId) ?? 0) / scenariosRun : 1,
-    };
-  });
-
-  return {
-    diagnostics: {
-      scenariosRun, timedOut, elapsedMs,
-      syntheticAdpCount: pool.syntheticAdpCount, unscoredPositionCount: pool.unscoredPositionCount,
-    },
-    candidates: results,
   };
+
+  const finish = (): SimulationResult => {
+    const elapsedMs = now() - startedAt;
+    const vonaSubtrahend = scenariosRun > 0 ? bestSurvivorMrvSum / scenariosRun : 0;
+    const results = candidates.map((c): CandidateSimulationResult => {
+      const after = afterCandidate.get(c.playerId)!;
+      const mrv = after.result.value - commonBaseline;
+      const values = perCandidateFinalValues.get(c.playerId) ?? [];
+      const expectedFinalStarterValue = values.length ? values.reduce((a, b) => a + b, 0) / values.length : after.result.value;
+      const sortedRelative = values.map((v) => v - commonBaseline).sort((a, b) => a - b);
+      return {
+        playerId: c.playerId,
+        expectedFinalStarterValue,
+        lookaheadValue: expectedFinalStarterValue - commonBaseline,
+        vona: mrv - vonaSubtrahend,
+        downside: sortedRelative.length ? nearestRankQuantile(sortedRelative, 0.10) : mrv,
+        simulatedSurvivalProbability: scenariosRun > 0 ? (survivalCount.get(c.playerId) ?? 0) / scenariosRun : 1,
+      };
+    });
+    return {
+      diagnostics: {
+        scenariosRun, timedOut, elapsedMs,
+        syntheticAdpCount: pool.syntheticAdpCount, unscoredPositionCount: pool.unscoredPositionCount,
+      },
+      candidates: results,
+    };
+  };
+
+  const runBatches = (yieldBetweenBatches?: () => Promise<void>, shouldAbort?: () => boolean): SimulationResult | Promise<SimulationResult> => {
+    const step = (): boolean => {
+      if (shouldAbort?.()) return false;
+      const thisBatch = Math.min(batchSize, maxScenarios - scenariosRun);
+      for (let i = 0; i < thisBatch; i += 1) {
+        runOneScenario(scenariosRun);
+        scenariosRun += 1;
+      }
+      if (input.executionMode.mode !== 'fixed') {
+        const budget = input.executionMode.timeBudgetMs ?? Infinity;
+        if (now() - startedAt >= budget) {
+          timedOut = scenariosRun < maxScenarios;
+          return false;
+        }
+      }
+      return scenariosRun < maxScenarios;
+    };
+
+    if (yieldBetweenBatches == null) {
+      while (step()) { /* sync batches */ }
+      return finish();
+    }
+
+    const loop = async (): Promise<SimulationResult> => {
+      while (step()) {
+        await yieldBetweenBatches();
+        if (shouldAbort?.()) break;
+      }
+      return finish();
+    };
+    return loop();
+  };
+
+  return runBatches(yieldBetweenBatches, shouldAbort);
 }

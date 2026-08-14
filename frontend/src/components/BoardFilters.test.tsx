@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+﻿import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { BoardFilters } from './BoardFilters';
@@ -39,5 +39,37 @@ describe('BoardFilters', () => {
 
     await user.click(screen.getByRole('tab', { name: 'RB' }));
     expect(onDisplayPositionChange).toHaveBeenCalledWith('RB');
+  });
+});
+
+describe('BoardFilters presentation control', () => {
+  it('keeps the layout control separate from ranking tabs', async () => {
+    const onBoardPresentationChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BoardFilters
+        {...defaultProps()}
+        boardPresentation="rows"
+        onBoardPresentationChange={onBoardPresentationChange}
+        presentationToggleVisible
+      />,
+    );
+
+    expect(screen.getByRole('radio', { name: 'Rows' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('tab', { name: 'Engine' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'All' }).closest('.board-position-layout-row')).toContainElement(
+      screen.getByRole('radiogroup', { name: 'Board layout' }),
+    );
+    await user.click(screen.getByRole('radio', { name: 'Cards' }));
+    expect(onBoardPresentationChange).toHaveBeenCalledWith('cards');
+  });
+});
+
+describe('BoardFilters mode control', () => {
+  it('hides Engine/ADP tabs when modeToggleVisible is false', () => {
+    render(<BoardFilters {...defaultProps()} modeToggleVisible={false} />);
+    expect(screen.queryByRole('tab', { name: 'Engine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'ADP' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
   });
 });

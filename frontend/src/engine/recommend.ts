@@ -20,8 +20,8 @@ import {
   type ReplacementLevel,
 } from './replacement';
 import { scoreProjection } from './scoring';
-import type { ScoringDiagnosticSeverity } from './scoring';
-import { buildTeamRosters, runSimulation, type ExecutionMode, type SimulationDiagnostics, type SimulationResult } from './simulate';
+import type { ScoreDiagnostics, ScoringDiagnosticSeverity } from './scoring';
+import { buildTeamRosters, runSimulation, runSimulationAsync, type ExecutionMode, type SimulationDiagnostics, type SimulationResult } from './simulate';
 import { buildTiers } from './tiers';
 
 export interface Recommendation {
@@ -164,6 +164,37 @@ export interface RecommendationInput {
    * what this flag exists to avoid — it captures the full pre-slice pools without changing `limit`,
    * `sorted`, or `displayed`. */
   includeAnalysisRows?: boolean;
+  /** Production worker opt-in: build every position view from one evaluated core so UI-only
+   * filtering and pagination never rerun lineup optimization or simulation. */
+  includeRecommendationViews?: boolean;
+  /** Whether to build the full ADP/market board. The cheap worker snapshot leaves this off so
+   * its first response is limited to paintable Engine rows and diagnostics. Defaults to true for
+   * every existing non-worker caller. */
+  includeMarketRecommendations?: boolean;
+  /** Whether to add the position/market expansion universe. Defaults to true; the worker's first
+   * snapshot disables it and evaluates only its bounded All-tab candidate set. */
+  includeExpansion?: boolean;
+  /** Worker-only opt-in: precomputed scoring diagnostics keyed by player id, produced once per
+   * static pool + settings pair (see recommendation.worker.ts) and reused across on-clock calls
+   * so the deterministic pass never re-scores the full ~4,400-projection pool. Must be consistent
+   * with `settings`, `players`, and `projections` — a mismatch is a caller bug, not reconciled. */
+  precomputedScores?: ReadonlyMap<PlayerId, ScoreDiagnostics>;
+  /** Worker-only opt-in alongside `precomputedScores`: the already-computed pick-invariant
+   * VALUE_ANCHOR (see replacement.ts's computeValueAnchor doc), so it is not recomputed on every
+   * on-clock call either. `null` is a valid precomputed value (degenerate league), distinct from
+   * `undefined` = "not provided, compute it here". */
+  precomputedValueAnchor?: number | null;
+
+}
+
+/** Worker-only continuation hooks. Never placed on `RecommendationWorkerDynamicInput` — they are
+ * not structured-cloneable and exist only inside the worker after S2 has already evaluated. */
+export interface RecommendationBuildOptions {
+  /** Called with a paint-sized board (no planning, no Stage C, no views/market) after the
+   * deterministic evaluate pass. Returning `'abort'` skips refine. */
+  onDeterministicSnapshot?: (snapshot: RecommendationResult) => 'continue' | 'abort' | void | Promise<'continue' | 'abort' | void>;
+  yieldBetweenBatches?: () => Promise<void>;
+  shouldAbort?: () => boolean;
 }
 
 /** Populated only when `RecommendationInput.includeAnalysisRows` is `true` — see that field's doc.
@@ -235,8 +266,8 @@ export interface MarketRecommendation {
    * means the market expects them to last further. */
   pickDelta: number;
   /** `null` only when the player has no season projection (`scoreProjection` never ran for them) —
-   * every other undrafted, finite-ADP player receives a full engine join, even outside the fixed
-   * analytic expansion depth (see `buildRecommendationBoard`'s market-join comment). */
+   * or falls outside the bounded 24-row All/per-position display universe. Market ordering remains
+   * complete; only expensive engine enrichment is bounded. */
   recommendation: Recommendation | null;
 }
 
@@ -250,8 +281,11 @@ export interface RecommendationResult {
    * order. Never filtered by `displayPosition` — callers filter this array themselves so `rank`
    * stays anchored to the league-wide order (see `MarketRecommendation.rank`'s doc). Players
    * without ADP are excluded entirely; players without a projection are included with
-   * `recommendation: null`. */
+   * `recommendation: null`. In bounded worker snapshots, deeper rows outside the
+   * display universe are also intentionally left unenriched. */
   marketRecommendations: MarketRecommendation[];
+  /** Complete ranked views derived from the same core calculation. Present only when requested. */
+  recommendationViews?: Record<'ALL' | Position, Recommendation[]>;
   /** Only present when `RecommendationInput.includeAnalysisRows` is `true`. */
   analysis?: RecommendationAnalysis;
 }
@@ -580,7 +614,7 @@ function adpFingerprintById(adp: readonly AdpEntry[]): ReadonlyMap<PlayerId, str
   return byId;
 }
 
-function settingsFingerprint(settings: LeagueSettings): string {
+export function settingsFingerprint(settings: LeagueSettings): string {
   return [
     [...Object.entries(settings.scoring)].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => key + '=' + value).join(','),
     settings.startingSlots.join(','),
@@ -687,26 +721,43 @@ function simulationKey(
   ].join('\u001f');
 }
 
-/** Fixed analytic expansion depth (validated decisions): independent of `limit`/`rolloutDisplayLimit`,
- * this backfills enough extra evaluated candidates to support up to 20 displayed Engine rows per
- * position, plus a full market-board join, without inflating what Stage C actually rolls out or
- * what the analytic planner's follow-up shortlist considers. */
-const EXPANSION_DEPTH = 20;
+/** The interactive worker prepares at most 24 rows for every view. Keep legacy callers'
+ * full market-board enrichment intact while bounding that expensive work in the worker path. */
+const WORKER_VIEW_EXPANSION_DEPTH = 24;
+const LEGACY_EXPANSION_DEPTH = 20;
 const ALL_DISPLAY_POSITIONS: readonly Position[] = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
-export function buildRecommendationBoard(input: RecommendationInput): RecommendationResult {
+export function buildRecommendationBoard(input: RecommendationInput): RecommendationResult;
+export function buildRecommendationBoard(
+  input: RecommendationInput,
+  options: RecommendationBuildOptions,
+): Promise<RecommendationResult | null>;
+export function buildRecommendationBoard(
+  input: RecommendationInput,
+  options?: RecommendationBuildOptions,
+): RecommendationResult | Promise<RecommendationResult | null> {
   const limit = input.limit ?? 3;
   const rolloutDisplayLimit = input.rolloutDisplayLimit ?? limit;
+  const expansionDepth = input.includeRecommendationViews
+    ? WORKER_VIEW_EXPANSION_DEPTH
+    : LEGACY_EXPANSION_DEPTH;
   const currentPick = input.currentPick ?? input.picks.length + 1;
 
   const playersById = new Map(input.players.map((player) => [player.playerId, player]));
   const projectionById = new Map(input.projections.map((projection) => [projection.playerId, projection]));
   const scores = new Map<PlayerId, number>();
-  const scoringDiagnosticsById = new Map<PlayerId, ReturnType<typeof scoreProjection>>();
-  for (const [id, projection] of projectionById) {
-    const diagnostic = scoreProjection(projection, input.settings, playersById.get(id)?.position);
-    scores.set(id, diagnostic.points);
-    scoringDiagnosticsById.set(id, diagnostic);
+  const scoringDiagnosticsById = new Map<PlayerId, ScoreDiagnostics>();
+  if (input.precomputedScores != null) {
+    for (const [id, diagnostic] of input.precomputedScores) {
+      scores.set(id, diagnostic.points);
+      scoringDiagnosticsById.set(id, diagnostic);
+    }
+  } else {
+    for (const [id, projection] of projectionById) {
+      const diagnostic = scoreProjection(projection, input.settings, playersById.get(id)?.position);
+      scores.set(id, diagnostic.points);
+      scoringDiagnosticsById.set(id, diagnostic);
+    }
   }
 
   // A crosswalk miss leaves `pick.playerId` null (see shared/types.d.ts's Pick doc) — that player is
@@ -754,13 +805,15 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
   // replacement.ts's computeValueAnchor doc), independently of `remainingPlayers`/`levels` above so
   // it stays invariant pick to pick — never derived from or cached alongside the remaining-board
   // replacement levels.
-  const valueAnchor = computeValueAnchor({
-    settings: input.settings,
-    players: input.players,
-    projections: input.projections,
-    adp: input.adp,
-    rosterSpotsPerTeam: input.rosterSpotsPerTeam,
-  });
+  const valueAnchor = input.precomputedValueAnchor !== undefined
+    ? input.precomputedValueAnchor
+    : computeValueAnchor({
+        settings: input.settings,
+        players: input.players,
+        projections: input.projections,
+        adp: input.adp,
+        rosterSpotsPerTeam: input.rosterSpotsPerTeam,
+      });
 
   const myRosterIds = input.picks
     .filter((pick) => input.myTeamId != null && pick.teamId === input.myTeamId && pick.playerId != null)
@@ -807,10 +860,8 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
   const candidates = stageC || planningActive
     ? selectCandidates(remainingPlayers, scores, rolloutLimit)
     : selectCandidates(displayPlayers, scores, rolloutDisplayLimit);
-  const isSpecialTeamsDisplay = input.displayPosition === 'K' || input.displayPosition === 'DEF';
-
   // Fixed analytic expansion (validated decisions): add candidates the original rollout/planning
-  // pool above never needed, purely so up to `EXPANSION_DEPTH` rows per position can be displayed
+  // pool above never needed, purely so up to `expansionDepth` rows per position can be displayed
   // (and the market board can join a wide ADP range) without widening `rolloutLimit` itself.
   // `planningEligibleIds`/`simulationEligibleIds` freeze the original pool so these additions never
   // enter the follow-up shortlist, `deterministicOrder`, or the Monte Carlo candidate pool below.
@@ -837,29 +888,28 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       .slice()
       .sort((a, b) => (adpById.get(a.playerId)!.adp - adpById.get(b.playerId)!.adp) || a.playerId.localeCompare(b.playerId));
   }
-  for (const position of ALL_DISPLAY_POSITIONS) {
-    const atPosition = remainingByPosition.get(position) ?? [];
-    const alreadyIncluded = atPosition.reduce((count, player) => count + (includedCandidateIds.has(player.playerId) ? 1 : 0), 0);
-    if (alreadyIncluded < EXPANSION_DEPTH) {
-      const ranked = atPosition
-        .filter((player) => !includedCandidateIds.has(player.playerId))
-        .sort((a, b) => (scores.get(b.playerId) ?? 0) - (scores.get(a.playerId) ?? 0) || a.playerId.localeCompare(b.playerId));
-      for (const player of ranked.slice(0, EXPANSION_DEPTH - alreadyIncluded)) addExpansionCandidate(player);
+  if (input.includeExpansion !== false) {
+    for (const position of ALL_DISPLAY_POSITIONS) {
+      const atPosition = remainingByPosition.get(position) ?? [];
+      const alreadyIncluded = atPosition.reduce((count, player) => count + (includedCandidateIds.has(player.playerId) ? 1 : 0), 0);
+      if (alreadyIncluded < expansionDepth) {
+        const ranked = atPosition
+          .filter((player) => !includedCandidateIds.has(player.playerId))
+          .sort((a, b) => (scores.get(b.playerId) ?? 0) - (scores.get(a.playerId) ?? 0) || a.playerId.localeCompare(b.playerId));
+        for (const player of ranked.slice(0, expansionDepth - alreadyIncluded)) addExpansionCandidate(player);
+      }
+    }
+    for (const player of finiteAdpAscending(remainingPlayers).slice(0, expansionDepth)) addExpansionCandidate(player);
+    for (const position of ALL_DISPLAY_POSITIONS) {
+      for (const player of finiteAdpAscending(remainingByPosition.get(position) ?? []).slice(0, expansionDepth)) addExpansionCandidate(player);
+    }
+    if (!input.includeRecommendationViews && input.includeMarketRecommendations !== false) {
+      // Preserve the historical full market-board join for non-worker consumers.
+      for (const player of finiteAdpAscending(remainingPlayers)) addExpansionCandidate(player);
     }
   }
-  for (const player of finiteAdpAscending(remainingPlayers).slice(0, EXPANSION_DEPTH)) addExpansionCandidate(player);
-  for (const position of ALL_DISPLAY_POSITIONS) {
-    for (const player of finiteAdpAscending(remainingByPosition.get(position) ?? []).slice(0, EXPANSION_DEPTH)) addExpansionCandidate(player);
-  }
-  // The market board is a complete left join: every undrafted ADP row with a finite ADP and a
-  // scored projection gets the same deterministic engine evaluation, even when it falls outside
-  // the 20-row display expansion above. These rows are still excluded from planning and rollout by
-  // the eligibility sets below, so paging the market board cannot change Stage C's cost or policy.
-  for (const player of remainingPlayers) {
-    if (scores.has(player.playerId) && Number.isFinite(adpById.get(player.playerId)?.adp)) {
-      addExpansionCandidate(player);
-    }
-  }
+  // The worker UI caps every All/position view at 24 rows. Its bounded union therefore covers every
+  // row the user can expose without paying pairwise planning cost for the finite-ADP tail.
   const planningEligibleIds = new Set(candidates.map((player) => player.playerId));
   const simulationEligibleIds = planningEligibleIds;
   const expandedCandidates = [...candidates, ...expansionPlayers];
@@ -905,7 +955,11 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
     const player = playersById.get(recommendation.playerId);
     if (!player) return recommendation;
     const points = scores.get(recommendation.playerId) ?? 0;
-    const exactSlot = addPlayerToLineup(preparedRoster, player, points, true).addedPlayerSlot;
+    let exactSlot = exactAssignmentCache.get(recommendation.playerId);
+    if (exactSlot === undefined) {
+      exactSlot = addPlayerToLineup(preparedRoster, player, points, true).addedPlayerSlot;
+      exactAssignmentCache.set(recommendation.playerId, exactSlot);
+    }
     if (exactSlot === recommendation.assignedRosterSlot) return recommendation;
     const reasons = [...recommendation.reasons];
     reasons[1] = exactSlot
@@ -916,6 +970,7 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
     return { ...recommendation, assignedRosterSlot: exactSlot, reasons };
   }
 
+  const exactAssignmentCache = new Map<PlayerId, string | null>();
   const dispositionByPlayerId = new Map<PlayerId, SpecialTeamsDisposition>();
   let evaluated = expandedCandidates.map((player): Recommendation => {
     const points = scores.get(player.playerId) ?? 0;
@@ -1081,7 +1136,7 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       && SKILL_POSITIONS.includes(position)
       && dispositionByPlayerId.get(row.playerId) !== 'unavailable'
       // Expansion-only rows exist purely to fill out display/market rows; they never enter the
-      // shared follow-up shortlist (see EXPANSION_DEPTH's doc above).
+      // shared follow-up shortlist (see the expansion-depth docs above).
       && planningEligibleIds.has(row.playerId);
   });
   const followUpIds = new Set<PlayerId>(
@@ -1239,22 +1294,206 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
     });
   }
 
-  evaluated = applyOnePickPlanning(evaluated);
-  // vona/vonaSource are final as of the line above (the Stage C rollout enrichment below only ever
-  // sets lookaheadValue/downside/simulatedSurvivalProbability/reasons/warnings and never touches
-  // marginalRosterUtility/availableNextPickProbability, so a second applyOnePickPlanning pass inside
-  // that block — if it runs — recomputes the identical vona/vonaSource from unchanged inputs).
-  // Compute pickAction here, once, rather than re-deriving it wherever it's read later.
-  evaluated = evaluated.map((row) => ({ ...row, pickAction: computePickAction(row, currentPick, valueAnchor) }));
+  function rankingValue(recommendation: Recommendation): number {
+    switch (recommendation.rankingBasis) {
+      case 'planValue': return recommendation.planValue;
+      case 'specialTeams': return recommendation.projectedPoints;
+      case 'rosterUtility': default: return recommendation.marginalRosterUtility;
+    }
+  }
+  function compareWithinBand(a: Recommendation, b: Recommendation): number {
+    const aSurvival = a.availableNextPickProbability ?? a.simulatedSurvivalProbability;
+    const bSurvival = b.availableNextPickProbability ?? b.simulatedSurvivalProbability;
+    if (aSurvival == null && bSurvival != null) return 1;
+    if (aSurvival != null && bSurvival == null) return -1;
+    if (aSurvival != null && bSurvival != null && aSurvival !== bSurvival) return aSurvival - bSurvival;
+    const aAdp = a.availabilityAdp;
+    const bAdp = b.availabilityAdp;
+    if (aAdp == null && bAdp != null) return 1;
+    if (aAdp != null && bAdp == null) return -1;
+    if (aAdp != null && bAdp != null && aAdp !== bAdp) return aAdp - bAdp;
+    if (a.planValue !== b.planValue) return b.planValue - a.planValue;
+    return a.playerId.localeCompare(b.playerId);
+  }
+  function orderNearTieBands(rows: readonly Recommendation[]): {
+    sorted: Recommendation[];
+    nearTieIds: Set<PlayerId>;
+  } {
+    const sorted = [...rows];
+    const nearTieIds = new Set<PlayerId>();
+    let bandStart = 0;
+    while (bandStart < sorted.length) {
+    const anchor = sorted[bandStart] as Recommendation;
+    const anchorClass = dispositionSortClass(dispositionByPlayerId.get(anchor.playerId) ?? 'normal');
+    const anchorValue = rankingValue(anchor);
+    const threshold = Math.max(1, 0.01 * Math.abs(anchorValue));
+    let bandEnd = bandStart + 1;
+    while (bandEnd < sorted.length) {
+      const candidate = sorted[bandEnd] as Recommendation;
+      if (candidate.rankingBasis !== anchor.rankingBasis) break;
+      if (dispositionSortClass(dispositionByPlayerId.get(candidate.playerId) ?? 'normal') !== anchorClass) break;
+      if (Math.abs(rankingValue(candidate) - anchorValue) > threshold) break;
+      bandEnd += 1;
+    }
+    if (bandEnd - bandStart >= 2) {
+      const bandMembers = sorted.slice(bandStart, bandEnd).sort(compareWithinBand);
+      for (let i = 0; i < bandMembers.length; i += 1) {
+        const member = bandMembers[i] as Recommendation;
+        sorted[bandStart + i] = member;
+        nearTieIds.add(member.playerId);
+      }
+    }
+      bandStart = bandEnd;
+    }
+    return { sorted, nearTieIds };
+  }
+
+  function assembleBoard(
+    rows: Recommendation[],
+    simulationDiagnostics: SimulationDiagnostics | null,
+    planningSort: boolean,
+    stageCActive: boolean,
+    rolloutPoolSize: number,
+  ): RecommendationResult {
+    let sortSet = rows.filter((recommendation) =>
+      input.displayPosition == null || playersById.get(recommendation.playerId)?.position === input.displayPosition);
+    const usePlanSort = planningSort && input.displayPosition !== 'K' && input.displayPosition !== 'DEF';
+    const initialSorted = input.displayPosition === 'K' || input.displayPosition === 'DEF'
+      ? [...sortSet].sort((a, b) => b.projectedPoints - a.projectedPoints || a.playerId.localeCompare(b.playerId))
+      : sortSet.filter((recommendation) => dispositionByPlayerId.get(recommendation.playerId) !== 'unavailable').sort((a, b) => {
+      const aPosition = playersById.get(a.playerId)?.position;
+      const bPosition = playersById.get(b.playerId)?.position;
+      const aOverdueBy = aPosition === 'K' || aPosition === 'DEF' ? overdueBy(aPosition, specialTeamsDraft) : 0;
+      const bOverdueBy = bPosition === 'K' || bPosition === 'DEF' ? overdueBy(bPosition, specialTeamsDraft) : 0;
+      const valueComparison = usePlanSort
+        ? b.planValue - a.planValue
+        : b.marginalRosterUtility - a.marginalRosterUtility;
+      return dispositionSortClass(dispositionByPlayerId.get(a.playerId) ?? 'normal')
+      - dispositionSortClass(dispositionByPlayerId.get(b.playerId) ?? 'normal')
+      || bOverdueBy - aOverdueBy
+      || valueComparison
+      || b.vor - a.vor
+      || b.projectedPoints - a.projectedPoints
+      || a.playerId.localeCompare(b.playerId);
+    });
+    const analysis: RecommendationAnalysis | undefined = input.includeAnalysisRows
+      ? {
+          deterministicRows: rows,
+          simulatedRows: sortSet,
+          deterministicCandidateCount: expandedCandidates.length,
+          simulatedCandidateCount: sortSet.filter((recommendation) => recommendation.simulatedSurvivalProbability != null).length,
+          rolloutPoolSize,
+        }
+      : undefined;
+    const { sorted, nearTieIds } = orderNearTieBands(initialSorted);
+    const displayedExact = sorted.slice(0, limit).map(patchExactAssignment);
+    const recommendations = displayedExact.map((recommendation, index) => {
+      const alternative = sorted[index + 1];
+      const altPlayer = alternative && playersById.get(alternative.playerId);
+      const reasons = alternative && altPlayer
+        ? [
+            ...recommendation.reasons,
+            alternative.availableNextPickProbability != null
+              ? `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}); the ADP model estimates ${Math.round(alternative.availableNextPickProbability * 100)}% next-pick availability.`
+              : `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}).`,
+          ]
+        : recommendation.reasons;
+      return {
+        ...recommendation,
+        reasons,
+        rank: index + 1,
+        nearTie: nearTieIds.has(recommendation.playerId),
+      };
+    });
+    function decorateView(viewSorted: readonly Recommendation[]): Recommendation[] {
+      const { sorted: ordered, nearTieIds: viewNearTieIds } = orderNearTieBands(viewSorted);
+      return ordered.slice(0, limit).map(patchExactAssignment).map((recommendation, index) => {
+        const alternative = ordered[index + 1];
+        const altPlayer = alternative && playersById.get(alternative.playerId);
+        const reasons = alternative && altPlayer
+          ? [
+              ...recommendation.reasons,
+              alternative.availableNextPickProbability != null
+                ? `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}); the ADP model estimates ${Math.round(alternative.availableNextPickProbability * 100)}% next-pick availability.`
+                : `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}).`,
+            ]
+          : recommendation.reasons;
+        return {
+          ...recommendation,
+          reasons,
+          rank: index + 1,
+          nearTie: viewNearTieIds.has(recommendation.playerId),
+        };
+      });
+    }
+    const recommendationViews = input.includeRecommendationViews
+      ? Object.fromEntries([
+          ['ALL', decorateView(initialSorted)],
+          ...ALL_DISPLAY_POSITIONS.map((position) => {
+            const positionRows = position === 'K' || position === 'DEF'
+              ? rows
+                  .filter((row) => playersById.get(row.playerId)?.position === position)
+                  .sort((a, b) => b.projectedPoints - a.projectedPoints || a.playerId.localeCompare(b.playerId))
+              : initialSorted.filter((row) => playersById.get(row.playerId)?.position === position);
+            return [position, decorateView(positionRows)];
+          }),
+        ]) as Record<'ALL' | Position, Recommendation[]>
+      : undefined;
+    const marketRecommendations: MarketRecommendation[] = input.includeMarketRecommendations === false
+      ? []
+      : buildMarketRecommendations({
+          adp: input.adp,
+          currentPick,
+          drafted,
+          evaluatedById: new Map(rows.map((recommendation) => [recommendation.playerId, recommendation])),
+          scoredIds: new Set(scores.keys()),
+        });
+    return {
+      recommendations,
+      hasMoreRecommendations: sorted.length > limit,
+      marketRecommendations,
+      ...(recommendationViews ? { recommendationViews } : {}),
+      diagnostics: {
+        unmatchedPickCount,
+        unmatchedPickOveralls,
+        candidatesEvaluated: stageCActive ? candidates.length : selectCandidates(displayPlayers, scores, limit).length,
+        replacementLevels: levels,
+        positionalDemand: demand,
+        coreStartingSlotsFilled: coreFilled,
+        specialTeamsDraft,
+        simulation: simulationDiagnostics,
+      },
+      ...(analysis ? { analysis } : {}),
+    };
+  }
+
+  const deterministicRows = evaluated.map((row) => ({
+    ...row,
+    pickAction: computePickAction(row, currentPick, valueAnchor),
+  }));
+
+  function refineFromEvaluated(baseRows: Recommendation[]): RecommendationResult | Promise<RecommendationResult> {
+  let nextRows = applyOnePickPlanning(baseRows);
+  nextRows = nextRows.map((row) => ({ ...row, pickAction: computePickAction(row, currentPick, valueAnchor) }));
 
   let simulationDiagnostics: SimulationDiagnostics | null = null;
-  let sortSet = evaluated;
-  let simulatedBoardActive = false;
   let rolloutPoolSize = 0;
-  if (stageC && simulationContext && input.myTeamId != null) {
-    const deterministicOrder = [...evaluated]
+
+  const finish = (): RecommendationResult => assembleBoard(
+    nextRows,
+    simulationDiagnostics,
+    planningActive,
+    stageC,
+    rolloutPoolSize,
+  );
+
+  if (!(stageC && simulationContext && input.myTeamId != null)) return finish();
+
+  const myTeamId = input.myTeamId;
+  {
+    const deterministicOrder = [...nextRows]
       .filter((recommendation) => dispositionByPlayerId.get(recommendation.playerId) !== 'unavailable'
-        // Expansion-only rows never compete for the rollout pool — see EXPANSION_DEPTH's doc.
+        // Expansion-only rows never compete for the rollout pool — see the expansion-depth docs.
         && simulationEligibleIds.has(recommendation.playerId))
       .sort((a, b) => {
         const aPosition = playersById.get(a.playerId)?.position;
@@ -1311,237 +1550,102 @@ export function buildRecommendationBoard(input: RecommendationInput): Recommenda
       : cappedCandidatePool.slice(0, simulationCandidateLimit);
     const opponentConfig = simulationContext.opponentConfig ?? defaultOpponentModelConfig(simulationContext.teams, simulationContext.rounds);
     const key = simulationKey(input, simulationContext, remainingPlayers, myRoster, simulationCandidates, scores, executionMode, opponentConfig);
-    let result: SimulationResult;
-    // An injected clock is test-only execution control, not a serializable state value. Bypass the
-    // cache for it so callers can observe their supplied clock exactly; ordinary production calls
-    // use the complete key above and therefore remain deterministic and transparent.
-    if (simulationContext.now == null && simulationCache?.key === key) {
-      result = simulationCache.result;
-    } else {
-      result = runSimulation({
-        settings: input.settings,
-        draftType: simulationContext.draftType,
-        teams: simulationContext.teams,
-        rounds: simulationContext.rounds,
-        slotToTeam: simulationContext.slotToTeam,
-        draftId: simulationContext.draftId,
-        myTeamId: input.myTeamId,
-        myRoster,
-        scores,
-        candidates: simulationCandidates,
-        remainingPlayers,
-        adp: input.adp,
-        picks: input.picks,
-        playersById,
-        decisionPick: simulationContext.decisionPick,
-        followUpPick: simulationContext.followUpPick,
-        opponentConfig,
-        executionMode,
-        now: simulationContext.now,
-        // Coarser and hits more often than the simulationCache entry above (depends only on
-        // picks+settings, not rollout pool/opponent config/execution mode) — see its own doc.
-        precomputedTeamRosters: getTeamRosters(input.settings, input.picks, playersById, scores, simulationContext.decisionPick),
-      });
-      if (simulationContext.now == null) simulationCache = { key, result };
-    }
-    simulationDiagnostics = result.diagnostics;
-    // A null follow-up is the valid final-pick deterministic collapse. The only zero-run fallback
-    // has already selected the S2 path above (explicit scenarios: 0 with a real follow-up).
-    simulatedBoardActive = simulationContext.followUpPick == null || result.diagnostics.scenariosRun > 0;
-    if (simulatedBoardActive) {
-      const simulationByPlayerId = new Map(result.candidates.map((candidate) => [candidate.playerId, candidate]));
-      evaluated = evaluated.map((recommendation) => {
-        const player = playersById.get(recommendation.playerId);
-        const simulation = player && player.position !== 'K' && player.position !== 'DEF'
-          ? simulationByPlayerId.get(recommendation.playerId)
-          : undefined;
-        if (!simulation) return recommendation;
-        const reasons = recommendation.reasons.filter((reason) => !reason.startsWith('Simulation check:'));
-        reasons.push('Simulation check: ' + Math.round(simulation.simulatedSurvivalProbability * 100)
-          + '% seeded-rollout chance to still be available next turn; analytic availability remains the primary timing input.');
-        const warnings = result.diagnostics.timedOut
-          ? [...recommendation.warnings, 'Rollout truncated after ' + result.diagnostics.scenariosRun + '/' + executionMode.scenarios + ' scenarios; wait-cost estimates are directional.']
-          : recommendation.warnings;
-        return {
-          ...recommendation,
-          lookaheadValue: simulation.lookaheadValue,
-          downside: simulation.downside,
-          simulatedSurvivalProbability: simulation.simulatedSurvivalProbability,
-          reasons,
-          warnings,
-        };
-      });
-      evaluated = applyOnePickPlanning(evaluated);
-      // All evaluated analytic rows are sorted for display, not only rollout participants — rows
-      // outside the rollout pool (including every expansion-only row) simply carry null simulation
-      // diagnostics (see the `simulation` lookup above, which only populates rollout participants).
-      sortSet = evaluated.filter((recommendation) => input.displayPosition == null || playersById.get(recommendation.playerId)?.position === input.displayPosition);
-    }
-  }
-
-  sortSet = sortSet.filter((recommendation) =>
-    input.displayPosition == null || playersById.get(recommendation.playerId)?.position === input.displayPosition);
-  const usePlanSort = planningActive && !isSpecialTeamsDisplay;
-
-  const sorted = isSpecialTeamsDisplay
-    ? [...sortSet].sort((a, b) => b.projectedPoints - a.projectedPoints || a.playerId.localeCompare(b.playerId))
-    : sortSet.filter((recommendation) => dispositionByPlayerId.get(recommendation.playerId) !== 'unavailable').sort((a, b) => {
-    const aPosition = playersById.get(a.playerId)?.position;
-    const bPosition = playersById.get(b.playerId)?.position;
-    const aOverdueBy = aPosition === 'K' || aPosition === 'DEF' ? overdueBy(aPosition, specialTeamsDraft) : 0;
-    const bOverdueBy = bPosition === 'K' || bPosition === 'DEF' ? overdueBy(bPosition, specialTeamsDraft) : 0;
-    // Bench mode's primary key is roster-aware insurance value (benchDepthValue), not the
-    // cross-position VOR ladder that `b.vor - a.vor` below still serves only as a late tiebreak —
-    // see PLAN.md's bench-mode revision for why a positional-baseline VOR ladder as the *primary*
-    // bench sort key contradicts the "no unnecessary QB2/TE2" roster policy on real committed data.
-    const valueComparison = usePlanSort
-      ? b.planValue - a.planValue
-      : b.marginalRosterUtility - a.marginalRosterUtility;
-    return dispositionSortClass(dispositionByPlayerId.get(a.playerId) ?? 'normal')
-    - dispositionSortClass(dispositionByPlayerId.get(b.playerId) ?? 'normal')
-    || bOverdueBy - aOverdueBy
-    || valueComparison
-    || b.vor - a.vor
-    || b.projectedPoints - a.projectedPoints
-    || a.playerId.localeCompare(b.playerId);
-  });
-
-  const analysis: RecommendationAnalysis | undefined = input.includeAnalysisRows
-    ? {
-        deterministicRows: evaluated,
-        simulatedRows: sortSet,
-        deterministicCandidateCount: expandedCandidates.length,
-      simulatedCandidateCount: sortSet.filter((recommendation) => recommendation.simulatedSurvivalProbability != null).length,
-        rolloutPoolSize,
-      }
-    : undefined;
-
-  // Localized near-tie bands (validated decisions): walk the full priority-sorted order and, for
-  // each unclaimed row, treat it as a fixed anchor for its own band — every later row within
-  // `max(1, 1% * |anchor value|)` of *that anchor* (never a chained neighbor-to-neighbor gap, which
-  // could transitively balloon a band) joins it, until a row falls outside the threshold or crosses
-  // a special-teams disposition class or ranking-basis boundary, which always starts a new band
-  // regardless of value proximity. A row's own `rankingBasis` selects its comparison value, so a
-  // mixed All-tab board compares skill and special-teams rows on their own terms, never against
-  // each other. `nearTie` is set for every member of any band with 2+ rows.
-  function rankingValue(recommendation: Recommendation): number {
-    switch (recommendation.rankingBasis) {
-      case 'planValue': return recommendation.planValue;
-      case 'specialTeams': return recommendation.projectedPoints;
-      case 'rosterUtility': default: return recommendation.marginalRosterUtility;
-    }
-  }
-  // Within a detected band, reorder members by which is most urgent to take *now* rather than by
-  // the plan-value/roster-utility sort that placed them in the band in the first place: lower
-  // next-pick survival first (more likely to disappear), then earlier ADP, then plan value, then
-  // player ID. Missing survival/ADP always sorts after every known value (validated decisions).
-  function compareWithinBand(a: Recommendation, b: Recommendation): number {
-    const aSurvival = a.availableNextPickProbability ?? a.simulatedSurvivalProbability;
-    const bSurvival = b.availableNextPickProbability ?? b.simulatedSurvivalProbability;
-    if (aSurvival == null && bSurvival != null) return 1;
-    if (aSurvival != null && bSurvival == null) return -1;
-    if (aSurvival != null && bSurvival != null && aSurvival !== bSurvival) return aSurvival - bSurvival;
-    const aAdp = a.availabilityAdp;
-    const bAdp = b.availabilityAdp;
-    if (aAdp == null && bAdp != null) return 1;
-    if (aAdp != null && bAdp == null) return -1;
-    if (aAdp != null && bAdp != null && aAdp !== bAdp) return aAdp - bAdp;
-    if (a.planValue !== b.planValue) return b.planValue - a.planValue;
-    return a.playerId.localeCompare(b.playerId);
-  }
-  const nearTieIds = new Set<PlayerId>();
-  let bandStart = 0;
-  while (bandStart < sorted.length) {
-    const anchor = sorted[bandStart] as Recommendation;
-    const anchorClass = dispositionSortClass(dispositionByPlayerId.get(anchor.playerId) ?? 'normal');
-    const anchorValue = rankingValue(anchor);
-    const threshold = Math.max(1, 0.01 * Math.abs(anchorValue));
-    let bandEnd = bandStart + 1;
-    while (bandEnd < sorted.length) {
-      const candidate = sorted[bandEnd] as Recommendation;
-      if (candidate.rankingBasis !== anchor.rankingBasis) break;
-      if (dispositionSortClass(dispositionByPlayerId.get(candidate.playerId) ?? 'normal') !== anchorClass) break;
-      if (Math.abs(rankingValue(candidate) - anchorValue) > threshold) break;
-      bandEnd += 1;
-    }
-    if (bandEnd - bandStart >= 2) {
-      const bandMembers = sorted.slice(bandStart, bandEnd).sort(compareWithinBand);
-      for (let i = 0; i < bandMembers.length; i += 1) {
-        const member = bandMembers[i] as Recommendation;
-        sorted[bandStart + i] = member;
-        nearTieIds.add(member.playerId);
-      }
-    }
-    bandStart = bandEnd;
-  }
-
-  const displayed = sorted.slice(0, limit);
-
-  // Exact identity only needs resolving for cards actually shown — the "alternative" named in the
-  // reasons text below reads only its name/position/availability, never its own assignedRosterSlot.
-  const displayedExact = displayed.map(patchExactAssignment);
-
-  const recommendations = displayedExact.map((recommendation, index) => {
-    const alternative = sorted[index + 1];
-    const altPlayer = alternative && playersById.get(alternative.playerId);
-    const reasons = alternative && altPlayer
-      ? [
-          ...recommendation.reasons,
-          alternative.availableNextPickProbability != null
-            ? `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}); the ADP model estimates ${Math.round(alternative.availableNextPickProbability * 100)}% next-pick availability.`
-            : `Next value-board option: ${altPlayer.name} (${altPlayer.position ?? ''}).`,
-        ]
-      : recommendation.reasons;
-    return {
-      ...recommendation,
-      reasons,
-      rank: index + 1,
-      nearTie: nearTieIds.has(recommendation.playerId),
+    const simInput = {
+      settings: input.settings,
+      draftType: simulationContext.draftType,
+      teams: simulationContext.teams,
+      rounds: simulationContext.rounds,
+      slotToTeam: simulationContext.slotToTeam,
+      draftId: simulationContext.draftId,
+      myTeamId,
+      myRoster,
+      scores,
+      candidates: simulationCandidates,
+      remainingPlayers,
+      adp: input.adp,
+      picks: input.picks,
+      playersById,
+      decisionPick: simulationContext.decisionPick,
+      followUpPick: simulationContext.followUpPick,
+      opponentConfig,
+      executionMode,
+      now: simulationContext.now,
+      precomputedTeamRosters: getTeamRosters(input.settings, input.picks, playersById, scores, simulationContext.decisionPick),
     };
-  });
+    const applySimulation = (result: SimulationResult): RecommendationResult => {
+      if (simulationContext.now == null) simulationCache = { key, result };
+      simulationDiagnostics = result.diagnostics;
+      if (simulationContext.followUpPick == null || result.diagnostics.scenariosRun > 0) {
+        const simulationByPlayerId = new Map(result.candidates.map((candidate) => [candidate.playerId, candidate]));
+        nextRows = nextRows.map((recommendation) => {
+          const player = playersById.get(recommendation.playerId);
+          const simulation = player && player.position !== 'K' && player.position !== 'DEF'
+            ? simulationByPlayerId.get(recommendation.playerId)
+            : undefined;
+          if (!simulation) return recommendation;
+          const reasons = recommendation.reasons.filter((reason) => !reason.startsWith('Simulation check:'));
+          reasons.push('Simulation check: ' + Math.round(simulation.simulatedSurvivalProbability * 100)
+            + '% seeded-rollout chance to still be available next turn; analytic availability remains the primary timing input.');
+          const warnings = result.diagnostics.timedOut
+            ? [...recommendation.warnings, 'Rollout truncated after ' + result.diagnostics.scenariosRun + '/' + executionMode.scenarios + ' scenarios; wait-cost estimates are directional.']
+            : recommendation.warnings;
+          return {
+            ...recommendation,
+            lookaheadValue: simulation.lookaheadValue,
+            downside: simulation.downside,
+            simulatedSurvivalProbability: simulation.simulatedSurvivalProbability,
+            reasons,
+            warnings,
+          };
+        });
+        nextRows = applyOnePickPlanning(nextRows);
+      }
+      return finish();
+    };
+    if (simulationContext.now == null && simulationCache?.key === key) {
+      return applySimulation(simulationCache.result);
+    }
+    if (options?.yieldBetweenBatches) {
+      return runSimulationAsync(simInput, options.yieldBetweenBatches, options.shouldAbort).then(applySimulation);
+    }
+    return applySimulation(runSimulation(simInput));
+  }
+  }
 
-  // ADP/market board: league-wide, never filtered by `displayPosition` (callers filter this
-  // themselves — see `RecommendationResult.marketRecommendations`'s doc). Joined against `evaluated`
-  // (the fixed-expansion superset above), which covers every projection-backed player the market
-  // board is likely to show; a projection-backed player outside that superset still receives
-  // `recommendation: null` rather than a thrown error, since ADP coverage can exceed it.
-  const evaluatedById = new Map(evaluated.map((recommendation) => [recommendation.playerId, recommendation]));
-  const marketEligible = input.adp
+  if (options?.onDeterministicSnapshot) {
+    const snapshot = assembleBoard(deterministicRows, null, false, false, 0);
+    return Promise.resolve(options.onDeterministicSnapshot(snapshot)).then((signal) => {
+      if (signal === 'abort' || options.shouldAbort?.()) return null;
+      return refineFromEvaluated(deterministicRows);
+    });
+  }
+  return refineFromEvaluated(deterministicRows);
+}
+
+export function buildMarketRecommendations(args: {
+  adp: readonly AdpEntry[];
+  currentPick: number;
+  drafted: ReadonlySet<PlayerId>;
+  evaluatedById: ReadonlyMap<PlayerId, Recommendation>;
+  scoredIds: ReadonlySet<PlayerId>;
+}): MarketRecommendation[] {
+  const marketEligible = args.adp
     .filter((entry): entry is typeof entry & { playerId: PlayerId } =>
-      entry.playerId != null && !drafted.has(entry.playerId) && Number.isFinite(entry.adp))
-    .map((entry) => ({ playerId: entry.playerId, adp: entry.adp, pickDelta: entry.adp - currentPick }));
+      entry.playerId != null && !args.drafted.has(entry.playerId) && Number.isFinite(entry.adp))
+    .map((entry) => ({ playerId: entry.playerId, adp: entry.adp, pickDelta: entry.adp - args.currentPick }));
   const marketOrderCompare = (a: typeof marketEligible[number], b: typeof marketEligible[number]) =>
     a.pickDelta - b.pickDelta || a.adp - b.adp || a.playerId.localeCompare(b.playerId);
   const pastAdp = marketEligible.filter((entry) => entry.pickDelta < 0).sort(marketOrderCompare);
   const upcoming = marketEligible.filter((entry) => entry.pickDelta >= 0).sort(marketOrderCompare);
-  const marketRecommendations: MarketRecommendation[] = [...pastAdp, ...upcoming].map((entry, index) => ({
+  return [...pastAdp, ...upcoming].map((entry, index) => ({
     playerId: entry.playerId,
     rank: index + 1,
     adp: entry.adp,
     pickDelta: entry.pickDelta,
-    recommendation: scores.has(entry.playerId) ? evaluatedById.get(entry.playerId) ?? null : null,
+    recommendation: args.scoredIds.has(entry.playerId) ? args.evaluatedById.get(entry.playerId) ?? null : null,
   }));
-
-  return {
-    recommendations,
-    hasMoreRecommendations: sorted.length > limit,
-    marketRecommendations,
-    diagnostics: {
-      unmatchedPickCount,
-      unmatchedPickOveralls,
-      // The user-facing diagnostic remains display-scoped outside Stage C even though analytic
-      // planning evaluates a wider shared follow-up pool internally. Stage C reports that shared
-      // rollout pool because every tab is drawn from it.
-      candidatesEvaluated: stageC ? candidates.length : selectCandidates(displayPlayers, scores, limit).length,
-      replacementLevels: levels,
-      positionalDemand: demand,
-      coreStartingSlotsFilled: coreFilled,
-      specialTeamsDraft,
-      simulation: simulationDiagnostics,
-    },
-    ...(analysis ? { analysis } : {}),
-  };
 }
+
 
 export function buildRecommendations(input: RecommendationInput): Recommendation[] {
   return buildRecommendationBoard(input).recommendations;

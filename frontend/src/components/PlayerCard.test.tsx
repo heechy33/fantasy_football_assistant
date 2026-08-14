@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+﻿import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdpEntry, PlayerMeta, PlayerUsage } from '../../../shared/types';
@@ -79,25 +79,6 @@ describe('PlayerCard with a recommendation', () => {
       />,
     );
     expect(screen.getByText('ADP RB2')).toBeInTheDocument();
-  });
-
-  it('shows the hybrid survival meter from availableNextPickProbability', () => {
-    render(<PlayerCard playerId="rb2" recommendation={baseRecommendation()} player={player} rank={2} onViewDetails={vi.fn()} />);
-    expect(screen.getByText('40%')).toBeInTheDocument();
-    expect(screen.getByRole('meter')).toHaveAttribute('aria-valuetext', '40 percent, shiii mayb');
-  });
-
-  it('omits the survival meter when next-pick probability is null', () => {
-    render(
-      <PlayerCard
-        playerId="rb2"
-        recommendation={baseRecommendation({ availableNextPickProbability: null })}
-        player={player}
-        rank={2}
-        onViewDetails={vi.fn()}
-      />,
-    );
-    expect(screen.queryByRole('meter')).not.toBeInTheDocument();
   });
 
   it('shows an injury badge when the player has a status', () => {
@@ -202,7 +183,7 @@ describe('PlayerCard with a recommendation', () => {
 
   it('renders the Role tile from depthRole with the headline in the title', () => {
     const depthRole: TeamDepthRole = {
-      playerId: 'rb2', label: 'RB1', headline: 'RB1 · BUF RB',
+      playerId: 'rb2', label: 'RB1', headline: 'RB1 Â· BUF RB',
       provenance: 'Slot from 2025 BUF carry share; Sleeper lists him RB1.',
       slot: 1, basis: 'volume', shape: 'clear', room: null,
     };
@@ -219,13 +200,13 @@ describe('PlayerCard with a recommendation', () => {
     expect(screen.getByText('Role')).toBeInTheDocument();
     expect(screen.getByText('RB1')).toBeInTheDocument();
     expect(screen.getByText('RB1').closest('[data-role-basis]')).toHaveAttribute('data-role-basis', 'volume');
-    expect(screen.getByTitle('RB1 · BUF RB')).toBeInTheDocument();
+    expect(screen.getByTitle('RB1 Â· BUF RB')).toBeInTheDocument();
   });
 
   it('renders an em dash with data-role-basis unknown when depthRole is absent (never a guess)', () => {
     render(<PlayerCard playerId="rb2" recommendation={baseRecommendation()} player={player} rank={2} onViewDetails={vi.fn()} />);
     expect(screen.getByText('Role')).toBeInTheDocument();
-    const dd = screen.getByText('—');
+    const dd = screen.getByText('\u2014');
     expect(dd.closest('[data-role-basis]')).toHaveAttribute('data-role-basis', 'unknown');
   });
 
@@ -253,17 +234,9 @@ describe('PlayerCard with a recommendation', () => {
     );
     expect(screen.queryByText('Role')).not.toBeInTheDocument();
     expect(screen.getByText('Avg fpts')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('\u2014')).toBeInTheDocument();
   });
 
-
-  it('calls onViewDetails when Details is clicked', async () => {
-    const onViewDetails = vi.fn();
-    const user = userEvent.setup();
-    render(<PlayerCard playerId="rb2" recommendation={baseRecommendation()} player={player} rank={2} onViewDetails={onViewDetails} />);
-    await user.click(screen.getByRole('button', { name: 'View details' }));
-    expect(onViewDetails).toHaveBeenCalledTimes(1);
-  });
 
   it('opens details from a click anywhere on the card face', async () => {
     const onViewDetails = vi.fn();
@@ -325,11 +298,11 @@ describe('PlayerCard with recommendation: null (market-only row)', () => {
     expect(screen.queryByRole('meter')).not.toBeInTheDocument();
   });
 
-  it('still opens Details for a market-only row', async () => {
+  it('still opens details when a market-only card is clicked', async () => {
     const onViewDetails = vi.fn();
     const user = userEvent.setup();
     render(<PlayerCard playerId="rb2" recommendation={null} player={player} rank={4} onViewDetails={onViewDetails} />);
-    await user.click(screen.getByRole('button', { name: 'View details' }));
+    await user.click(screen.getByText('Two'));
     expect(onViewDetails).toHaveBeenCalledTimes(1);
   });
 

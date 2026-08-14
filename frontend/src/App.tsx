@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DataManifest, OnTheClock, PlayerId, SleeperCred } from '../../shared/types';
+import type { DataManifest, OnTheClock, Pick, PlayerId, SleeperCred } from '../../shared/types';
 import { canonicalPicksSignature, computeOnTheClock, roundPickLabel, userPickBoundaries, type UserPickBoundaries } from './adapters/draftOrder';
 import { sleeperAdapter } from './adapters/sleeper';
 import { ConnectSleeper } from './components/ConnectSleeper';
@@ -25,6 +25,10 @@ interface Correcting {
 }
 
 const IDLE_CRED: SleeperCred = { provider: 'sleeper', userId: '' };
+/** Stable empty live layer so the board hook's `effectivePicks` memo keeps its identity while no
+ * draft is connected — a fresh `[]` every render would defeat the memo (and the clock memos that
+ * depend on it). */
+const EMPTY_PICKS: Pick[] = [];
 
 function adpFormatForDraft(reception: string | undefined, qb: string | undefined): AdpFormat {
   if (qb === 'two-qb' || qb === 'superflex') return '2qb';
@@ -39,8 +43,6 @@ export default function App() {
   const [rankedPlayers, setRankedPlayers] = useState<RankedPlayer[]>([]);
   const [correcting, setCorrecting] = useState<Correcting | null>(null);
   const [hydrated, setHydrated] = useState(false);
-
-  const board = useDraftBoardState();
 
   useEffect(() => {
     fetch('/data/manifest.json')
@@ -71,6 +73,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const draftId = session.kind === 'connected' ? session.draftId : null;
+  const cred = session.kind === 'connected' ? session.cred : IDLE_CRED;
+  const poll = useDraftPoll({ adapter: sleeperAdapter, cred, draftId });
+  // Live picks flow straight from the poll into the effective draft state (merged with manual
+  // overrides) — no effect-driven relay, so a changed poll renders the log/clock once, not twice.
+  const board = useDraftBoardState(poll.draftPicks?.picks ?? EMPTY_PICKS, undefined, poll.lastChangedPollId);
+
   useEffect(() => {
     if (!hydrated) return;
     savePersistedSession({
@@ -81,9 +90,6 @@ export default function App() {
     });
   }, [hydrated, session, board.state.overrides]);
 
-  const draftId = session.kind === 'connected' ? session.draftId : null;
-  const cred = session.kind === 'connected' ? session.cred : IDLE_CRED;
-  const poll = useDraftPoll({ adapter: sleeperAdapter, cred, draftId });
   const adpFormat = adpFormatForDraft(poll.draftInit?.settings.format.reception, poll.draftInit?.settings.format.qb);
 
   // Clock math lifted up from DraftWorkspace so the full-bleed TopNav hero/countdown and the
@@ -138,11 +144,6 @@ export default function App() {
     return () => { active = false; };
   }, [adpFormat]);
 
-  useEffect(() => {
-    if (poll.draftPicks) board.setLivePicks(poll.draftPicks.picks);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poll.draftPicks]);
-
   function handleConnect(newCred: SleeperCred, newDraftId: string) {
     board.reset('live');
     setCorrecting(null);
@@ -194,8 +195,9 @@ export default function App() {
         onChooseAnotherDraft={session.kind === 'connected' ? handleChooseAnotherDraft : undefined}
         leagueName={poll.draftInit?.settings.name ?? null}
         adpFormat={adpFormat}
-        isStale={session.kind === 'connected' ? poll.isStale : false}
-        dataAgeMs={session.kind === 'connected' ? poll.dataAgeMs : null}
+        isStale={false}
+        dataAgeMs={null}
+        pollHealthRef={session.kind === 'connected' ? poll.healthRef : null}
       />
       <main className="app-shell">
 
@@ -256,10 +258,10 @@ export default function App() {
                 <DraftWorkspace
                   draftInit={poll.draftInit}
                   effectivePicks={board.effectivePicks}
-                  onCorrectPick={(overall) => setCorrecting({ mode: 'correct-existing', overall })}
                   manifest={manifest}
                   adpFormat={adpFormat}
                   picksSignature={picksSignature}
+                  timingPollId={poll.lastChangedPollId}
                   onTheClock={onTheClock}
                   boundaries={boundaries}
                 />
@@ -302,6 +304,7 @@ export default function App() {
               dataAgeMs={session.kind === 'connected' ? poll.dataAgeMs : null}
               consecutiveFailures={session.kind === 'connected' ? poll.consecutiveFailures : 0}
               lastError={session.kind === 'connected' ? poll.lastError : null}
+              pollHealthRef={session.kind === 'connected' ? poll.healthRef : null}
               adpFormat={adpFormat}
             />
           )}

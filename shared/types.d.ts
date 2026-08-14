@@ -754,8 +754,9 @@ export interface ProviderAdapter {
   /** Once per draft. May be slow. */
   init(cred: Cred, draftId: string): Promise<DraftInit>;
 
-  /** Hot path: exactly one upstream GET, called every 2-3s. */
-  picks(cred: Cred, draftId: string): Promise<DraftPicks>;
+  /** Hot path: exactly one upstream GET, called every 2-3s. Implementations must honor `signal`
+   * so a backgrounded or timed-out request cannot hold up the next foreground refresh. */
+  picks(cred: Cred, draftId: string, signal?: AbortSignal): Promise<DraftPicks>;
 
   /** In-season. */
   rosters(cred: Cred, leagueId: string): Promise<Roster[]>;

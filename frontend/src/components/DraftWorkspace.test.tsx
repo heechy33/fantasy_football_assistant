@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+﻿import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
@@ -16,7 +16,7 @@ import type { Recommendation, RecommendationDiagnostics } from '../engine/recomm
 import { canonicalPicksSignature, computeOnTheClock, userPickBoundaries } from '../adapters/draftOrder';
 import { DraftWorkspace } from './DraftWorkspace';
 
-// DraftWorkspace's own job is orchestration — banners, tabs, cards, drawers — not engine math,
+// DraftWorkspace's own job is orchestration â€” banners, tabs, cards, drawers â€” not engine math,
 // which already has extensive coverage in engine/*.test.ts (including the position-tab override and
 // near-tie computation this test exercises the *rendering* of). Mocking the engine call and the data
 // hook isolates that orchestration from needing real scoring/ADP inputs to hit exact thresholds.
@@ -25,6 +25,40 @@ vi.mock('../engine/recommend', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../engine/recommend')>();
   return { ...actual, buildRecommendationBoard: (input: unknown) => buildRecommendationBoard(input) };
 });
+
+let cachedWorkerKey: string | null = null;
+let cachedWorkerResult: ReturnType<typeof buildRecommendationBoard> | null = null;
+// Lets the "log advances while refinement is still in flight" test hold the worker result open;
+// every other test keeps the default 'refined' board.
+let mockRefinementStatus: 'refining' | 'refined' | 'idle' = 'refined';
+vi.mock('../hooks/useRecommendationRefinement', () => ({
+  useRecommendationRefinement: ({
+    enabled, requestKey, input,
+  }: {
+    enabled: boolean;
+    requestKey: string;
+    input: ({ availabilityEntries: Array<[string, number]> } & Record<string, unknown>) | null;
+  }) => {
+    if (!enabled || input == null) return { status: 'idle', result: null, error: null, timings: null, workerReady: true };
+    if (cachedWorkerKey !== requestKey) {
+      cachedWorkerKey = requestKey;
+      cachedWorkerResult = buildRecommendationBoard({
+        ...input,
+        players: mockPlayers,
+        projections: mockProjections,
+        adp: mockAdp,
+        availabilityByPlayer: new Map(input.availabilityEntries),
+      });
+    }
+    return {
+      status: mockRefinementStatus,
+      result: mockRefinementStatus === 'refining' ? null : cachedWorkerResult,
+      error: null,
+      timings: null,
+      workerReady: true,
+    };
+  },
+}));
 
 let isNarrow = false;
 vi.mock('../hooks/useMediaQuery', () => ({ useMediaQuery: () => isNarrow }));
@@ -58,7 +92,7 @@ const manifest: DataManifest = {
 };
 
 // `resolvePlayerContextFeedStatus` requires all four nflverse context sources 'ok' (in addition to
-// usageLoadStatus 'ready') before it calls the feed "ready" — see data/playerContext.ts. `manifest`
+// usageLoadStatus 'ready') before it calls the feed "ready" â€” see data/playerContext.ts. `manifest`
 // above deliberately lacks these (most tests in this file don't care about the context feed), so
 // the team-depth-role tests that need a trustworthy usage feed use this variant instead.
 const contextReadyManifest: DataManifest = {
@@ -160,12 +194,11 @@ function defaultProps(overrides: Partial<Parameters<typeof DraftWorkspace>[0]> =
   const merged = {
     draftInit,
     effectivePicks: [] as Pick[],
-    onCorrectPick: vi.fn(),
     manifest,
     adpFormat: 'ppr' as const,
     ...overrides,
   };
-  // Clock memos are owned by App in production and passed in — reproduce them here so every test's
+  // Clock memos are owned by App in production and passed in â€” reproduce them here so every test's
   // onTheClock/boundaries stay consistent with the effectivePicks/draftInit it actually renders.
   return {
     ...merged,
@@ -189,6 +222,9 @@ afterEach(() => {
   mockProjections = projections;
   mockAdp = [];
   buildRecommendationBoard.mockReset();
+  cachedWorkerKey = null;
+  cachedWorkerResult = null;
+  mockRefinementStatus = 'refined';
 });
 
 describe('DraftWorkspace recommendation cards and tabs', () => {
@@ -227,6 +263,39 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     expect(within(cards[2]!).getByText('Three')).toBeInTheDocument();
   });
 
+  it('advances drafted log rows and the on-clock row while Stage C refinement is still in flight', () => {
+    buildRecommendationBoard.mockReturnValue(allBoard);
+    mockRefinementStatus = 'refining';
+    // 3 teams so bot picks can land between two of my on-clock turns (slot 1: overall 1, then 6).
+    const threeTeamsSettings: LeagueSettings = { ...settings, teams: 3 };
+    const threeTeamDraft: DraftInit = {
+      provider: 'sleeper', draftId: 'd3', leagueId: 'l1', draftType: 'snake', teams: 3, rounds: 2,
+      slotToTeam: { 1: 'me', 2: 'them-a', 3: 'them-b' }, myTeamId: 'me', mySlot: 1, settings: threeTeamsSettings,
+    };
+    const { rerender } = render(<DraftWorkspace {...defaultProps({ draftInit: threeTeamDraft })} />);
+
+    // On the clock at overall 1 with the worker still refining â€” the log is already painted.
+    expect(screen.getAllByText("You're on the clock").length).toBeGreaterThan(0);
+
+    // The poll delivers 4 bot picks (overalls 2-5) while my decision refinement stays open; the
+    // same poll feed then lands me on the clock at overall 6 again.
+    const advancedPicks: Pick[] = [
+      { overall: 1, round: 1, slot: 1, teamId: 'me', playerId: 'rb1', providerPlayerId: 'rb1', providerPlayerName: 'Rush One' },
+      { overall: 2, round: 1, slot: 2, teamId: 'them-a', playerId: 'wr1', providerPlayerId: 'wr1', providerPlayerName: 'Bot Pick Two' },
+      { overall: 3, round: 1, slot: 3, teamId: 'them-b', playerId: 'te1', providerPlayerId: 'te1', providerPlayerName: 'Bot Pick Three' },
+      { overall: 4, round: 2, slot: 3, teamId: 'them-b', playerId: 'wr2', providerPlayerId: 'wr2', providerPlayerName: 'Bot Pick Four' },
+      { overall: 5, round: 2, slot: 2, teamId: 'them-a', playerId: 'qb1', providerPlayerId: 'qb1', providerPlayerName: 'Bot Pick Five' },
+    ];
+    rerender(<DraftWorkspace {...defaultProps({ draftInit: threeTeamDraft, effectivePicks: advancedPicks })} />);
+
+    // Every newly drafted row renders immediately â€” the log never waits on refinement.
+    expect(screen.getByText('Bot Pick Two')).toBeInTheDocument();
+    expect(screen.getByText('Bot Pick Five')).toBeInTheDocument();
+    // And the on-clock chip advanced to my next decision (overall 6) while refinement stayed open.
+    expect(screen.getAllByText("You're on the clock").length).toBeGreaterThan(0);
+    expect(mockRefinementStatus).toBe('refining');
+  });
+
   it('does not show near-tie advisory copy on the board', () => {
     buildRecommendationBoard.mockReturnValue({
       recommendations: [makeRecommendation({ playerId: 'rb1', rank: 1 }), makeRecommendation({ playerId: 'rb2', rank: 2 })],
@@ -256,19 +325,25 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     expect(screen.getByRole('tab', { name: 'Engine' })).toBeInTheDocument();
   });
 
-  it('re-requests the board with the tapped tab position and renders that tab\'s board, including a deprioritized K', async () => {
-    buildRecommendationBoard.mockImplementation((input: { displayPosition: string | null }) =>
-      input.displayPosition == null ? allBoard : kBoard,
-    );
+  it('switches to the precomputed position view without re-running the engine', async () => {
+    buildRecommendationBoard.mockReturnValue({
+      ...allBoard,
+      recommendationViews: {
+        ALL: allBoard.recommendations,
+        QB: [], RB: allBoard.recommendations, WR: [], TE: [],
+        K: kBoard.recommendations, DEF: [],
+      },
+    });
     const user = userEvent.setup();
     render(<DraftWorkspace {...defaultProps()} />);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('tab', { name: 'K' }));
 
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ displayPosition: 'K' }));
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Kick')).toBeInTheDocument();
     expect(screen.queryByText('K/DEF are held back until your core starting slots are filled.')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'View details' }));
+    await user.click(screen.getByText('Kick'));
     const dialog = screen.getByRole('dialog', { name: 'Kick One context' });
     expect(within(dialog).getByText('Kick One')).toBeInTheDocument();
     expect(within(dialog).getByText(/Engine ADP/)).toBeInTheDocument();
@@ -279,7 +354,7 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     const user = userEvent.setup();
     render(<DraftWorkspace {...defaultProps()} />);
 
-    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]!);
+    await user.click(screen.getByText('One'));
 
     const dialog = screen.getByRole('dialog', { name: 'Rush One context' });
     expect(dialog).toHaveAttribute('data-size', 'wide');
@@ -307,7 +382,7 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
 
   it('keeps the board visible on my final pick with availability shown as n/a', () => {
     // 2-team / 3-round snake, slot 1 = me: picks land 1-me, 2-them, 3-them, 4-me, 5-me, 6-them.
-    // Four picks done → on the clock for overall 5, me's last selection (decisionPick=5,
+    // Four picks done â†’ on the clock for overall 5, me's last selection (decisionPick=5,
     // followUpPick=null). Pre-fix this gated on derived nextPick and returned no-user-picks.
     buildRecommendationBoard.mockReturnValue({
       ...allBoard,
@@ -331,7 +406,7 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
       nextPick: null,
       currentPick: 5,
     }));
-    expect(buildRecommendationBoard.mock.calls[0]?.[0]).not.toHaveProperty('simulation');
+    expect(buildRecommendationBoard.mock.calls[0]?.[0]).toHaveProperty('simulation.followUpPick', null);
     expect(screen.queryByText('No remaining picks for your team.')).not.toBeInTheDocument();
     expect(screen.queryByText('The draft is complete.')).not.toBeInTheDocument();
 
@@ -342,14 +417,22 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     expect(within(card).queryByRole('meter')).not.toBeInTheDocument();
   });
 
-  it('builds the immediate deterministic board only on the user clock and distinguishes a missing seat', () => {
+  // The real hook inits the worker off-clock (at pool load) and computes only on the user clock;
+  // this mock models the compute gate, so the worker-init half lives in
+  // useRecommendationRefinement.test.ts and here we pin compute + Stage C to the clock.
+  it('computes only while on the user clock (Stage C stays on-clock) and distinguishes a missing seat', () => {
     buildRecommendationBoard.mockReturnValue(allBoard);
     render(<DraftWorkspace {...defaultProps()} />);
     expect(buildRecommendationBoard).toHaveBeenCalledWith(expect.objectContaining({
       currentPick: 1,
       nextPick: 4,
     }));
-    expect(buildRecommendationBoard.mock.calls[0]?.[0]).not.toHaveProperty('simulation');
+    expect(buildRecommendationBoard.mock.calls[0]?.[0]).toHaveProperty('includeRecommendationViews', false);
+    expect(buildRecommendationBoard.mock.calls[0]?.[0]).toHaveProperty('includeMarketRecommendations', false);
+    expect(buildRecommendationBoard.mock.calls[0]?.[0]).toHaveProperty('includeExpansion', false);
+    expect(buildRecommendationBoard.mock.calls[0]?.[0]).toHaveProperty('simulation.decisionPick', 1);
+    // Availability rides on the on-clock compute input, never on the static pool.
+    expect(buildRecommendationBoard.mock.calls[0]?.[0]).toHaveProperty('availabilityEntries', expect.any(Array));
 
     cleanup();
     buildRecommendationBoard.mockReset();
@@ -385,7 +468,7 @@ describe('DraftWorkspace draft-log clock wiring', () => {
     { overall: 1, round: 1, slot: 1, teamId: 'me', playerId: 'rb1', providerPlayerId: 'rb1' },
   ];
 
-  it('shows an ADP neighborhood between turns without running the recommendation engine', () => {
+  it('shows the ADP card board between turns without running the recommendation engine', async () => {
     mockAdp = ['rb2', 'rb3', 'k1'].map((playerId, index) => ({
       playerId,
       name: mockPlayersById.get(playerId)?.name ?? playerId,
@@ -403,9 +486,18 @@ describe('DraftWorkspace draft-log clock wiring', () => {
 
     render(<DraftWorkspace {...defaultProps({ effectivePicks: afterMyFirstPick })} />);
 
-    expect(screen.getByRole('region', { name: 'Likely available around pick 4' })).toBeInTheDocument();
-    expect(screen.getByText('Rush Two')).toBeInTheDocument();
-    expect(screen.getByText('ADP neighborhood, not recommendation order.')).toBeInTheDocument();
+    const cards = screen.getAllByRole('article');
+    expect(cards).toHaveLength(3);
+    expect(within(cards[0]!).getByText('Two')).toBeInTheDocument();
+    expect(within(cards[1]!).getByText('Three')).toBeInTheDocument();
+    expect(within(cards[2]!).getByText('Kick')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Engine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'ADP' })).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'K' }));
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.getByText('Kick')).toBeInTheDocument();
     expect(buildRecommendationBoard).not.toHaveBeenCalled();
   });
 
@@ -413,10 +505,10 @@ describe('DraftWorkspace draft-log clock wiring', () => {
     buildRecommendationBoard.mockReturnValue(allBoard);
     render(<DraftWorkspace {...defaultProps({ effectivePicks: afterMyFirstPick })} />);
 
-    // CommandBar is gone — the "N until your turn" countdown now lives in the top bar (TopNav).
+    // CommandBar is gone â€” the "N until your turn" countdown now lives in the top bar (TopNav).
     // DraftLog still gets the you-up chip from the same boundaries.decisionPick, never recomputing.
     expect(screen.getByText("You're up in 2 picks")).toBeInTheDocument();
-    expect(screen.getByText('2.02').closest('li')).toHaveAttribute('data-you-up', 'true');
+    expect(screen.getByText('#4').closest('li')).toHaveAttribute('data-you-up', 'true');
   });
 
   it('keeps the DraftLog you-up chip while the recommendation board is loading', () => {
@@ -458,21 +550,6 @@ describe('DraftWorkspace mobile drawers', () => {
     expect(screen.queryByRole('dialog', { name: 'Draft log' })).not.toBeInTheDocument();
   });
 
-  it('closes the mobile draft-log drawer before handing off Fix/Edit', async () => {
-    buildRecommendationBoard.mockReturnValue(allBoard);
-    isNarrow = true;
-    const onCorrectPick = vi.fn();
-    const user = userEvent.setup();
-    const pick = { overall: 1, round: 1, slot: 1, teamId: 'me', playerId: 'rb1', providerPlayerId: 'rb1' };
-    render(<DraftWorkspace {...defaultProps({ effectivePicks: [pick], onCorrectPick })} />);
-
-    await user.click(screen.getByRole('button', { name: 'Draft log' }));
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-
-    expect(onCorrectPick).toHaveBeenCalledWith(1);
-    expect(screen.queryByRole('dialog', { name: 'Draft log' })).not.toBeInTheDocument();
-  });
-
   it('opens player details in the unified drawer and closes the log drawer', async () => {
     buildRecommendationBoard.mockReturnValue(allBoard);
     isNarrow = true;
@@ -482,7 +559,7 @@ describe('DraftWorkspace mobile drawers', () => {
     await user.click(screen.getByRole('button', { name: 'Draft log' }));
     expect(screen.getByRole('dialog', { name: 'Draft log' })).toBeInTheDocument();
 
-    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]!);
+    await user.click(screen.getByText('One'));
     expect(screen.queryByRole('dialog', { name: 'Draft log' })).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Rush One context' })).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Rush One context' })).toHaveAttribute('data-size', 'wide');
@@ -495,14 +572,14 @@ describe('DraftWorkspace mobile drawers', () => {
     const user = userEvent.setup();
     render(<DraftWorkspace {...defaultProps()} />);
 
-    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]!);
+    await user.click(screen.getByText('One'));
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(screen.getByRole('dialog', { name: 'Rush One context' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]!);
+    await user.click(screen.getByText('One'));
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
 });
@@ -536,7 +613,7 @@ describe('DraftWorkspace weekly stats loading', () => {
     const user = userEvent.setup();
     render(<DraftWorkspace {...defaultProps()} />);
 
-    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]!);
+    await user.click(screen.getByText('One'));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/data/weekly-stats.json');
     });
@@ -555,26 +632,35 @@ describe('DraftWorkspace board mode and pagination', () => {
     const user = userEvent.setup();
     render(<DraftWorkspace {...defaultProps()} />);
 
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 6, rolloutDisplayLimit: 5 }));
+    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 24, rolloutDisplayLimit: 5 }));
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
     expect(screen.getAllByRole('article')).toHaveLength(6);
 
     await user.click(screen.getByRole('button', { name: 'Next players' }));
     await user.click(screen.getByRole('button', { name: 'Next players' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 12, rolloutDisplayLimit: 5 }));
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: 'Next players' }));
     await user.click(screen.getByRole('button', { name: 'Next players' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 18 }));
+    expect(screen.getAllByRole('article')).toHaveLength(18);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: 'Next players' }));
     await user.click(screen.getByRole('button', { name: 'Next players' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 24 }));
+    expect(screen.getAllByRole('article')).toHaveLength(24);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: /View \d+ more/ })).not.toBeInTheDocument();
   });
 
   it('resets pagination to 6 when switching position tabs', async () => {
-    buildRecommendationBoard.mockImplementation((input: { limit: number; displayPosition: string | null }) => ({
+    buildRecommendationBoard.mockImplementation((input: { limit: number }) => ({
       recommendations: Array.from({ length: input.limit }, (_, i) => makeRecommendation({ playerId: `p${i + 1}`, rank: i + 1 })),
+      recommendationViews: {
+        ALL: Array.from({ length: input.limit }, (_, i) => makeRecommendation({ playerId: `p${i + 1}`, rank: i + 1 })),
+        QB: [], RB: Array.from({ length: input.limit }, (_, i) => makeRecommendation({ playerId: `p${i + 1}`, rank: i + 1 })),
+        WR: [], TE: [], K: [], DEF: [],
+      },
       diagnostics: baseDiagnostics,
       hasMoreRecommendations: input.limit < 24,
       marketRecommendations: [],
@@ -584,10 +670,12 @@ describe('DraftWorkspace board mode and pagination', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next players' }));
     await user.click(screen.getByRole('button', { name: 'Next players' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 12 }));
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('tab', { name: 'RB' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 6, displayPosition: 'RB' }));
+    expect(screen.getAllByRole('article')).toHaveLength(6);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
   });
 
   it('resets pagination when the connected draft changes', async () => {
@@ -602,10 +690,13 @@ describe('DraftWorkspace board mode and pagination', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next players' }));
     await user.click(screen.getByRole('button', { name: 'Next players' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 12 }));
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
 
     rerender(<DraftWorkspace {...defaultProps({ draftInit: { ...draftInit, draftId: 'd2' } })} />);
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 6 }));
+    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 24 }));
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(2);
+    expect(screen.getAllByRole('article')).toHaveLength(6);
   });
 
   it('switches to ADP mode: card numbers become market-board rank, and a projection-less player renders a No-projection card', async () => {
@@ -630,7 +721,7 @@ describe('DraftWorkspace board mode and pagination', () => {
     const adpCards = screen.getAllByRole('article');
     expect(within(adpCards[0]!).getByText('#3')).toBeInTheDocument();
     expect(within(adpCards[1]!).getByText('#4')).toBeInTheDocument();
-    expect(screen.getByText('No projection — ADP only.')).toBeInTheDocument();
+    expect(screen.getByText('No projection \u2014 ADP only.')).toBeInTheDocument();
   });
 
   it('resets pagination to 6 when switching board mode', async () => {
@@ -647,10 +738,12 @@ describe('DraftWorkspace board mode and pagination', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next players' }));
     await user.click(screen.getByRole('button', { name: 'Next players' }));
-    expect(buildRecommendationBoard).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 12 }));
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('tab', { name: 'ADP' }));
     expect(screen.getAllByRole('article')).toHaveLength(6);
+    expect(buildRecommendationBoard).toHaveBeenCalledTimes(1);
   });
 
   it('does not show View more when the Engine board reports no additional rows', () => {
@@ -679,9 +772,9 @@ describe('DraftWorkspace team-depth role (Part B)', () => {
     expect(cards.length).toBeGreaterThan(0);
     const roleTiles = screen.getAllByText('Role').map((el) => el.closest('[data-role-basis]'));
     expect(roleTiles.length).toBe(cards.length);
-    // The feed never resolved, so the derivation was fed `{}` — a measured label must not appear.
+    // The feed never resolved, so the derivation was fed `{}` â€” a measured label must not appear.
     expect(screen.queryByText('RB1')).not.toBeInTheDocument();
-    expect(roleTiles.every((tile) => tile?.querySelector('dd')?.textContent === '—')).toBe(true);
+    expect(roleTiles.every((tile) => tile?.querySelector('dd')?.textContent === '\u2014')).toBe(true);
   });
 
   it('labels a card from usage once the context feed is ready', () => {
@@ -692,6 +785,41 @@ describe('DraftWorkspace team-depth role (Part B)', () => {
     // rb1 is the only RB with a measured carry share; rb2/rb3 have no usage row and no depth
     // chart order in this fixture, so they stay unlabeled (never a guess).
     expect(screen.getByText('RB1')).toBeInTheDocument();
+  });
+});
+
+describe('DraftWorkspace board presentation', () => {
+  it('shows the full capped board in Rows without a load-more action', async () => {
+    buildRecommendationBoard.mockImplementation((input: { limit: number }) => ({
+      recommendations: Array.from({ length: input.limit }, (_, i) => makeRecommendation({ playerId: `p${i + 1}`, rank: i + 1 })),
+      diagnostics: baseDiagnostics,
+      marketRecommendations: [],
+    }));
+    const user = userEvent.setup();
+    render(<DraftWorkspace {...defaultProps()} />);
+
+    await user.click(screen.getByRole('radio', { name: 'Rows' }));
+    expect(screen.getAllByRole('button', { name: /View details for/ })).toHaveLength(24);
+    expect(screen.queryByRole('button', { name: 'Load more players' })).not.toBeInTheDocument();
+  });
+
+  it('switches between cards and rows, forcing cards only on narrow screens', async () => {
+    buildRecommendationBoard.mockReturnValue(allBoard);
+    const user = userEvent.setup();
+    const { rerender } = render(<DraftWorkspace {...defaultProps()} />);
+
+    await user.click(screen.getByRole('radio', { name: 'Rows' }));
+    expect(screen.getAllByRole('button', { name: /View details for/ })).toHaveLength(3);
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+
+    isNarrow = true;
+    rerender(<DraftWorkspace {...defaultProps()} />);
+    expect(screen.queryByRole('radiogroup', { name: 'Board layout' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(3);
+
+    isNarrow = false;
+    rerender(<DraftWorkspace {...defaultProps()} />);
+    expect(screen.getAllByRole('button', { name: /View details for/ })).toHaveLength(3);
   });
 });
 
