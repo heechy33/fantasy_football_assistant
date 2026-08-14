@@ -1,15 +1,20 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { AdpEntry, DataManifest, PlayerMeta, PlayerUsageArtifact, SeasonProjection } from '../../../shared/types';
+import type { AdpEntry, DataManifest, PlayerMeta, PlayerUsageArtifact, ProviderProjectionsArtifact, SeasonProjection } from '../../../shared/types';
 import {
   validateAdpProvenance,
   validateAdpRanges,
+  validateFantasyProsAdp,
+  validateFantasyProsStars,
   validateFiniteProjections,
   validateManifestCrosswalk,
   validatePlayerUsage,
+  validateProviderProjections,
   validateUniquePlayerIds,
+  validateWeeklyScoring,
+  validateWeeklyStats,
 } from './dataInvariants';
 
 // Validates the real, committed pipeline output in data/ — not a fixture.
@@ -97,5 +102,288 @@ describe('committed data/*.json invariants', () => {
     const manifest = loadJson<DataManifest>('manifest.json');
     const usage = loadJson<PlayerUsageArtifact>('player-usage.json');
     expect(validatePlayerUsage(usage, Number(manifest.season))).toEqual([]);
+  });
+
+  it('validatePlayerUsage accepts missing production and rejects a mismatched PPG', () => {
+    const base: PlayerUsageArtifact = {
+      '1': {
+        season: 2025, usageSeasonObserved: true, snapPct: 0.5, targetShare: 0.2, carryShare: 0.3,
+        gamesWithAnySnap: 10, recentTeam: 'BUF', teamChanged: false, knownAbsent: false,
+        availabilityRate: 10 / 17,
+        seasons: [{ season: 2025, teamGamesWhileRostered: 17, gamesWithAnySnap: 10, availabilityRate: 10 / 17, injuryReportWeeks: 0, outWeeks: 0 }],
+        injuryHistory: [], durabilityScore: null, opportunity: null,
+      },
+    };
+    expect(validatePlayerUsage(base, 2026)).toEqual([]);
+    expect(validatePlayerUsage({
+      '1': {
+        ...base['1']!,
+        production: {
+          games: 10, pointsPpr: 100, pointsPprPerGame: 10,
+          receptions: 20, receivingYards: 200, receivingTds: 1, rushingYards: 50, rushingTds: 0,
+        },
+      },
+    }, 2026)).toEqual([]);
+    const issues = validatePlayerUsage({
+      '1': {
+        ...base['1']!,
+        production: {
+          games: 10, pointsPpr: 100, pointsPprPerGame: 8,
+          receptions: -1, receivingYards: 200, receivingTds: 1, rushingYards: 50, rushingTds: 0,
+        },
+      },
+    }, 2026);
+    expect(issues.map((issue) => issue.check).sort()).toEqual([
+      'context-production-count',
+      'context-production-ppg',
+    ]);
+  });
+
+  it('weekly-ppr.json is valid for the manifest draft season', () => {
+    const manifest = loadJson<DataManifest>('manifest.json');
+    const weekly = loadJson('weekly-ppr.json');
+    expect(validateWeeklyScoring(weekly, Number(manifest.season))).toEqual([]);
+  });
+
+  it('validateWeeklyScoring accepts negative points and rejects bad ordering/ranges', () => {
+    const valid = {
+      schemaVersion: 1,
+      season: 2025,
+      players: { '1': [{ week: 1, pointsPpr: -2.5 }, { week: 3, pointsPpr: 0 }] },
+    };
+    expect(validateWeeklyScoring(valid, 2026)).toEqual([]);
+    expect(validateWeeklyScoring({ schemaVersion: 1, season: 2025, players: {} }, 2026)).toEqual([]);
+
+    const invalid = {
+      ...valid,
+      schemaVersion: 0,
+      season: 2026,
+      players: {
+        '1': [
+          { week: 3, pointsPpr: 91 },
+          { week: 2, pointsPpr: -31 },
+          { week: 2, pointsPpr: 1 },
+          { week: 23, pointsPpr: Number.NaN },
+        ],
+      },
+    };
+    const checks = validateWeeklyScoring(invalid, 2026).map((entry) => entry.check);
+    expect(checks).toEqual(expect.arrayContaining([
+      'weekly-schema-version',
+      'weekly-season',
+      'weekly-points-range',
+      'weekly-week-order',
+      'weekly-duplicate-week',
+      'weekly-week-range',
+    ]));
+  });
+
+  it('weekly-stats.json is valid for the manifest draft season', () => {
+    const manifest = loadJson<DataManifest>('manifest.json');
+    const weeklyStats = loadJson('weekly-stats.json');
+    expect(validateWeeklyStats(weeklyStats, Number(manifest.season))).toEqual([]);
+  });
+
+  it('validateWeeklyStats accepts a well-formed artifact', () => {
+    const valid = {
+      schemaVersion: 1,
+      season: 2025,
+      weeksFetched: [1, 2, 3],
+      columns: { RB: ['pts', 'opp', 'snp', 'fin'] },
+      players: {
+        '1': { p: 'RB', bye: 9, w: [[1, 12.4, '@KC', 55, 5], [2, 0, 'DAL', 40, 12]] },
+      },
+      heat: { RB: { pts: [5, 10, 15, 20], opp: null } },
+    };
+    expect(validateWeeklyStats(valid, 2026)).toEqual([]);
+  });
+
+  it('validateWeeklyStats rejects season leakage, bad weeksFetched ordering, and row-width drift', () => {
+    const invalid = {
+      schemaVersion: 0,
+      season: 2026, // not prior to draftSeason=2026 -> leakage
+      weeksFetched: [2, 1, 1], // not strictly ascending/unique
+      columns: { RB: ['pts', 'opp', 'snp', 'fin'] },
+      players: {
+        '1': {
+          p: 'RB',
+          bye: 9,
+          // row length 4 != columns[RB].length(4) + 1(week) = 5 -- one short
+          w: [[1, 12.4, '@KC', 55]],
+        },
+        '2': {
+          // position not present in `columns` at all
+          p: 'QB',
+          bye: 7,
+          w: [[1, 20, 'DAL', 90, 1]],
+        },
+      },
+      heat: {},
+    };
+    const checks = validateWeeklyStats(invalid, 2026).map((entry) => entry.check);
+    expect(checks).toEqual(expect.arrayContaining([
+      'weekly-stats-schema-version',
+      'weekly-stats-season',
+      'weekly-stats-weeks-fetched-order',
+      'weekly-stats-row-width',
+      'weekly-stats-series-position',
+    ]));
+  });
+
+  it('validateWeeklyStats flags a row for a week absent from weeksFetched', () => {
+    const invalid = {
+      schemaVersion: 1,
+      season: 2025,
+      weeksFetched: [1], // week 2 never fetched
+      columns: { RB: ['pts', 'opp', 'snp', 'fin'] },
+      players: { '1': { p: 'RB', bye: 9, w: [[1, 10, 'KC', 50, 1], [2, 8, 'DAL', 60, 2]] } },
+      heat: {},
+    };
+    const checks = validateWeeklyStats(invalid, 2026).map((entry) => entry.check);
+    expect(checks).toContain('weekly-stats-row-week-not-fetched');
+  });
+
+  it('validateWeeklyStats rejects out-of-range pts and malformed heat breakpoints', () => {
+    const invalid = {
+      schemaVersion: 1,
+      season: 2025,
+      weeksFetched: [1],
+      columns: { RB: ['pts', 'opp', 'snp', 'fin'] },
+      players: { '1': { p: 'RB', bye: 9, w: [[1, 91, 'KC', 50, 1]] } },
+      heat: { RB: { pts: [10, 5, 15, 20] } }, // not non-decreasing
+    };
+    const checks = validateWeeklyStats(invalid, 2026).map((entry) => entry.check);
+    expect(checks).toEqual(expect.arrayContaining([
+      'weekly-stats-row-pts-range',
+      'weekly-stats-heat-breakpoints',
+    ]));
+  });
+
+  it('validateFantasyProsStars reconciles a valid artifact and catches star/count drift', () => {
+    const valid = {
+      schemaVersion: 1,
+      generatedAt: '2026-08-12T00:00:00Z',
+      season: 2026,
+      source: {
+        name: 'fantasypros-draft-rankings-csv',
+        file: 'FantasyPros_2026_Draft_ALL_Rankings.csv',
+        rows: 2,
+        droppedNonRankRows: 1,
+        matched: 1,
+        unmatched: 1,
+        status: 'ok',
+      },
+      players: {
+        '1': { rank: 1, tier: 1, upside: 5, bust: 1, sos: 0, ecrVsAdp: -2, positionRank: 'WR1' },
+      },
+      unmatched: [{ rank: 2, name: 'Unknown', team: null, position: 'RB' }],
+    };
+    expect(validateFantasyProsStars(valid)).toEqual([]);
+
+    const invalid = {
+      ...valid,
+      source: { ...valid.source, rows: 4, matched: 2, status: 'bad' },
+      players: {
+        '1': { ...valid.players['1'], upside: 0, sos: 6, ecrVsAdp: 1.5, positionRank: '' },
+      },
+    };
+    const checks = validateFantasyProsStars(invalid).map((entry) => entry.check);
+    expect(checks).toEqual(expect.arrayContaining([
+      'fantasypros-source-status',
+      'fantasypros-matched-count',
+      'fantasypros-source-reconciliation',
+      'fantasypros-upside-range',
+      'fantasypros-sos-range',
+      'fantasypros-ecr-integer',
+      'fantasypros-player-position-rank',
+    ]));
+  });
+
+  it.skipIf(!existsSync(join(dataDir, 'fantasypros-stars.json')))(
+    'validates a local FantasyPros artifact when one is staged',
+    () => {
+      expect(validateFantasyProsStars(loadJson('fantasypros-stars.json'))).toEqual([]);
+    },
+  );
+
+  it('validateFantasyProsAdp reconciles a valid artifact and catches drift', () => {
+    const valid = {
+      schemaVersion: 1,
+      generatedAt: '2026-08-12T00:00:00Z',
+      season: 2026,
+      source: {
+        name: 'fantasypros-overall-adp-csv',
+        file: 'FantasyPros_2026_Overall_ADP_Rankings.csv',
+        rows: 2, matched: 1, unmatched: 1,
+        emptyColumns: ['NFL'], status: 'ok',
+      },
+      providers: [
+        { key: 'espn', label: 'ESPN', rows: 2, matchedRows: 1 },
+        { key: 'sleeper', label: 'Sleeper', rows: 2, matchedRows: 1 },
+      ],
+      consensus: { key: 'avg', label: 'FantasyPros AVG', rows: 2 },
+      realTime: { key: 'realTime', label: 'FantasyPros Real-Time', rows: 2 },
+      players: {
+        '1': {
+          rank: 1, positionRank: 'RB1', avg: 14.1,
+          realTime: { rank: 14, delta: -1 },
+          adp: { espn: 14.5, sleeper: 15.2 },
+        },
+      },
+      unmatched: [{ rank: 2, name: 'Unknown', team: null, position: 'WR', reason: 'not-in-player-pool' }],
+    };
+    expect(validateFantasyProsAdp(valid)).toEqual([]);
+
+    const invalid = {
+      ...valid,
+      source: { ...valid.source, rows: 4, matched: 2, status: 'bad' },
+      players: {
+        '1': {
+          ...valid.players['1'],
+          rank: 0,
+          adp: { espn: -1, sleeper: NaN },
+          avg: Number.POSITIVE_INFINITY,
+          realTime: { rank: 1.5, delta: 'up' },
+        },
+      },
+    };
+    const checks = validateFantasyProsAdp(invalid).map((entry) => entry.check);
+    expect(checks).toEqual(expect.arrayContaining([
+      'fantasypros-adp-source-status',
+      'fantasypros-adp-source-reconciliation',
+      'fantasypros-adp-player-rank',
+      'fantasypros-adp-player-adp-value',
+      'fantasypros-adp-player-avg',
+      'fantasypros-adp-player-real-time',
+    ]));
+  });
+
+  it.skipIf(!existsSync(join(dataDir, 'fantasypros-adp.json')))(
+    'validates a local FantasyPros ADP artifact when one is staged',
+    () => {
+      expect(validateFantasyProsAdp(loadJson('fantasypros-adp.json'))).toEqual([]);
+    },
+  );
+
+  it('projections-providers.json parses as an object, keys exist in players.json, stats finite (legitimate negative stat values are real, e.g. CBS negative rush yards)', () => {
+    const artifact = loadJson<ProviderProjectionsArtifact>('projections-providers.json');
+    // Object (not an array), displayOnly, and structurally NOT SeasonProjection[].
+    expect(validateProviderProjections(artifact)).toEqual([]);
+    expect(Array.isArray(artifact)).toBe(false);
+
+    const players = new Set(loadJson<PlayerMeta[]>('players.json').map((p) => p.playerId));
+    for (const playerId of Object.keys(artifact.players)) {
+      expect(players.has(playerId), `players.json must contain ${playerId}`).toBe(true);
+    }
+    // The engine's number (projections-season.json) is untouched by this artifact.
+    const canonical = loadJson<SeasonProjection[]>('projections-season.json');
+    expect(canonical.length).toBeGreaterThan(0);
+    const manifest = loadJson<DataManifest>('manifest.json');
+    expect(manifest.sources.sleeper_projections?.rows).toBe(artifact.providers.find((provider) => provider.key === 'sleeper')?.rows);
+    expect(manifest.sources.espn_projections?.rows).toBe(artifact.providers.find((provider) => provider.key === 'espn')?.rows);
+expect(manifest.sources.cbs_projections?.rows).toBe(artifact.providers.find((provider) => provider.key === 'cbs')?.rows);
+    expect(manifest.projectionProviders?.providers.sleeper?.status).toBe('ok');
+    expect(manifest.projectionProviders?.providers.espn?.status).toBe('ok');
+expect(manifest.projectionProviders?.providers.cbs?.status).toBe('ok');
   });
 });

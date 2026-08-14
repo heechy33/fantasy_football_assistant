@@ -25,16 +25,16 @@ const okSource = (fetchedAt: string) => ({
 });
 
 describe('resolveDataMode', () => {
-  it('is "full" when both projection and ADP are present and fresh', () => {
+  it('is "full" when both production projection (fftoday) and ADP are present and fresh', () => {
     const manifest = manifestWith({
-      sleeper_season_projections: okSource(FRESH),
+      fftoday_projections: okSource(FRESH),
       adp_active_ppr: okSource(FRESH),
     });
     expect(resolveDataMode(manifest, { now: NOW })).toBe('full');
   });
 
   it('is "projection-only" when ADP is missing entirely', () => {
-    const manifest = manifestWith({ sleeper_season_projections: okSource(FRESH) });
+    const manifest = manifestWith({ fftoday_projections: okSource(FRESH) });
     expect(resolveDataMode(manifest, { now: NOW })).toBe('projection-only');
   });
 
@@ -48,17 +48,36 @@ describe('resolveDataMode', () => {
     expect(resolveDataMode(manifest, { now: NOW })).toBe('unavailable');
   });
 
-  it('treats a stale source the same as a missing one', () => {
+  it('treats a stale production projection the same as a missing one', () => {
     const manifest = manifestWith({
-      sleeper_season_projections: okSource(STALE),
+      fftoday_projections: okSource(STALE),
       adp_active_ppr: okSource(FRESH),
     });
     expect(resolveDataMode(manifest, { now: NOW })).toBe('adp-only');
   });
 
-  it('treats a non-"ok" status the same as a missing source', () => {
+  it('treats a non-"ok" production projection the same as a missing source', () => {
     const manifest = manifestWith({
-      sleeper_season_projections: { ...okSource(FRESH), status: 'error' },
+      fftoday_projections: { ...okSource(FRESH), status: 'error' },
+      adp_active_ppr: okSource(FRESH),
+    });
+    expect(resolveDataMode(manifest, { now: NOW })).toBe('adp-only');
+  });
+
+  it('falls back to sleeper_season_projections only when the fftoday key is absent', () => {
+    const manifest = manifestWith({
+      sleeper_season_projections: okSource(FRESH),
+      adp_active_ppr: okSource(FRESH),
+    });
+    expect(resolveDataMode(manifest, { now: NOW })).toBe('full');
+  });
+
+  it('does not fall through to a healthy sleeper feed when an unhealthy fftoday key is present', () => {
+    // Presence alone selects fftoday_projections; a stale/error fftoday entry must not silently
+    // substitute sleeper_season_projections just because that fallback key is also populated.
+    const manifest = manifestWith({
+      fftoday_projections: okSource(STALE),
+      sleeper_season_projections: okSource(FRESH),
       adp_active_ppr: okSource(FRESH),
     });
     expect(resolveDataMode(manifest, { now: NOW })).toBe('adp-only');
@@ -66,19 +85,38 @@ describe('resolveDataMode', () => {
 
   it('is "full" when adp_active_ppr is a fresh, ok FFC fallback (health depends on status/freshness, not which upstream won)', () => {
     const manifest = manifestWith({
-      sleeper_season_projections: okSource(FRESH),
+      fftoday_projections: okSource(FRESH),
       adp_active_ppr: { ...okSource(FRESH), activeAdpSource: 'ffc-fallback' },
     });
     expect(resolveDataMode(manifest, { now: NOW })).toBe('full');
   });
 
-  it('never silently substitutes one signal for the other across every pairing', () => {
-
-    const both = manifestWith({
-      sleeper_season_projections: okSource(FRESH),
-      adp_active_ppr: okSource(FRESH),
+  it('honors an explicit adpSourceKey override (as DataHealth does per format)', () => {
+    const manifest = manifestWith({
+      fftoday_projections: okSource(FRESH),
+      adp_active_half_ppr: okSource(FRESH),
     });
-    const neither = manifestWith({});
-    expect(resolveDataMode(both, { now: NOW })).not.toBe(resolveDataMode(neither, { now: NOW }));
+    expect(resolveDataMode(manifest, { now: NOW })).toBe('projection-only');
+    expect(resolveDataMode(manifest, { now: NOW, adpSourceKey: 'adp_active_half_ppr' })).toBe('full');
+  });
+
+  it('keeps the four degraded modes distinct — never silently substitutes one signal for the other', () => {
+    const full = resolveDataMode(manifestWith({
+      fftoday_projections: okSource(FRESH),
+      adp_active_ppr: okSource(FRESH),
+    }), { now: NOW });
+    const projectionOnly = resolveDataMode(manifestWith({
+      fftoday_projections: okSource(FRESH),
+    }), { now: NOW });
+    const adpOnly = resolveDataMode(manifestWith({
+      adp_active_ppr: okSource(FRESH),
+    }), { now: NOW });
+    const unavailable = resolveDataMode(manifestWith({}), { now: NOW });
+
+    expect(full).toBe('full');
+    expect(projectionOnly).toBe('projection-only');
+    expect(adpOnly).toBe('adp-only');
+    expect(unavailable).toBe('unavailable');
+    expect(new Set([full, projectionOnly, adpOnly, unavailable]).size).toBe(4);
   });
 });

@@ -40,6 +40,7 @@ export function ManualPickCorrection({
   const [selected, setSelected] = useState<RankedPlayer | null>(null);
   const [teamIdInput, setTeamIdInput] = useState(teamId ?? '');
   const [roundInput, setRoundInput] = useState(String(round ?? 1));
+  const [slotInput, setSlotInput] = useState(String(slot ?? 1));
 
   const availablePlayers = useMemo(
     () => rankedPlayers.filter((player) => !unavailablePlayerIds.has(player.playerId)),
@@ -47,7 +48,14 @@ export function ManualPickCorrection({
   );
   const trimmedTeamId = teamIdInput.trim();
   const parsedRound = Number(roundInput);
-  const canSubmit = selected != null && (!isAddManual || (trimmedTeamId !== '' && Number.isFinite(parsedRound)));
+  const parsedSlot = Number(slotInput);
+  const canSubmit = selected != null && (!isAddManual || (
+    trimmedTeamId !== ''
+    && Number.isFinite(parsedRound)
+    && parsedRound >= 1
+    && Number.isFinite(parsedSlot)
+    && parsedSlot >= 1
+  ));
   const dialogRef = useModalFocus(onClose);
 
   function handleSubmit(e: FormEvent) {
@@ -56,7 +64,7 @@ export function ManualPickCorrection({
     onSubmit({
       overall,
       round: isAddManual ? parsedRound : round,
-      slot: isAddManual ? parsedRound : slot,
+      slot: isAddManual ? parsedSlot : slot,
       teamId: isAddManual ? trimmedTeamId : teamId,
       playerId: selected.playerId,
       providerPlayerName: selected.name,
@@ -96,6 +104,10 @@ export function ManualPickCorrection({
               <label>
                 Round
                 <input type="number" min={1} value={roundInput} onChange={(e) => setRoundInput(e.target.value)} required />
+              </label>
+              <label>
+                Draft slot
+                <input type="number" min={1} value={slotInput} onChange={(e) => setSlotInput(e.target.value)} required />
               </label>
             </div>
           )}

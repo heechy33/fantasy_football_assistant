@@ -11,82 +11,197 @@ const settings: LeagueSettings = {
 };
 const draftInit: DraftInit = {
   provider: 'sleeper', draftId: 'd1', leagueId: 'l1', draftType: 'snake', teams: 2, rounds: 2,
-  slotToTeam: { 1: 'me', 2: 'them' }, myTeamId: 'me', mySlot: 1, settings,
+  slotToTeam: { 1: 'me', 2: 'them' }, slotToTeamName: { 1: 'My Squad' }, myTeamId: 'me', mySlot: 1, settings,
 };
 
 const player: PlayerMeta = { playerId: 'p1', name: 'Known Player', position: 'RB', eligiblePositions: ['RB'], team: 'BUF', byeWeek: null, age: null, yearsExp: null, injuryStatus: null, ids: {} };
 const playersById = new Map([[player.playerId, player]]);
 
 function pick(overall: number, teamId: string, playerId: string | null, providerPlayerName?: string): Pick {
-  return { overall, round: Math.ceil(overall / 2), slot: 1, teamId, playerId, providerPlayerId: playerId ?? 'raw-id', providerPlayerName };
+  return { overall, round: Math.ceil(overall / 2), slot: teamId === 'me' ? 1 : 2, teamId, playerId, providerPlayerId: playerId ?? 'raw-id', providerPlayerName };
+}
+
+function baseProps() {
+  return {
+    draftInit,
+    effectivePicks: [] as Pick[],
+    playersById,
+    onTheClock: null,
+    onCorrectPick: vi.fn(),
+    userNextOverall: null as number | null,
+    picksUntilUserTurn: null as number | null,
+  };
 }
 
 describe('DraftLog', () => {
   it('lists every overall pick slot for the draft, not just made picks', () => {
     render(
       <DraftLog
-        draftInit={draftInit}
+        {...baseProps()}
         effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
-        playersById={playersById}
         onTheClock={{ teamId: 'them', slot: 2, round: 1, overall: 2 }}
-        status="drafting"
-        isStale={false}
-        dataAgeMs={null}
-        onCorrectPick={vi.fn()}
       />,
     );
     // teams(2) * rounds(2) = 4 total pick slots.
-    expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('#4')).toBeInTheDocument();
+    expect(screen.getByText('1.01')).toBeInTheDocument();
+    expect(screen.getByText('2.02')).toBeInTheDocument();
     expect(screen.getByText('Known Player')).toBeInTheDocument();
   });
 
-  it('marks the on-the-clock row and mine rows, and shows Fix only for unmatched picks', () => {
+  it('numbers every pick in round.pick format (the same helper as the top-bar hero)', () => {
+    render(<DraftLog {...baseProps()} />);
+    expect(screen.getByText('1.01')).toBeInTheDocument();
+    expect(screen.getByText('1.02')).toBeInTheDocument();
+    expect(screen.getByText('2.01')).toBeInTheDocument();
+    expect(screen.getByText('2.02')).toBeInTheDocument();
+  });
+
+  it('shows the resolved team name and falls back to Team {slot} when unresolved', () => {
+    render(<DraftLog {...baseProps()} />);
+    expect(screen.getAllByText('My Squad').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Team 2').length).toBeGreaterThan(0);
+  });
+
+  it('renders a position chip for a matched pick', () => {
+    render(<DraftLog {...baseProps()} effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]} />);
+    const chip = screen.getByText('RB', { selector: '.draft-log-position-chip' });
+    expect(chip).toHaveAttribute('data-position', 'RB');
+  });
+
+  it('renders exactly one round separator per round', () => {
+    render(<DraftLog {...baseProps()} />);
+    const separators = screen.getAllByRole('presentation');
+    expect(separators).toHaveLength(2); // teams(2) * rounds(2) = 4 picks / 2 teams = 2 rounds.
+    expect(separators[0]).toHaveTextContent('Round 1');
+    expect(separators[1]).toHaveTextContent('Round 2');
+    // Round separators must not be counted as pick rows by existing list-item queries.
+    expect(screen.getAllByRole('listitem')).toHaveLength(4);
+  });
+
+  it("marks the user's upcoming pick with 'You're up in N picks'", () => {
+    render(<DraftLog {...baseProps()} userNextOverall={3} picksUntilUserTurn={2} />);
+    expect(screen.getByText("You're up in 2 picks")).toBeInTheDocument();
+    const row = screen.getByText('2.01').closest('li');
+    expect(row).toHaveAttribute('data-you-up', 'true');
+  });
+
+  it("uses the singular 'pick' when the user is up in one pick", () => {
+    render(<DraftLog {...baseProps()} userNextOverall={2} picksUntilUserTurn={1} />);
+    expect(screen.getByText("You're up in 1 pick")).toBeInTheDocument();
+  });
+
+  it("marks the user's upcoming pick with 'You're on the clock' when the count is zero", () => {
+    render(<DraftLog {...baseProps()} userNextOverall={1} picksUntilUserTurn={0} />);
+    expect(screen.getByText("You're on the clock")).toBeInTheDocument();
+    const row = screen.getByText('1.01').closest('li');
+    expect(row).toHaveAttribute('data-you-up', 'true');
+  });
+
+  it('does not render an empty you-up chip when the countdown is unknown', () => {
+    render(<DraftLog {...baseProps()} userNextOverall={3} picksUntilUserTurn={null} />);
+    const row = screen.getByText('2.01').closest('li');
+    expect(row).toHaveAttribute('data-you-up', 'true');
+    expect(screen.queryByText(/You're up/)).not.toBeInTheDocument();
+    expect(screen.queryByText("You're on the clock")).not.toBeInTheDocument();
+  });
+
+  it('uses the landed pick slot for the team name even when it disagrees with snake arithmetic', () => {
+    // Arithmetic slot for overall 1 in a 2-team snake is 1; a corrected/landed pick on slot 2
+    // must still resolve Team 2, not My Squad.
+    render(<DraftLog {...baseProps()} effectivePicks={[pick(1, 'them', 'p1', 'Known Player')]} />);
+    expect(screen.getByText('1.01').closest('li')).toHaveTextContent('Team 2');
+  });
+
+  it('renders a DST chip for a DEF player', () => {
+    const defPlayer: PlayerMeta = { ...player, playerId: 'dst1', name: 'Buffalo', position: 'DEF', eligiblePositions: ['DEF'] };
+    render(
+      <DraftLog
+        {...baseProps()}
+        playersById={new Map([[defPlayer.playerId, defPlayer]])}
+        effectivePicks={[pick(1, 'me', 'dst1', 'Buffalo')]}
+      />,
+    );
+    const chip = screen.getByText('DST', { selector: '.draft-log-position-chip' });
+    expect(chip).toHaveAttribute('data-position', 'DEF');
+  });
+
+  it('does not render a clock status banner — on-clock state is shown on the row', () => {
+    render(
+      <DraftLog
+        {...baseProps()}
+        onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+      />,
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText('1.01').closest('li')).toHaveAttribute('data-on-clock', 'true');
+  });
+
+  it('marks the on-the-clock row and mine rows, and offers Fix/Edit on landed picks', () => {
     const onCorrectPick = vi.fn();
     render(
       <DraftLog
-        draftInit={draftInit}
+        {...baseProps()}
         effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
-        playersById={playersById}
         onTheClock={{ teamId: 'me', slot: 1, round: 2, overall: 3 }}
-        status="drafting"
-        isStale={false}
-        dataAgeMs={null}
         onCorrectPick={onCorrectPick}
       />,
     );
 
     expect(screen.getByText('Unmatched: Some Rookie')).toBeInTheDocument();
-    // Matched picks (Known Player) never get a Fix button — the log is read-only for them.
-    expect(screen.getAllByRole('button', { name: 'Fix' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fix' })).toBeInTheDocument();
 
-    const onClockRow = screen.getByText('#3').closest('li');
+    const onClockRow = screen.getByText('2.01').closest('li');
     expect(onClockRow).toHaveAttribute('data-on-clock', 'true');
     expect(onClockRow).toHaveAttribute('data-mine', 'true');
     expect(onClockRow).toHaveAttribute('data-scroll-target', 'true');
 
-    const myPickRow = screen.getByText('#1').closest('li');
+    const myPickRow = screen.getByText('1.01').closest('li');
     expect(myPickRow).toHaveAttribute('data-mine', 'true');
     expect(myPickRow).not.toHaveAttribute('data-on-clock');
   });
 
-  it('calls onCorrectPick with the overall number when Fix is clicked on an unmatched pick', async () => {
+  it('calls onCorrectPick with the overall number when Fix/Edit is clicked', async () => {
     const onCorrectPick = vi.fn();
     const user = userEvent.setup();
     render(
       <DraftLog
-        draftInit={draftInit}
-        effectivePicks={[pick(2, 'them', null, 'Some Rookie')]}
-        playersById={playersById}
-        onTheClock={null}
-        status="drafting"
-        isStale={false}
-        dataAgeMs={null}
+        {...baseProps()}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
         onCorrectPick={onCorrectPick}
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Fix' }));
     expect(onCorrectPick).toHaveBeenCalledWith(2);
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(onCorrectPick).toHaveBeenCalledWith(1);
+  });
+
+  it('invokes the newest onCorrectPick callback after a parent rerender', async () => {
+    const onCorrectPickFirst = vi.fn();
+    const onCorrectPickSecond = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <DraftLog
+        {...baseProps()}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
+        onCorrectPick={onCorrectPickFirst}
+      />,
+    );
+
+    // Simulate the 1s stale-banner tick from useDraftPoll: parent rerenders with a fresh
+    // callback identity but otherwise-identical props.
+    rerender(
+      <DraftLog
+        {...baseProps()}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player'), pick(2, 'them', null, 'Some Rookie')]}
+        onCorrectPick={onCorrectPickSecond}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Fix' }));
+    expect(onCorrectPickFirst).not.toHaveBeenCalled();
+    expect(onCorrectPickSecond).toHaveBeenCalledWith(2);
   });
 
   it('go-to-current-pick scrolls the on-the-clock row into view', async () => {
@@ -94,14 +209,9 @@ describe('DraftLog', () => {
     const user = userEvent.setup();
     render(
       <DraftLog
-        draftInit={draftInit}
+        {...baseProps()}
         effectivePicks={[]}
-        playersById={playersById}
         onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
-        status="drafting"
-        isStale={false}
-        dataAgeMs={null}
-        onCorrectPick={vi.fn()}
       />,
     );
     scrollSpy.mockClear();
@@ -110,7 +220,7 @@ describe('DraftLog', () => {
     const scrolled = scrollSpy.mock.instances[0] as HTMLElement;
     expect(scrolled).toHaveAttribute('data-scroll-target', 'true');
     expect(scrolled).toHaveAttribute('data-on-clock', 'true');
-    expect(scrolled.textContent).toContain('#1');
+    expect(scrolled.textContent).toContain('1.01');
     scrollSpy.mockRestore();
   });
 
@@ -125,14 +235,9 @@ describe('DraftLog', () => {
     ];
     render(
       <DraftLog
-        draftInit={draftInit}
+        {...baseProps()}
         effectivePicks={completePicks}
-        playersById={playersById}
         onTheClock={null}
-        status="complete"
-        isStale={false}
-        dataAgeMs={null}
-        onCorrectPick={vi.fn()}
       />,
     );
     scrollSpy.mockClear();
@@ -141,23 +246,12 @@ describe('DraftLog', () => {
     const scrolled = scrollSpy.mock.instances[0] as HTMLElement;
     expect(scrolled).toHaveAttribute('data-scroll-target', 'true');
     expect(scrolled).not.toHaveAttribute('data-on-clock');
-    expect(scrolled.textContent).toContain('#4');
+    expect(scrolled.textContent).toContain('2.02');
     scrollSpy.mockRestore();
   });
 
   it('renders a placeholder when no draft is connected', () => {
-    render(
-      <DraftLog
-        draftInit={null}
-        effectivePicks={[]}
-        playersById={playersById}
-        onTheClock={null}
-        status="pre"
-        isStale={false}
-        dataAgeMs={null}
-        onCorrectPick={vi.fn()}
-      />,
-    );
+    render(<DraftLog {...baseProps()} draftInit={null} />);
     expect(screen.getByText('No draft connected yet.')).toBeInTheDocument();
   });
 });

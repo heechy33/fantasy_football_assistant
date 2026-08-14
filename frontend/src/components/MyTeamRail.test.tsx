@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import type { LeagueSettings, Pick, PlayerMeta, SeasonProjection } from '../../../shared/types';
 import { MyTeamRail } from './MyTeamRail';
 
@@ -33,42 +34,104 @@ function pick(overall: number, teamId: string, playerId: string): Pick {
   return { overall, round: 1, slot: 1, teamId, playerId, providerPlayerId: playerId };
 }
 
+function baseProps(overrides: Partial<Parameters<typeof MyTeamRail>[0]> = {}) {
+  return { settings, effectivePicks: [] as Pick[], myTeamId: 'me', playersById, projections, rounds: 15, ...overrides };
+}
+
+function groupFor(buttonName: RegExp): HTMLElement {
+  return screen.getByRole('button', { name: buttonName }).closest('.my-team-group') as HTMLElement;
+}
+
 describe('MyTeamRail', () => {
   it('fills only one of two RB slots and shows the other explicitly empty (diffed by count, not by set)', () => {
-    const effectivePicks = [pick(1, 'me', 'rb1')];
-    render(<MyTeamRail settings={settings} effectivePicks={effectivePicks} myTeamId="me" playersById={playersById} projections={projections} />);
+    render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1')] })} />);
 
-    const slots = screen.getAllByRole('listitem').filter((li) => li.className.includes('my-team-slot') && !li.className.includes('bench'));
-    const rbSlots = slots.filter((li) => within(li).queryByText('RB'));
-    expect(rbSlots).toHaveLength(2);
-    // Which of the two identically-labeled RB slots the solver fills is an implementation detail —
-    // the load-bearing assertion is that exactly one is filled and one is explicitly empty (diffed
-    // by count), not which index.
-    const filledCount = rbSlots.filter((li) => within(li).queryByText('Rush One')).length;
-    const emptyCount = rbSlots.filter((li) => within(li).queryByText('Empty')).length;
-    expect(filledCount).toBe(1);
-    expect(emptyCount).toBe(1);
+    const rbGroup = groupFor(/Running Backs/);
+    expect(within(rbGroup).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(rbGroup).getAllByText('Rush One')).toHaveLength(1);
+    expect(within(rbGroup).getAllByText('Empty')).toHaveLength(1);
+  });
+
+  it('groups the roster by position with the drafted/total header counter', () => {
+    render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1')] })} />);
+
+    expect(screen.getByText('1/15')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Quarterbacks \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Running Backs \(2\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Wide Receivers \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tight Ends \(1\)/ })).toBeInTheDocument();
   });
 
   it('starts the higher-value WR and lists multiple bench players in draft order', () => {
     // wr1 (140 pts, pick 3) starts; wr2 (20 pts, pick 1) and wr3 (10 pts, pick 2) bench.
     // Bench must follow draft overall ascending — wr2 before wr3 — not projection order.
     const effectivePicks = [pick(1, 'me', 'wr2'), pick(2, 'me', 'wr3'), pick(3, 'me', 'wr1')];
-    render(<MyTeamRail settings={settings} effectivePicks={effectivePicks} myTeamId="me" playersById={playersById} projections={projections} />);
+    render(<MyTeamRail {...baseProps({ effectivePicks })} />);
 
-    const wrSlot = screen.getAllByRole('listitem').find((li) => within(li).queryByText('WR'));
-    expect(wrSlot && within(wrSlot).getByText('Wide One')).toBeInTheDocument();
+    const wrGroup = groupFor(/Wide Receivers/);
+    expect(within(wrGroup).getByText('Wide One')).toBeInTheDocument();
 
-    const benchList = screen.getByText('Bench').closest('section')?.querySelector('.my-team-bench');
-    expect(benchList).toBeTruthy();
-    const benchNames = within(benchList as HTMLElement).getAllByRole('listitem').map((li) => li.textContent);
+    const benchGroup = groupFor(/Bench/);
+    const benchNames = within(benchGroup).getAllByRole('listitem').map((li) => li.textContent);
     expect(benchNames[0]).toContain('Wide Two');
     expect(benchNames[1]).toContain('Wide Three');
   });
 
   it('ignores picks belonging to other teams', () => {
-    const effectivePicks = [pick(1, 'me', 'rb1'), pick(2, 'them', 'wr1')];
-    render(<MyTeamRail settings={settings} effectivePicks={effectivePicks} myTeamId="me" playersById={playersById} projections={projections} />);
+    render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1'), pick(2, 'them', 'wr1')] })} />);
     expect(screen.queryByText('Wide One')).not.toBeInTheDocument();
+  });
+
+  it('renders no player portrait image — team identity replaces headshots', () => {
+    const { container } = render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1')] })} />);
+    expect(container.querySelectorAll('.player-portrait')).toHaveLength(0);
+  });
+
+  it('each filled row carries data-team and a --team-logo custom property', () => {
+    render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1')] })} />);
+    const filledSlot = screen.getByText('Rush One').closest('li')!;
+    expect(filledSlot).toHaveAttribute('data-team', 'BUF');
+    expect(filledSlot.getAttribute('style')).toContain('--team-logo');
+    expect(filledSlot.getAttribute('style')).toContain('sleepercdn.com/images/team_logos/nfl/buf.png');
+  });
+
+  it('a free-agent player renders without data-team and with --team-logo: none', () => {
+    const freeAgent = { playerId: 'fa1', name: 'Free Agent', position: 'WR' as const, eligiblePositions: ['WR' as const], team: null, byeWeek: null, age: null, yearsExp: null, injuryStatus: null, ids: {} };
+    const byId = new Map([...playersById, [freeAgent.playerId, freeAgent]]);
+    render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'fa1')], playersById: byId })} />);
+    const filledSlot = screen.getByText('Free Agent').closest('li')!;
+    expect(filledSlot).not.toHaveAttribute('data-team');
+    expect(filledSlot.getAttribute('style')).toContain('--team-logo: none');
+  });
+
+  it('shows bye week on filled starter and bench rows instead of projected points', () => {
+    const byId = new Map(playersById);
+    byId.set('wr1', { ...players[1]!, byeWeek: 7 });
+    byId.set('wr2', { ...players[2]!, byeWeek: 12 });
+    const effectivePicks = [pick(1, 'me', 'wr2'), pick(2, 'me', 'wr3'), pick(3, 'me', 'wr1')];
+    render(<MyTeamRail {...baseProps({ effectivePicks, playersById: byId })} />);
+
+    const wrGroup = groupFor(/Wide Receivers/);
+    expect(within(wrGroup).getByText('Bye 7')).toBeInTheDocument();
+    expect(screen.queryByText('140.0')).not.toBeInTheDocument();
+    expect(screen.queryByText('20.0')).not.toBeInTheDocument();
+
+    const benchGroup = groupFor(/Bench/);
+    expect(within(benchGroup).getByText('Bye 12')).toBeInTheDocument();
+    expect(within(benchGroup).getByText('Bye —')).toBeInTheDocument();
+  });
+
+  it('keeps the bench height with an empty-state placeholder row', () => {
+    render(<MyTeamRail {...baseProps({ effectivePicks: [] })} />);
+    const benchGroup = groupFor(/Bench/);
+    expect(within(benchGroup).getByText('No bench players yet.')).toBeInTheDocument();
+  });
+
+  it('opens the player drawer when a filled row is clicked', async () => {
+    const onViewPlayer = vi.fn();
+    const user = userEvent.setup();
+    render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1')], onViewPlayer })} />);
+    await user.click(screen.getByText('Rush One'));
+    expect(onViewPlayer).toHaveBeenCalledWith('rb1');
   });
 });

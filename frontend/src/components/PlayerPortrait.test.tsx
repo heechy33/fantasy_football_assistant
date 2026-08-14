@@ -34,6 +34,15 @@ describe('PlayerPortrait', () => {
     expect(img.getAttribute('src')).toBe(srcAfterFirstError);
   });
 
+  it('uses the hero pixel size when requested', () => {
+    const img = renderImg({
+      player: { playerId: '9221', name: 'Jahmyr Gibbs', position: 'RB', team: 'DET' },
+      size: 'hero',
+    });
+    expect(img).toHaveAttribute('width', '160');
+    expect(img).toHaveClass('player-portrait-hero');
+  });
+
   it('goes straight to the initials fallback when a DEF player has no team code', () => {
     const img = renderImg({ player: { playerId: 'FA', name: 'Free Agent', position: 'DEF', team: null } });
     expect(img.getAttribute('src')).toMatch(/^data:image\/svg\+xml/);

@@ -1,0 +1,93 @@
+/**
+ * NFL team identity colors for FIFA-card chrome. Applied via `[data-team="XX"]`
+ * on a card, drawer, or My Team row shell. These are presentation-only — they
+ * never enter ranking, Draft Score, or availability math.
+ *
+ * Abbreviations match Sleeper's canonical team codes (JAX, LAR, LAC, LV, WAS).
+ *
+ * Two values per team:
+ *   --team-primary  brand color, CHROME ONLY — a low-opacity gradient tint and the
+ *                    (unopinionated) logo watermark background. Never placed under
+ *                    text and never used as a text color.
+ *   --team-ink       a lightened variant of the same hue, computed to guarantee
+ *                    >=4.5:1 contrast against BOTH --surface-2 (#17191c) and
+ *                    --surface-3 (#1b1d21). Use this for the 3px identity rail and
+ *                    any team-colored glyph/label — most raw team brand colors are
+ *                    designed for daylight/white backgrounds and do NOT clear 3:1
+ *                    against this dark theme's surfaces (measured: worst raw
+ *                    --team-primary vs --surface-3 is ~1.0:1 for teams like NE/SEA/
+ *                    TEN/CLE/DAL). --team-ink is what stays visible.
+ *
+ * Both are asserted by styles/teamColors.test.ts, which parses this file and
+ * computes real WCAG ratios — do not add or edit a team without running it.
+ */
+:root {
+  --team-ari: #97233f;      --team-ari-ink: #de617f;
+  --team-atl: #a71930;      --team-atl-ink: #ea5a72;
+  --team-bal: #241773;      --team-bal-ink: #9082e9;
+  --team-buf: #00338d;      --team-buf-ink: #4689ff;
+  --team-car: #0085ca;      --team-car-ink: #0092de;
+  --team-chi: #0b162a;      --team-chi-ink: #648eda;
+  --team-cin: #fb4f14;      --team-cin-ink: #ff4d10;
+  --team-cle: #311d00;      --team-cle-ink: #ca7800;
+  --team-dal: #041e42;      --team-dal-ink: #3989f8;
+  --team-den: #fb4f14;      --team-den-ink: #ff4d10;
+  --team-det: #0076b6;      --team-det-ink: #0097e9;
+  --team-gb:  #203731;      --team-gb-ink:  #579988;
+  --team-hou: #03202f;      --team-hou-ink: #0997e1;
+  --team-ind: #002c5f;      --team-ind-ink: #2c8eff;
+  --team-jax: #006778;      --team-jax-ink: #009cb5;
+  --team-kc:  #e31837;      --team-kc-ink:  #f1526a;
+  --team-lac: #0080c6;      --team-lac-ink: #0094e5;
+  --team-lar: #003594;      --team-lar-ink: #4d8cff;
+  --team-lv:  #000000;      --team-lv-ink:  #8f8f8f;
+  --team-mia: #008e97;      --team-mia-ink: #00a1ab;
+  --team-min: #4f2683;      --team-min-ink: #a57bdc;
+  --team-ne:  #002244;      --team-ne-ink:  #1b8dff;
+  --team-no:  #d3bc8d;      --team-no-ink:  #d5bd8b;
+  --team-nyg: #0b2265;      --team-nyg-ink: #688cf2;
+  --team-nyj: #125740;      --team-nyj-ink: #1d9e73;
+  --team-phi: #004c54;      --team-phi-ink: #009fb0;
+  --team-pit: #ffb612;      --team-pit-ink: #ffb612;
+  --team-sea: #002244;      --team-sea-ink: #1b8dff;
+  --team-sf:  #aa0000;      --team-sf-ink:  #ff4444;
+  --team-tb:  #d50a0a;      --team-tb-ink:  #fb4a4a;
+  --team-ten: #0c2340;      --team-ten-ink: #4b8ee1;
+  --team-was: #5a1414;      --team-was-ink: #e06464;
+  --team-fa:  #7c8aa5;      --team-fa-ink:  #818faa;
+}
+
+[data-team] { --team-primary: var(--team-fa); --team-ink: var(--team-fa-ink); }
+[data-team="ARI"] { --team-primary: var(--team-ari); --team-ink: var(--team-ari-ink); }
+[data-team="ATL"] { --team-primary: var(--team-atl); --team-ink: var(--team-atl-ink); }
+[data-team="BAL"] { --team-primary: var(--team-bal); --team-ink: var(--team-bal-ink); }
+[data-team="BUF"] { --team-primary: var(--team-buf); --team-ink: var(--team-buf-ink); }
+[data-team="CAR"] { --team-primary: var(--team-car); --team-ink: var(--team-car-ink); }
+[data-team="CHI"] { --team-primary: var(--team-chi); --team-ink: var(--team-chi-ink); }
+[data-team="CIN"] { --team-primary: var(--team-cin); --team-ink: var(--team-cin-ink); }
+[data-team="CLE"] { --team-primary: var(--team-cle); --team-ink: var(--team-cle-ink); }
+[data-team="DAL"] { --team-primary: var(--team-dal); --team-ink: var(--team-dal-ink); }
+[data-team="DEN"] { --team-primary: var(--team-den); --team-ink: var(--team-den-ink); }
+[data-team="DET"] { --team-primary: var(--team-det); --team-ink: var(--team-det-ink); }
+[data-team="GB"] { --team-primary: var(--team-gb); --team-ink: var(--team-gb-ink); }
+[data-team="HOU"] { --team-primary: var(--team-hou); --team-ink: var(--team-hou-ink); }
+[data-team="IND"] { --team-primary: var(--team-ind); --team-ink: var(--team-ind-ink); }
+[data-team="JAX"] { --team-primary: var(--team-jax); --team-ink: var(--team-jax-ink); }
+[data-team="KC"] { --team-primary: var(--team-kc); --team-ink: var(--team-kc-ink); }
+[data-team="LAC"] { --team-primary: var(--team-lac); --team-ink: var(--team-lac-ink); }
+[data-team="LAR"] { --team-primary: var(--team-lar); --team-ink: var(--team-lar-ink); }
+[data-team="LV"] { --team-primary: var(--team-lv); --team-ink: var(--team-lv-ink); }
+[data-team="MIA"] { --team-primary: var(--team-mia); --team-ink: var(--team-mia-ink); }
+[data-team="MIN"] { --team-primary: var(--team-min); --team-ink: var(--team-min-ink); }
+[data-team="NE"] { --team-primary: var(--team-ne); --team-ink: var(--team-ne-ink); }
+[data-team="NO"] { --team-primary: var(--team-no); --team-ink: var(--team-no-ink); }
+[data-team="NYG"] { --team-primary: var(--team-nyg); --team-ink: var(--team-nyg-ink); }
+[data-team="NYJ"] { --team-primary: var(--team-nyj); --team-ink: var(--team-nyj-ink); }
+[data-team="PHI"] { --team-primary: var(--team-phi); --team-ink: var(--team-phi-ink); }
+[data-team="PIT"] { --team-primary: var(--team-pit); --team-ink: var(--team-pit-ink); }
+[data-team="SEA"] { --team-primary: var(--team-sea); --team-ink: var(--team-sea-ink); }
+[data-team="SF"] { --team-primary: var(--team-sf); --team-ink: var(--team-sf-ink); }
+[data-team="TB"] { --team-primary: var(--team-tb); --team-ink: var(--team-tb-ink); }
+[data-team="TEN"] { --team-primary: var(--team-ten); --team-ink: var(--team-ten-ink); }
+[data-team="WAS"] { --team-primary: var(--team-was); --team-ink: var(--team-was-ink); }
+[data-team="FA"] { --team-primary: var(--team-fa); --team-ink: var(--team-fa-ink); }

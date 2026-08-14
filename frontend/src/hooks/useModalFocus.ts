@@ -10,18 +10,14 @@ const FOCUSABLE_SELECTOR = [
 ].join(',');
 
 /**
- * Shared accessible-dialog behavior for `PlayerContextModal` and `ManualPickCorrection`, neither of
- * which had any of this before (see PLAN.md's S4 gap: "no focus trap, no initial-focus management,
- * no Escape-to-close, no focus restoration on close, no scroll lock"). Both components render a
- * fixed backdrop + `role="dialog"` section without a native `<dialog>` element, so all of this has
- * to be done by hand rather than relying on the platform.
+ * Shared accessible-dialog behavior for `Drawer` and `ManualPickCorrection`.
+ * Both render a fixed backdrop + `role="dialog"` without a native `<dialog>` element, so focus
+ * trap, initial focus, Escape-to-close, focus restoration, and scroll lock are done by hand.
  *
  * Returns a ref for the dialog container; attach it to the outermost `role="dialog"` element.
  *
- * `active` supports the mobile drawers (`DraftLog`/`MyTeamRail`), which stay mounted at all times —
- * unlike `PlayerContextModal`/`ManualPickCorrection`, which only mount while open — and merely
- * toggle a CSS-driven open state. Passing `active={false}` makes this a no-op so the trap/scroll-lock
- * only engages while the drawer is actually presented as an overlay.
+ * `active` supports drawers that stay mounted and toggle open state. Passing `active={false}`
+ * makes this a no-op so the trap/scroll-lock only engages while the overlay is presented.
  */
 export function useModalFocus<T extends HTMLElement = HTMLElement>(onClose: () => void, active = true): RefObject<T | null> {
   const containerRef = useRef<T | null>(null);

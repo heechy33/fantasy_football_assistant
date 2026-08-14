@@ -46,11 +46,11 @@ export function DataHealth({
   const isHealthy = dataMode === 'full' && !isStale && consecutiveFailures === 0 && duplicates.length === 0;
 
   if (isHealthy) {
-    return <p>Data healthy — static data full, live poll current.</p>;
+    return <p className="data-health data-health-ok">Data healthy — static data full, live poll current.</p>;
   }
 
   return (
-    <div role="status">
+    <div className="data-health data-health-warning" role="status">
       <strong>Data health warning</strong>
       <ul>
         {dataMode !== 'full' && (

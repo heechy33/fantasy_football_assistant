@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdpEntry, PlayerMeta } from '../../../shared/types';
-import { __resetPlayerPoolCache, loadKnownPlayerIds, loadPlayerPool, rankPlayers } from './loadPlayerPool';
+import { __resetPlayerPoolCache, loadKnownPlayerIds, loadPlayerPool, loadRankedPlayers, rankPlayers } from './loadPlayerPool';
 
 const SAMPLE: PlayerMeta[] = [
   {
@@ -120,5 +120,81 @@ describe('rankPlayers', () => {
       { playerId: '1001', rank: 1, adp: 2.1 },
       { playerId: 'SF', rank: 3, adp: 9.2 },
     ]);
+  });
+
+  it('breaks equal ADP ties by name and skips null playerId rows', () => {
+    const tied: AdpEntry[] = [
+      { playerId: 'SF', name: 'San Francisco', position: 'DEF', team: 'SF', adp: 5, stdev: 1, high: 4, low: 6, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+      { playerId: null, name: 'Unmatched', position: 'WR', team: 'NO', adp: 1, stdev: 1, high: 1, low: 1, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+      { playerId: '1001', name: 'Aaron Rushmore', position: 'RB', team: 'SF', adp: 5, stdev: 1, high: 4, low: 6, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+    ];
+    expect(rankPlayers(SAMPLE, tied).map((p) => p.playerId)).toEqual(['1001', 'SF']);
+  });
+});
+
+describe('loadRankedPlayers', () => {
+  const adpPpr: AdpEntry[] = [
+    { playerId: '1001', name: 'Aaron Rushmore', position: 'RB', team: 'SF', adp: 2.1, stdev: 1, high: 1, low: 3, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+    { playerId: 'SF', name: 'San Francisco', position: 'DEF', team: 'SF', adp: 9.2, stdev: 1, high: 8, low: 11, timesDrafted: 12, byeWeek: 9, adpSource: 'ffc', stdevSource: 'observed' },
+  ];
+
+  it('joins players.json with the format-specific ADP board and memoizes per format', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/data/players.json') return { ok: true, json: async () => SAMPLE };
+      if (url === '/data/adp-ppr.json') return { ok: true, json: async () => adpPpr };
+      if (url === '/data/adp-half-ppr.json') {
+        return {
+          ok: true,
+          json: async () => [
+            { ...adpPpr[1], adp: 3.0 },
+            { ...adpPpr[0], adp: 7.0 },
+          ],
+        };
+      }
+      return { ok: false, status: 404, json: async () => null };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ppr = await loadRankedPlayers('ppr');
+    expect(ppr).toMatchObject([
+      { playerId: '1001', rank: 1, adp: 2.1 },
+      { playerId: 'SF', rank: 2, adp: 9.2 },
+    ]);
+    await loadRankedPlayers('ppr');
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-ppr.json');
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/data/adp-ppr.json')).toHaveLength(1);
+
+    const half = await loadRankedPlayers('half-ppr');
+    expect(half).toMatchObject([
+      { playerId: 'SF', rank: 1, adp: 3.0 },
+      { playerId: '1001', rank: 2, adp: 7.0 },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-half-ppr.json');
+  });
+
+  it('does not poison the per-format cache after a failed ADP fetch', async () => {
+    let adpAttempts = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/data/players.json') return { ok: true, json: async () => SAMPLE };
+      if (url === '/data/adp-ppr.json') {
+        adpAttempts += 1;
+        if (adpAttempts === 1) return { ok: false, status: 503, json: async () => null };
+        return { ok: true, json: async () => adpPpr };
+      }
+      return { ok: false, status: 404, json: async () => null };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(loadRankedPlayers('ppr')).rejects.toThrow(/503/);
+    const ranked = await loadRankedPlayers('ppr');
+    expect(ranked).toMatchObject([
+      { playerId: '1001', rank: 1, adp: 2.1 },
+      { playerId: 'SF', rank: 2, adp: 9.2 },
+    ]);
+    expect(adpAttempts).toBe(2);
+    // players.json stays memoized across the failed ranked join.
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/data/players.json')).toHaveLength(1);
   });
 });

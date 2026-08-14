@@ -33,4 +33,9 @@ describe('Drawer', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('marks a wide drawer with data-size="wide"', () => {
+    render(<Drawer open size="wide" label="Rush One context" onClose={vi.fn()}><p>content</p></Drawer>);
+    expect(screen.getByRole('dialog', { name: 'Rush One context' })).toHaveAttribute('data-size', 'wide');
+  });
 });

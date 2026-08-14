@@ -6,18 +6,27 @@ interface DrawerProps {
   label: string;
   onClose: () => void;
   children: ReactNode;
+  /** Wider panel for player-detail content; log/team keep the default rail width. */
+  size?: 'default' | 'wide';
 }
 
-/** Accessible slide-over used only in the narrow-viewport layout — see `DraftWorkspace`'s
- * `useMediaQuery` gate. Only mounted while narrow, so the focus trap only ever engages on mobile. */
-export function Drawer({ open, label, onClose, children }: DrawerProps) {
+/** Accessible slide-over for the narrow-viewport log/team rails and for player details. */
+export function Drawer({ open, label, onClose, children, size = 'default' }: DrawerProps) {
   const panelRef = useModalFocus<HTMLDivElement>(onClose, open);
   if (!open) return null;
   return (
     <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target) onClose();
     }}>
-      <div ref={panelRef} className="drawer-panel" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
+      <div
+        ref={panelRef}
+        className="drawer-panel"
+        data-size={size === 'wide' ? 'wide' : undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+      >
         <div className="drawer-header">
           <strong>{label}</strong>
           <button className="quiet-button" type="button" onClick={onClose}>Close</button>
