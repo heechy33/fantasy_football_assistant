@@ -10,13 +10,13 @@ import math
 import re
 import time
 from dataclasses import dataclass
-from html.parser import HTMLParser
 from typing import Any, Callable, Protocol
 from urllib.parse import urlencode
 
 import requests
 
-from match import normalize_ffc_position, normalize_name, normalize_team
+from html_table import TableParser
+from match import DEF_TEAM_NAMES, normalize_ffc_position, normalize_name, normalize_team
 from transform import SeasonProjection
 
 FFTODAY_BASE = "https://www.fftoday.com/rankings/playerproj.php"
@@ -43,19 +43,6 @@ TOP_ADP_PROJECTION_COVERAGE_THRESHOLD = 0.90
 
 _UPDATED_RE = re.compile(r"Updated\s*:\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})", re.I)
 _NUM_RE = re.compile(r"^-?(?:\d+(?:\.\d*)?|\.\d+)$")
-_DEF_TEAM_NAMES = {
-    "arizona cardinals": "ARI", "atlanta falcons": "ATL", "baltimore ravens": "BAL",
-    "buffalo bills": "BUF", "carolina panthers": "CAR", "chicago bears": "CHI",
-    "cincinnati bengals": "CIN", "cleveland browns": "CLE", "dallas cowboys": "DAL",
-    "denver broncos": "DEN", "detroit lions": "DET", "green bay packers": "GB",
-    "houston texans": "HOU", "indianapolis colts": "IND", "jacksonville jaguars": "JAX",
-    "kansas city chiefs": "KC", "las vegas raiders": "LV", "los angeles chargers": "LAC",
-    "los angeles rams": "LAR", "miami dolphins": "MIA", "minnesota vikings": "MIN",
-    "new england patriots": "NE", "new orleans saints": "NO", "new york giants": "NYG",
-    "new york jets": "NYJ", "philadelphia eagles": "PHI", "pittsburgh steelers": "PIT",
-    "san francisco 49ers": "SF", "seattle seahawks": "SEA", "tampa bay buccaneers": "TB",
-    "tennessee titans": "TEN", "washington commanders": "WAS",
-}
 
 
 class SeasonProjectionProvider(Protocol):
@@ -72,50 +59,15 @@ class ProjectionResult:
     position_rows: dict[str, int]
     source_url: str
     diagnostics: dict[str, Any]
+    # Matched sleeper_id → bye week from FFToday's Bye column. Used to fill
+    # PlayerMeta.byeWeek holes that FFC's shallower mock board never covers.
+    bye_weeks: dict[str, int]
 
 
 @dataclass(frozen=True)
 class _HttpPage:
     url: str
     text: str
-
-
-class _TableParser(HTMLParser):
-    """Small table reader that ignores presentation markup and image alt text."""
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.tables: list[list[list[str]]] = []
-        self._table: list[list[str]] | None = None
-        self._row: list[str] | None = None
-        self._cell: list[str] | None = None
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        tag = tag.lower()
-        if tag == "table" and self._table is None:
-            self._table = []
-        elif tag == "tr" and self._table is not None:
-            self._row = []
-        elif tag in {"th", "td"} and self._row is not None:
-            self._cell = []
-
-    def handle_endtag(self, tag: str) -> None:
-        tag = tag.lower()
-        if tag in {"th", "td"} and self._cell is not None and self._row is not None:
-            self._row.append(" ".join("".join(self._cell).split()))
-            self._cell = None
-        elif tag == "tr" and self._row is not None and self._table is not None:
-            if self._row:
-                self._table.append(self._row)
-            self._row = None
-        elif tag == "table" and self._table is not None:
-            if self._table:
-                self.tables.append(self._table)
-            self._table = None
-
-    def handle_data(self, data: str) -> None:
-        if self._cell is not None:
-            self._cell.append(data)
 
 
 def _clean_header(value: str) -> str:
@@ -147,7 +99,7 @@ def _column(headers: list[str], label: str, occurrence: int = 0) -> int:
 
 
 def _table_for_position(html: str, position: str) -> tuple[list[str], list[list[str]]]:
-    parser = _TableParser()
+    parser = TableParser()
     parser.feed(html)
     required = {
         "QB": ("Player", "Tm", "Bye", "Cmp", "Att", "Yds", "TD", "INT", "FPts"),
@@ -166,7 +118,9 @@ def _table_for_position(html: str, position: str) -> tuple[list[str], list[list[
     raise ValueError(f"FFToday {position} table with validated headers not found")
 
 
-def _row_to_projection(position: str, headers: list[str], row: list[str]) -> tuple[str, str | None, dict[str, float]]:
+def _row_to_projection(
+    position: str, headers: list[str], row: list[str],
+) -> tuple[str, str | None, int, dict[str, float]]:
     max_index = len(headers) - 1
     if len(row) <= max_index:
         raise ValueError(f"FFToday {position} row has {len(row)} cells; expected {len(headers)}")
@@ -176,10 +130,10 @@ def _row_to_projection(position: str, headers: list[str], row: list[str]) -> tup
     name = row[name_index].strip()
     if not name or name.lower() in {"player", "team", "next page", "last page"}:
         raise ValueError(f"FFToday {position} row has no player name")
-    team = _DEF_TEAM_NAMES.get(name.lower()) if position == "DEF" else normalize_team(row[team_index])
+    team = DEF_TEAM_NAMES.get(name.lower()) if position == "DEF" else normalize_team(row[team_index])
     # Failing on bad numeric cells is intentional. A half-parsed row would be
     # more dangerous than rejecting a refresh and preserving the last artifact.
-    _number(row[bye_index], "bye")
+    bye = int(_number(row[bye_index], "bye"))
 
     stats: dict[str, float] = {}
     if position == "QB":
@@ -200,7 +154,7 @@ def _row_to_projection(position: str, headers: list[str], row: list[str]) -> tup
                   ("def_td", "DefTD", 0), ("pts_allow", "PA", 0), ("def_kr_td", "KickTD", 0))
     for stat, label, occurrence in fields:
         stats[stat] = _number(row[_column(headers, label, occurrence)], stat)
-    return name, team, stats
+    return name, team, bye, stats
 
 
 def parse_fftoday_page(html: str, position: str) -> tuple[list[dict[str, Any]], str | None, tuple[str, ...]]:
@@ -214,12 +168,14 @@ def parse_fftoday_page(html: str, position: str) -> tuple[list[dict[str, Any]], 
     for row in rows:
         if not row or row[0].lower().startswith(("next page", "last page")):
             continue
-        name, team, stats = _row_to_projection(position, headers, row)
+        name, team, bye, stats = _row_to_projection(position, headers, row)
         key = (normalize_name(name), team)
         if key in seen:
             raise ValueError(f"duplicate FFToday row on page: {name}")
         seen.add(key)
-        result.append({"name": name, "team": team, "position": position, "stats": stats})
+        result.append({
+            "name": name, "team": team, "position": position, "byeWeek": bye, "stats": stats,
+        })
     if not result:
         raise ValueError(f"FFToday {position} page contained no projection rows")
     update_match = _UPDATED_RE.search(html)
@@ -349,9 +305,12 @@ class FFTodayProjectionProvider:
                     raise ValueError("FFToday returned a non-HTML response")
                 return _HttpPage(full_url, text)
             except (requests.RequestException, ValueError) as exc:
-                status_code = getattr(exc.response, "status_code", 0)
+                response = getattr(exc, "response", None)
+                status_code = getattr(response, "status_code", None) if response is not None else None
+                # Retry transport failures (no HTTP response) and rate-limit / 5xx.
+                # Non-HTML ValueError and 4xx (other than 403/429) fail closed.
                 retryable = isinstance(exc, requests.RequestException) and (
-                    status_code >= 500 or status_code in {403, 429}
+                    status_code is None or status_code >= 500 or status_code in {403, 429}
                 )
                 if not retryable or attempt == self.max_attempts:
                     raise RuntimeError(f"FFToday fetch failed for {full_url}: {exc}") from exc
@@ -360,10 +319,10 @@ class FFTodayProjectionProvider:
 
     def load(self, season: str, top_adp_ids: list[str] | None = None) -> ProjectionResult:
         all_rows: list[SeasonProjection] = []
+        bye_weeks: dict[str, int] = {}
         counts: dict[str, int] = {}
         updates: set[str] = set()
         unmatched: list[str] = []
-        matched_by_position: dict[str, int] = {position: 0 for position in POSITION_IDS}
         page_signatures: set[tuple[str, ...]] = set()
         source_urls: list[str] = []
         name_index = _build_name_index(self.sleeper_players)
@@ -398,6 +357,7 @@ class FFTodayProjectionProvider:
                         unmatched.append(f"{row['name']} ({position})")
                         continue
                     all_rows.append(SeasonProjection(playerId=player_id, source=FFTODAY_SOURCE, stats=row["stats"]))
+                    bye_weeks[player_id] = int(row["byeWeek"])
                 if len(rows) < PAGE_SIZE:
                     break
                 page += 1
@@ -421,4 +381,5 @@ class FFTodayProjectionProvider:
                 "matchedRows": len(all_rows),
                 "sourceUrls": source_urls,
             },
+            bye_weeks=bye_weeks,
         )

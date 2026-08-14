@@ -3,27 +3,36 @@
 Regenerates data/*.json from live upstream sources (Sleeper, FFC, DynastyProcess).
 
 Run via `npm run pipeline` locally, or on a schedule by
-.github/workflows/refresh-data.yml. Exits non-zero if the crosswalk coverage
-gate fails, which should block the workflow from committing degraded data —
-see match.py's docstring for why the threshold below is 0.95 rather than 1.0.
+.github/workflows/refresh-data.yml. Exits non-zero if the FFC→Sleeper crosswalk
+coverage gate fails, which should block the workflow from committing degraded
+data — see COVERAGE_GATE_THRESHOLD below (buffered under a verified 1.0 sample
+so a single future edge-case miss doesn't brick the refresh).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import match
 import context
+import cbs_projections
+import espn_projections
+import fantasypros
+import fantasypros_adp
 import history
 import nflverse_source
+import provider_projections
 import sources
 import transform
+import weekly_stats
 from fftoday import FFTodayProjectionProvider, validate_projection_gates
 
 DEFAULT_SEASON = "2026"
@@ -39,8 +48,14 @@ SLEEPER_ADP_MIN_ROWS = 250
 
 # Bumped whenever a source's manifest entry shape changes (fields added/removed/
 # retyped) so consumers can detect a manifest from an older pipeline version
-# instead of guessing from field presence.
-SOURCE_SCHEMA_VERSION = 2
+# instead of guessing from field presence. v3: sleeper_weekly_stats introduces
+# status: "partial" and the weeksFetched/weeksFailed fields.
+SOURCE_SCHEMA_VERSION = 3
+
+# Sleeper's weekly stats endpoint is undocumented; be polite about it. Weeks
+# are fetched sequentially (not in parallel) with a short per-week retry.
+WEEKLY_STATS_FETCH_ATTEMPTS = 2
+WEEKLY_STATS_WEEK_COUNT = 18
 
 
 def select_active_adp(
@@ -95,12 +110,23 @@ def _sanitized_diagnostic(error: BaseException) -> str:
     return f"{type(error).__name__}: {message}"[:240]
 
 
+@dataclass
+class ContextArtifacts:
+    usage: dict[str, Any]
+    weekly: dict[str, list[dict[str, Any]]]
+    weeklyStats: dict[str, Any]
+    manifest: dict[str, Any]
+    sources: dict[str, dict[str, Any]]
+
+
 def _build_context_artifact(
     players: dict[str, transform.PlayerMeta],
     ppr_adp: list[transform.AdpEntry],
     draft_season: int,
     fetched_at: str,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, dict[str, Any]]]:
+    weekly_payloads: dict[int, dict[str, dict[str, Any]]],
+    weeks_fetched: list[int],
+) -> ContextArtifacts:
     history_seasons = list(range(draft_season - 3, draft_season))
     source_entries: dict[str, dict[str, Any]] = {}
     frames: dict[str, list[dict[str, Any]]] = {}
@@ -115,12 +141,18 @@ def _build_context_artifact(
                 "diagnostic": diagnostic,
             }
         coverage = context.coverage_report(players, ppr_adp, {})
-        return {}, {
-            "usageSeason": draft_season - 1,
-            "historySeasons": history_seasons,
-            "diagnostics": {"error": diagnostic},
-            "coverage": coverage,
-        }, source_entries
+        return ContextArtifacts(
+            usage={},
+            weekly={},
+            weeklyStats={},
+            manifest={
+                "usageSeason": draft_season - 1,
+                "historySeasons": history_seasons,
+                "diagnostics": {"error": diagnostic},
+                "coverage": coverage,
+            },
+            sources=source_entries,
+        )
 
     for name, loader in loaders.items():
         try:
@@ -142,8 +174,18 @@ def _build_context_artifact(
     try:
         optional_loaders = nflverse_source.optional_loaders()
     except Exception as error:
+        diagnostic = _sanitized_diagnostic(error)
         optional_loaders = {}
-        optional_errors["nflverse_pbp"] = _sanitized_diagnostic(error)
+        # Give every known optional source (not just pbp) an error manifest
+        # entry here -- otherwise a source added to OPTIONAL_SOURCE_NAMES after
+        # pbp (e.g. schedules) would get no manifest entry at all on this
+        # particular failure path.
+        for name in nflverse_source.OPTIONAL_SOURCE_NAMES:
+            optional_errors[name] = diagnostic
+            source_entries[name] = {
+                **_source_entry(nflverse_source.SOURCE_URLS[name], 0, fetched_at, status="error"),
+                "diagnostic": diagnostic,
+            }
     for name, loader in optional_loaders.items():
         try:
             rows = nflverse_source.to_rows(loader(history_seasons))
@@ -165,12 +207,18 @@ def _build_context_artifact(
     if any(name not in frames for name in loaders):
         diagnostic = "One or more nflverse sources failed; context artifact cleared"
         coverage = context.coverage_report(players, ppr_adp, {})
-        return {}, {
-            "usageSeason": draft_season - 1,
-            "historySeasons": history_seasons,
-            "diagnostics": {"error": diagnostic},
-            "coverage": coverage,
-        }, source_entries
+        return ContextArtifacts(
+            usage={},
+            weekly={},
+            weeklyStats={},
+            manifest={
+                "usageSeason": draft_season - 1,
+                "historySeasons": history_seasons,
+                "diagnostics": {"error": diagnostic},
+                "coverage": coverage,
+            },
+            sources=source_entries,
+        )
 
     try:
         result = context.build_player_context(
@@ -187,28 +235,364 @@ def _build_context_artifact(
         for name, entry in source_entries.items():
             source_entries[name] = {**entry, "status": "error", "diagnostic": diagnostic}
         coverage = context.coverage_report(players, ppr_adp, {})
-        return {}, {
-            "usageSeason": draft_season - 1,
-            "historySeasons": history_seasons,
-            "diagnostics": {"error": diagnostic},
-            "coverage": coverage,
-        }, source_entries
+        return ContextArtifacts(
+            usage={},
+            weekly={},
+            weeklyStats={},
+            manifest={
+                "usageSeason": draft_season - 1,
+                "historySeasons": history_seasons,
+                "diagnostics": {"error": diagnostic},
+                "coverage": coverage,
+            },
+            sources=source_entries,
+        )
 
     if optional_errors:
         result.diagnostics["optionalSourceErrors"] = optional_errors
+
+    # Weekly Sleeper game-log artifact (data/weekly-stats.json). Built here,
+    # not in main(), because it needs `frames` -- nflverse_weekly_rosters,
+    # nflverse_player_stats, and (optional) nflverse_schedules -- which is
+    # local to this function. A failure here is independent of usage/weekly:
+    # it only clears weeklyStats, never the rest of the context artifact.
+    usage_season = draft_season - 1
+    weekly_stats_artifact: dict[str, Any] = {}
+    try:
+        # Same crosswalk construction as context.build_player_context: strip
+        # padded DynastyProcess gsis strings so they still match clean
+        # nflverse ids.
+        gsis_to_player = {
+            meta.ids["gsis"].strip(): pid
+            for pid, meta in players.items()
+            if meta.ids.get("gsis") and meta.ids["gsis"].strip()
+        }
+        weekly_stats_artifact, weekly_stats_diagnostics = weekly_stats.build_weekly_stats(
+            weekly_payloads,
+            weeks_fetched,
+            players,
+            gsis_to_player,
+            frames.get("nflverse_schedules"),
+            frames.get("nflverse_weekly_rosters"),
+            frames.get("nflverse_player_stats", []),
+            usage_season,
+        )
+        result.diagnostics["weeklyStats"] = weekly_stats_diagnostics
+    except Exception as error:
+        weekly_stats_artifact = {}
+        result.diagnostics["weeklyStats"] = {"error": _sanitized_diagnostic(error)}
+
     coverage = context.coverage_report(players, ppr_adp, result.usage)
-    return result.usage, {
-        "usageSeason": draft_season - 1,
-        "historySeasons": history_seasons,
-        "diagnostics": result.diagnostics,
-        "coverage": coverage,
-    }, source_entries
+    return ContextArtifacts(
+        usage=result.usage,
+        weekly=result.weekly,
+        weeklyStats=weekly_stats_artifact,
+        manifest={
+            "usageSeason": draft_season - 1,
+            "historySeasons": history_seasons,
+            "diagnostics": result.diagnostics,
+            "coverage": coverage,
+        },
+        sources=source_entries,
+    )
 
 
 def _write_json(path: Path, obj: Any) -> int:
     payload = json.dumps(obj, separators=(",", ":"), default=transform.to_json_ready)
     path.write_text(payload, encoding="utf-8")
     return len(payload.encode("utf-8"))
+
+
+def _run_optional_local_csv_artifact(
+    source_dir: str | None,
+    filename: str,
+    artifact_path: Path,
+    *,
+    label: str,
+    dir_flag: str,
+    dir_token: str,
+    build_artifact: Callable[[str], dict[str, Any]],
+) -> None:
+    """Best-effort optional local artifact (gitignored, display-only) from a
+    user-supplied CSV. Never affects core data selection, coverage metrics, or
+    manifest source provenance. Any failure removes only the explicit output
+    path so a prior run's artifact can't look current after this run couldn't
+    read or parse the requested source — and never fails the build.
+
+    `build_artifact(csv_text)` does the actual parse+assemble and returns the
+    self-describing artifact dict (its `source` block must carry rows/matched/
+    unmatched for the [ok] summary). The source directory and CSV path are
+    scrubbed from diagnostics here — Windows OSError messages embed paths via
+    repr(), doubling backslashes, and these CSVs usually live outside the repo.
+    """
+    if not source_dir:
+        print(f"[skip] {label}: no {dir_flag}")
+        return
+
+    csv_path = Path(source_dir) / filename
+    artifact_path = artifact_path.resolve()
+
+    def _diagnostic(error: BaseException) -> str:
+        # _sanitized_diagnostic only replaces Path.cwd()/URLs; the source CSV
+        # usually lives outside the repo, so scrub those local paths explicitly
+        # before printing. Windows OSError messages embed the path via repr(),
+        # so backslashes are doubled in the message text — replace both the raw
+        # and repr-escaped forms.
+        message = _sanitized_diagnostic(error)
+        dir_path = Path(source_dir)
+        scrubbed_csv = f"[{dir_token}]/{csv_path.name}"
+
+        def _scrub(message: str, raw: Path, replacement: str) -> str:
+            variants = {str(raw)}
+            try:
+                variants.add(str(raw.resolve()))
+            except OSError:
+                pass
+            for variant in variants:
+                message = message.replace(variant, replacement)
+                message = message.replace(repr(variant)[1:-1], replacement)
+            return message
+
+        message = _scrub(message, csv_path, scrubbed_csv)
+        message = _scrub(message, dir_path, f"[{dir_token}]")
+        return message
+
+    try:
+        text = csv_path.read_text(encoding="utf-8-sig")
+    except OSError as error:
+        print(f"[warn] {label}: {_diagnostic(error)}")
+        artifact_path.unlink(missing_ok=True)
+        return
+
+    try:
+        artifact = build_artifact(text)
+    except Exception as error:
+        print(f"[warn] {label}: {_diagnostic(error)}")
+        artifact_path.unlink(missing_ok=True)
+        return
+
+    _write_json(artifact_path, artifact)
+    print(
+        f"[ok] {label}: matched {artifact['source']['matched']}, "
+        f"unmatched {artifact['source']['unmatched']} (of {artifact['source']['rows']} rows)"
+    )
+
+
+def _run_optional_fantasypros_stars(
+    fantasypros_dir: str | None,
+    season: str,
+    sleeper_players: dict[str, dict[str, Any]],
+    out_dir: Path,
+    generated_at: str,
+) -> None:
+    """Best-effort local-only decoration step. Never affects core data
+    selection, coverage metrics, or manifest source provenance — see
+    FRONTEND_OVERHAUL_PHASE_1_REVISED_PLAN.md section 5's behavior matrix.
+    """
+    filename = f"FantasyPros_{season}_Draft_ALL_Rankings.csv"
+    sleeper_index = match.build_sleeper_match_index(sleeper_players)
+
+    def build_artifact(csv_text: str) -> dict[str, Any]:
+        rows, parse_diagnostics = fantasypros.parse_rankings_csv(csv_text)
+        return fantasypros.build_stars_artifact(
+            rows,
+            sleeper_index,
+            season=int(season),
+            source_file=filename,
+            generated_at=generated_at,
+            dropped_non_rank_rows=parse_diagnostics["droppedNonRankRows"],
+        )
+
+    _run_optional_local_csv_artifact(
+        fantasypros_dir,
+        filename,
+        out_dir / "fantasypros-stars.json",
+        label="FantasyPros stars",
+        dir_flag="--fantasypros-dir",
+        dir_token="fantasypros-dir",
+        build_artifact=build_artifact,
+    )
+
+
+def _run_optional_fantasypros_adp(
+    fantasypros_dir: str | None,
+    season: str,
+    sleeper_players: dict[str, dict[str, Any]],
+    valid_player_ids: set[str],
+    out_dir: Path,
+    generated_at: str,
+) -> None:
+    """Best-effort local-only per-site ADP decoration step (gitignored, display-only).
+    Same failure contract as the stars step: never fails the build, never touches
+    core data selection, coverage metrics, or manifest source provenance.
+    """
+    filename = f"FantasyPros_{season}_Overall_ADP_Rankings.csv"
+    sleeper_index = match.build_sleeper_match_index(sleeper_players)
+
+    def build_artifact(csv_text: str) -> dict[str, Any]:
+        rows, empty_columns = fantasypros_adp.parse_adp_csv(csv_text)
+        return fantasypros_adp.build_adp_artifact(
+            rows,
+            sleeper_index,
+            valid_player_ids=valid_player_ids,
+            season=int(season),
+            source_file=filename,
+            generated_at=generated_at,
+            empty_columns=empty_columns,
+        )
+
+    _run_optional_local_csv_artifact(
+        fantasypros_dir,
+        filename,
+        out_dir / "fantasypros-adp.json",
+        label="FantasyPros ADP",
+        dir_flag="--fantasypros-dir",
+        dir_token="fantasypros-dir",
+        build_artifact=build_artifact,
+    )
+
+
+def _run_provider_projections(
+    sleeper_adp_rows: list[dict[str, Any]],
+    valid_player_ids: set[str],
+    *,
+    season: str,
+    out_dir: Path,
+    fetched_at: str,
+    sleeper_index: dict[Any, str],
+    espn_id_to_player_id: dict[str, str],
+    sleeper_error: str | None = None,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any]]:
+    """Committed, deployed, display-only multi-provider projections artifact.
+    Runs after the coverage gate so a gate failure preserves the previous
+    artifact untouched. Each provider fails open independently (its own
+    try/except, sanitized diagnostic, `[warn]` line, never a non-zero exit);
+    Sleeper reuses the projection rows already fetched for ADP — zero new HTTP.
+    Reading the previous artifact is the only filesystem IO here (carry-forward
+    is the pure provider_projections.merge_and_assemble policy)."""
+    artifact_path = out_dir / "projections-providers.json"
+    previous: dict[str, Any] | None = None
+    if artifact_path.exists():
+        try:
+            previous = json.loads(artifact_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            print(f"[warn] provider projections: could not read previous artifact: {_sanitized_diagnostic(error)}")
+
+    # A malformed optional artifact must not break the core refresh.
+    if not isinstance(previous, dict):
+        previous = None
+    elif (
+        not isinstance(previous.get('providers'), list)
+        or not all(isinstance(block, dict) and isinstance(block.get('key'), str) for block in previous['providers'])
+        or not isinstance(previous.get('players'), dict)
+    ):
+        previous = None
+
+    results: list[provider_projections.ProviderResult] = []
+    source_entries: dict[str, dict[str, Any]] = {}
+
+    # --- Sleeper (zero new HTTP: rows already fetched for ADP) ---
+    sleeper_url = f"{sources.SLEEPER_BASE}/projections/nfl/{season}"
+    try:
+        if sleeper_error is not None:
+            raise RuntimeError(sleeper_error)
+        sleeper_result = provider_projections.sleeper_provider_result(
+            sleeper_adp_rows, valid_player_ids, fetched_at=fetched_at,
+        )
+        results.append(sleeper_result)
+        source_entries["sleeper_projections"] = _source_entry(
+            sleeper_url, sleeper_result.block["rows"], fetched_at,
+        )
+    except Exception as error:
+        diagnostic = _sanitized_diagnostic(error)
+        print(f"[warn] sleeper projections: {diagnostic}")
+        results.append(
+            provider_projections.error_provider_result("sleeper", "Sleeper (Rotowire)", diagnostic=diagnostic)
+        )
+        source_entries["sleeper_projections"] = {
+            **_source_entry(sleeper_url, 0, fetched_at, status="error"),
+            "diagnostic": diagnostic,
+        }
+
+    # --- ESPN (one unauthenticated GET; DEF expected in positionsExcluded) ---
+    espn_url = espn_projections.ESPN_DEFAULTS_URL.format(season=season)
+    try:
+        espn_payload = espn_projections.fetch_espn_projections(season)
+        espn_result = espn_projections.espn_provider_result(
+            espn_payload,
+            season=int(season),
+            sleeper_index=sleeper_index,
+            espn_id_to_player_id=espn_id_to_player_id,
+            valid_player_ids=valid_player_ids,
+            fetched_at=fetched_at,
+        )
+        results.append(espn_result)
+        source_entries["espn_projections"] = _source_entry(
+            espn_url, espn_result.block["rows"], fetched_at,
+        )
+    except Exception as error:
+        diagnostic = _sanitized_diagnostic(error)
+        print(f"[warn] espn projections: {diagnostic}")
+        results.append(
+            provider_projections.error_provider_result("espn", "ESPN", diagnostic=diagnostic)
+        )
+        source_entries["espn_projections"] = {
+            **_source_entry(espn_url, 0, fetched_at, status="error"),
+            "diagnostic": diagnostic,
+        }
+
+    # --- CBS (one unauthenticated GET per position; DST expected excluded by
+    # the reconciliation gate until the tiered points/yards scoring is mapped) ---
+    cbs_url = cbs_projections.CBS_STATS_BASE.format(position="QB", season=season)
+    try:
+        cbs_pages = {
+            position: cbs_projections.fetch_cbs_position_page(position, season)
+            for position in cbs_projections.POSITIONS
+        }
+        cbs_result = cbs_projections.cbs_provider_result(
+            cbs_pages,
+            season=int(season),
+            sleeper_index=sleeper_index,
+            valid_player_ids=valid_player_ids,
+            fetched_at=fetched_at,
+        )
+        results.append(cbs_result)
+        source_entries["cbs_projections"] = _source_entry(
+            cbs_url, cbs_result.block["rows"], fetched_at,
+        )
+    except Exception as error:
+        diagnostic = _sanitized_diagnostic(error)
+        print(f"[warn] cbs projections: {diagnostic}")
+        results.append(
+            provider_projections.error_provider_result("cbs", "CBS", diagnostic=diagnostic)
+        )
+        source_entries["cbs_projections"] = {
+            **_source_entry(cbs_url, 0, fetched_at, status="error"),
+            "diagnostic": diagnostic,
+        }
+
+    artifact = provider_projections.merge_and_assemble(
+        previous,
+        results,
+        season=int(season),
+        generated_at=fetched_at,
+        now_iso=fetched_at,
+    )
+    _write_json(artifact_path, artifact)
+
+    summary: dict[str, Any] = {
+        "updatedAt": fetched_at,
+        "providers": {
+            block["key"]: {
+                "status": block["status"],
+                "rows": block["rows"],
+                "staleSinceDays": block.get("staleSinceDays"),
+                "diagnostic": block.get("diagnostic"),
+            }
+            for block in artifact["providers"]
+        },
+    }
+    return artifact, source_entries, summary
 
 
 def main() -> int:
@@ -222,6 +606,11 @@ def main() -> int:
         default=COVERAGE_GATE_THRESHOLD,
         help="Fail the run if top-300 ADP crosswalk match rate drops below this",
     )
+    parser.add_argument(
+        "--fantasypros-dir",
+        default=os.environ.get("FFA_FANTASYPROS_DIR") or None,
+        help="Local directory containing FantasyPros_<season>_Draft_ALL_Rankings.csv and/or FantasyPros_<season>_Overall_ADP_Rankings.csv; optional and never committed",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -229,19 +618,19 @@ def main() -> int:
     fetched_at = datetime.now(timezone.utc).isoformat()
     manifest_sources: dict[str, dict[str, Any]] = {}
 
-    print(f"[1/6] Fetching Sleeper player pool (season {args.season})...")
+    print(f"[1/9] Fetching Sleeper player pool (season {args.season})...")
     sleeper_players = sources.fetch_sleeper_players()
     manifest_sources["sleeper_players"] = _source_entry(
         f"{sources.SLEEPER_BASE}/v1/players/nfl", len(sleeper_players), fetched_at
     )
 
-    print("[2/6] Fetching DynastyProcess player ID crosswalk...")
+    print("[2/9] Fetching DynastyProcess player ID crosswalk...")
     dp_rows = sources.fetch_dynastyprocess_crosswalk()
     manifest_sources["dynastyprocess_playerids"] = _source_entry(
         sources.DYNASTYPROCESS_PLAYERIDS_URL, len(dp_rows), fetched_at
     )
 
-    print("[3/6] Fetching FFC ADP for", ", ".join(sources.ADP_FORMATS))
+    print("[3/9] Fetching FFC ADP for", ", ".join(sources.ADP_FORMATS))
     ffc_by_format: dict[str, list[dict[str, Any]]] = {}
     ffc_meta_by_format: dict[str, dict[str, Any]] = {}
     for fmt in sources.ADP_FORMATS:
@@ -270,7 +659,7 @@ def main() -> int:
     # mean at once (unlike FFC, which needs one call per format), so a failure
     # here is caught once and degrades every format to its FFC fallback rather
     # than crashing the whole build — FFC stays the hard-gated safety net.
-    print(f"[3/6] Fetching Sleeper draft-lobby ADP (season {args.season})...")
+    print(f"[4/9] Fetching Sleeper draft-lobby ADP (season {args.season})...")
     sleeper_adp_url = f"{sources.SLEEPER_BASE}/projections/nfl/{args.season}"
     try:
         sleeper_adp_rows = sources.fetch_sleeper_adp(args.season)
@@ -279,8 +668,13 @@ def main() -> int:
         sleeper_adp_rows = []
         sleeper_adp_error = _sanitized_diagnostic(error)
 
-    print("[4/6] Transforming core data...")
+    print("[5/9] Transforming core data + season projections...")
     players = transform.build_player_meta(sleeper_players, dp_rows)
+    try:
+        draft_applied = transform.apply_nflverse_draft(players, nflverse_source.load_player_table())
+        print(f"    nflverse draft bio applied to {draft_applied} players")
+    except Exception as error:
+        print(f"    nflverse draft bio skipped: {_sanitized_diagnostic(error)}")
 
     # Built once and reused across every ADP format below: the index depends
     # only on sleeper_players, which doesn't change between formats, so
@@ -347,6 +741,12 @@ def main() -> int:
     top_adp_ids = [entry.playerId for entry in adp_by_format[COVERAGE_GATE_FORMAT][:300] if entry.playerId]
     projection_result = FFTodayProjectionProvider(sleeper_players).load(args.season, top_adp_ids=top_adp_ids)
     projections = projection_result.projections
+    # FFC covers the mock-lobby cohort; FFToday's Bye column covers the deeper
+    # Sleeper lobby board that FFC never drafted. FFC wins on conflict (already
+    # applied above) so a source disagreement doesn't thrash week-to-week.
+    transform.backfill_bye_weeks_from_ids(players, projection_result.bye_weeks)
+    for entries in adp_by_format.values():
+        transform.apply_player_bye_weeks_to_adp(entries, players)
     manifest_sources['fftoday_projections'] = {
         'url': projection_result.source_url,
         'rows': len(projections),
@@ -356,15 +756,60 @@ def main() -> int:
         'status': 'ok',
     }
 
-    print("[5/6] Building fail-open player context...")
+    # Undocumented, no schema contract -- weeks are fetched sequentially (not
+    # in parallel) out of politeness, with a short per-week retry. A week that
+    # still fails after retrying is recorded (not fabricated as an empty week)
+    # so the client can tell "not fetched" apart from "fetched, no data".
+    usage_season = int(args.season) - 1
+    assert usage_season < int(args.season), "weekly stats must never target the draft season itself"
+    print(f"[6/9] Fetching Sleeper weekly stats (season {usage_season}, {WEEKLY_STATS_FETCH_ATTEMPTS}x retry/week)...")
+    weekly_payloads: dict[int, dict[str, dict[str, Any]]] = {}
+    weeks_failed: dict[str, str] = {}
+    for week in range(1, WEEKLY_STATS_WEEK_COUNT + 1):
+        week_error: str | None = None
+        for _attempt in range(WEEKLY_STATS_FETCH_ATTEMPTS):
+            try:
+                weekly_payloads[week] = sources.fetch_sleeper_weekly_stats(str(usage_season), week)
+                week_error = None
+                break
+            except Exception as error:
+                week_error = _sanitized_diagnostic(error)
+        if week_error is not None:
+            weeks_failed[str(week)] = week_error
+
+    weeks_fetched = sorted(weekly_payloads.keys())
+    if len(weeks_fetched) == WEEKLY_STATS_WEEK_COUNT:
+        weekly_stats_status = "ok"
+    elif weeks_fetched:
+        weekly_stats_status = "partial"
+    else:
+        weekly_stats_status = "error"
+    manifest_sources["sleeper_weekly_stats"] = {
+        **_source_entry(
+            f"{sources.SLEEPER_BASE}{sources.SLEEPER_WEEKLY_STATS_PATH.format(season=usage_season, week='<week>')}",
+            sum(len(payload) for payload in weekly_payloads.values()),
+            fetched_at,
+            status=weekly_stats_status,
+        ),
+        "weeksFetched": weeks_fetched,
+        "weeksFailed": weeks_failed,
+    }
+    if weeks_failed:
+        print(f"  [warn] {len(weeks_failed)} of {WEEKLY_STATS_WEEK_COUNT} weeks failed: {sorted(weeks_failed)}")
+
+    print("[7/9] Building fail-open player context...")
     active_diagnostics = active_projection_diagnostics(adp_by_format[COVERAGE_GATE_FORMAT], projections)
-    player_usage, context_manifest, context_sources = _build_context_artifact(
+    context_artifacts = _build_context_artifact(
         players,
         adp_by_format[COVERAGE_GATE_FORMAT],
         int(args.season),
         fetched_at,
+        weekly_payloads,
+        weeks_fetched,
     )
-    manifest_sources.update(context_sources)
+    player_usage = context_artifacts.usage
+    context_manifest = context_artifacts.manifest
+    manifest_sources.update(context_artifacts.sources)
 
     # Numeric sleeper_ids sort numerically; DEF entries (team abbreviations
     # like "DEN") sort alphabetically after them.
@@ -375,19 +820,60 @@ def main() -> int:
 
     # All source and coverage validation happens before the first artifact is
     # written, so a failed refresh leaves the last successful snapshot intact.
+    # Gate metric is FFC→Sleeper identity match (gate_diagnostics), NOT active-
+    # board projection coverage (active_diagnostics / manifest.projection).
     if gate_diagnostics['top300MatchRate'] < args.coverage_threshold:
-        print('COVERAGE GATE FAILED: preserving the last successful artifact.')
+        print(
+            "COVERAGE GATE FAILED: "
+            f"FFC top-{gate_diagnostics['sampleSize']} match rate "
+            f"{gate_diagnostics['top300MatchRate']:.1%} < {args.coverage_threshold:.1%}. "
+            f"Unmatched: {gate_diagnostics['unmatchedTop300']}. "
+            "Preserving the last successful artifact."
+        )
         return 1
 
+    _run_optional_fantasypros_stars(
+        args.fantasypros_dir, args.season, sleeper_players, out_dir, fetched_at,
+    )
+    _run_optional_fantasypros_adp(
+        args.fantasypros_dir, args.season, sleeper_players, set(players), out_dir, fetched_at,
+    )
+
+    # Committed, deployed, display-only. After the gate so a gate failure
+    # (return above) preserves the previous projections-providers.json untouched.
+    print("[8/9] Building multi-provider projections (Sleeper, ESPN, CBS)...")
+    espn_id_to_player_id = {
+        str(meta.ids["espn"]): player_id
+        for player_id, meta in players.items()
+        if "espn" in (meta.ids or {})
+    }
+    provider_artifact, provider_sources, provider_summary = _run_provider_projections(
+        sleeper_adp_rows, set(players), season=args.season, out_dir=out_dir, fetched_at=fetched_at,
+        sleeper_index=sleeper_index, espn_id_to_player_id=espn_id_to_player_id,
+        sleeper_error=sleeper_adp_error,
+    )
+    manifest_sources.update(provider_sources)
+
+    print("[9/9] Writing artifacts and ADP history...")
     sizes = {
         "players.json": _write_json(out_dir / "players.json", players_sorted),
         "projections-season.json": _write_json(out_dir / "projections-season.json", projections),
         "player-usage.json": _write_json(out_dir / "player-usage.json", player_usage),
+        "projections-providers.json": (out_dir / "projections-providers.json").stat().st_size,
+        # Superseded by weekly-stats.json (full per-week component stats, every
+        # position). Kept for one release so a stale CDN-cached deploy still
+        # hitting the old artifact doesn't 404 mid-transition -- see the PR
+        # description's retirement plan. The frontend no longer reads this.
+        "weekly-ppr.json": _write_json(out_dir / "weekly-ppr.json", {
+            "schemaVersion": context.WEEKLY_SCORING_SCHEMA_VERSION,
+            "season": int(args.season) - 1,
+            "players": context_artifacts.weekly,
+        }),
+        "weekly-stats.json": _write_json(out_dir / "weekly-stats.json", context_artifacts.weeklyStats),
     }
     for fmt, entries in adp_by_format.items():
         sizes[f"adp-{fmt}.json"] = _write_json(out_dir / f"adp-{fmt}.json", entries)
 
-    print("[6/6] Appending ADP history snapshot...")
     sleeper_upstream = history.sleeper_upstream_updated_at(sleeper_adp_rows)
     for fmt in sources.ADP_FORMATS:
         ffc_meta = ffc_meta_by_format.get(fmt) or {}
@@ -413,9 +899,20 @@ def main() -> int:
         "sources": manifest_sources,
         "crosswalk": {
             "totalPlayers": len(players),
+            "top300MatchRate": gate_diagnostics["top300MatchRate"],
+            "unmatchedTop300": gate_diagnostics["unmatchedTop300"],
+        },
+        "projection": {
+            "source": "fftoday",
+            "updatedAt": projection_result.upstream_updated_at,
+            "positionRows": projection_result.position_rows,
             "top300MatchRate": active_diagnostics["top300MatchRate"],
             "unmatchedTop300": active_diagnostics["unmatchedTop300"],
+            "diagnostics": projection_result.diagnostics,
         },
+        # Display-only multi-provider projections summary — lets DataHealth disclose
+        # provider status without fetching the ~200 KB artifact.
+        "projectionProviders": provider_summary,
         "context": context_manifest,
     }
     sizes["manifest.json"] = _write_json(out_dir / "manifest.json", manifest)
@@ -428,6 +925,10 @@ def main() -> int:
     print(
         f"Players: {len(players)}  Season projections: {len(projections)}  "
         f"Player context: {len(player_usage)}"
+    )
+    print(
+        f"FFC crosswalk gate (top {gate_diagnostics['sampleSize']}): "
+        f"{gate_diagnostics['top300MatchRate']:.1%}"
     )
     print(
         f"Active-board projection coverage (top {active_diagnostics['sampleSize']} by {COVERAGE_GATE_FORMAT} ADP): "

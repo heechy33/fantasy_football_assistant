@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any
+import re
 
 from match import MatchKey, match_ffc_entry, normalize_ffc_position
 
@@ -40,9 +41,14 @@ def _has_meaningful_projection(stats: dict[str, float]) -> bool:
 
 
 def _first_non_empty(*values: str | None) -> str | None:
+    # DynastyProcess occasionally pads ids with leading spaces (e.g. gsis
+    # " 00-0035676"). Strip so crosswalk keys match nflverse/Sleeper ids.
     for v in values:
-        if v and v != "NA":
-            return str(v)
+        if not v:
+            continue
+        cleaned = str(v).strip()
+        if cleaned and cleaned != "NA":
+            return cleaned
     return None
 
 
@@ -62,6 +68,13 @@ class PlayerMeta:
     injuryBodyPart: str | None
     practiceParticipation: str | None
     ids: dict[str, str] = field(default_factory=dict)
+    heightInches: int | None = None
+    weightLbs: int | None = None
+    college: str | None = None
+    jerseyNumber: int | None = None
+    draftYear: int | None = None
+    draftRound: int | None = None
+    draftPick: int | None = None
 
 
 @dataclass
@@ -85,6 +98,66 @@ class AdpEntry:
     byeWeek: int | None
     adpSource: str = "ffc"  # 'sleeper' | 'ffc'
     stdevSource: str = "observed"  # 'observed' | 'fitted'
+
+
+_HEIGHT_FT_IN = re.compile(r"^(\d)\s*['’\-]\s*(\d{1,2})")
+
+
+def _optional_int(value: Any, *, minimum: int | None = None, maximum: int | None = None) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        number = int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+    if minimum is not None and number < minimum:
+        return None
+    if maximum is not None and number > maximum:
+        return None
+    return number
+
+
+def parse_height_inches(value: Any) -> int | None:
+    """Normalize Sleeper's mixed height encodings (`77`, `6'5"`, `6-5`) to inches."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return _optional_int(value, minimum=48, maximum=90)
+    text = str(value).strip()
+    if not text or text.upper() == "NA":
+        return None
+    as_int = _optional_int(text, minimum=48, maximum=90)
+    if as_int is not None:
+        return as_int
+    match = _HEIGHT_FT_IN.match(text)
+    if not match:
+        return None
+    inches = int(match.group(1)) * 12 + int(match.group(2))
+    return inches if 48 <= inches <= 90 else None
+
+
+def parse_weight_lbs(value: Any) -> int | None:
+    return _optional_int(value, minimum=120, maximum=450)
+
+
+def parse_jersey_number(value: Any) -> int | None:
+    return _optional_int(value, minimum=0, maximum=99)
+
+
+def parse_college(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned if cleaned and cleaned.upper() != "NA" else None
+
+
+def sleeper_bio_fields(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "heightInches": parse_height_inches(raw.get("height")),
+        "weightLbs": parse_weight_lbs(raw.get("weight")),
+        "college": parse_college(raw.get("college")),
+        "jerseyNumber": parse_jersey_number(raw.get("number")),
+    }
 
 
 FANTASY_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
@@ -152,8 +225,50 @@ def build_player_meta(
             injuryBodyPart=p.get("injury_body_part"),
             practiceParticipation=p.get("practice_participation"),
             ids=ids,
+            **sleeper_bio_fields(p),
         )
     return out
+
+
+def apply_nflverse_draft(players: dict[str, PlayerMeta], rows: list[dict[str, Any]]) -> int:
+    """Join nflverse player-table draft year/round/pick onto PlayerMeta by GSIS.
+
+    Missing joins stay None — never invent a pick. Returns how many players
+    received a draft year.
+    """
+    by_gsis: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        gsis = _first_non_empty(
+            str(row["gsis_id"]).strip() if row.get("gsis_id") is not None else None,
+            str(row["gsis"]).strip() if row.get("gsis") is not None else None,
+        )
+        if gsis:
+            by_gsis[gsis] = row
+
+    applied = 0
+    for player in players.values():
+        gsis = player.ids.get("gsis")
+        if not gsis:
+            continue
+        row = by_gsis.get(gsis)
+        if row is None:
+            continue
+        year = _optional_int(row.get("draft_year"), minimum=1960, maximum=2100)
+        if year is None:
+            continue
+        player.draftYear = year
+        round_ = _optional_int(row.get("draft_round"), minimum=1, maximum=20)
+        pick = _optional_int(
+            row.get("draft_pick") if row.get("draft_pick") is not None else (
+                row.get("draft_number") if row.get("draft_number") is not None else row.get("draft_ovr")
+            ),
+            minimum=1,
+            maximum=500,
+        )
+        player.draftRound = round_
+        player.draftPick = pick
+        applied += 1
+    return applied
 
 
 def build_season_projections(
@@ -364,13 +479,42 @@ def build_sleeper_adp_entries(
 
 def backfill_bye_weeks(players: dict[str, PlayerMeta], adp_entries: list[AdpEntry]) -> None:
     """Bye weeks aren't in Sleeper's player object; FFC's ADP rows carry them.
-    Only covers players who showed up in a mock draft, which is exactly the
-    set relevant to bye-conflict warnings anyway."""
+    Only covers players who showed up in a mock draft — Sleeper's broader lobby
+    board is backfilled separately from FFToday (see backfill_bye_weeks_from_ids).
+    """
     for entry in adp_entries:
         if entry.playerId and entry.byeWeek is not None:
             meta = players.get(entry.playerId)
             if meta and meta.byeWeek is None:
                 meta.byeWeek = entry.byeWeek
+
+
+def backfill_bye_weeks_from_ids(
+    players: dict[str, PlayerMeta],
+    bye_by_player: dict[str, int],
+) -> None:
+    """Fill remaining PlayerMeta.byeWeek holes from an id→bye map (FFToday)."""
+    for player_id, bye in bye_by_player.items():
+        meta = players.get(player_id)
+        if meta is not None and meta.byeWeek is None:
+            meta.byeWeek = bye
+
+
+def apply_player_bye_weeks_to_adp(
+    entries: list[AdpEntry],
+    players: dict[str, PlayerMeta],
+) -> None:
+    """Copy PlayerMeta.byeWeek onto AdpEntry rows that still have byeWeek=None.
+
+    Sleeper's lobby ADP carries no bye field, so committed adp-*.json would
+    otherwise ship every row with null bye even when players.json knows it.
+    """
+    for entry in entries:
+        if entry.byeWeek is not None or not entry.playerId:
+            continue
+        meta = players.get(entry.playerId)
+        if meta is not None and meta.byeWeek is not None:
+            entry.byeWeek = meta.byeWeek
 
 
 def to_json_ready(obj: Any) -> Any:

@@ -43,8 +43,18 @@ def fetch_sleeper_players() -> dict[str, dict[str, Any]]:
     return _get(f"{SLEEPER_BASE}/v1/players/nfl").json()
 
 
-def fetch_sleeper_season_projections(season: str) -> list[dict[str, Any]]:
-    """One call for every position — Sleeper accepts repeated `position[]` params.
+def fetch_sleeper_adp(season: str) -> list[dict[str, Any]]:
+    """Sleeper's own draft-lobby ADP, read off its undocumented projections endpoint.
+
+    Undocumented (not in Sleeper's published /v1 docs), but verified live: each
+    row embeds `stats.adp_ppr` / `adp_half_ppr` / `adp_std` / `adp_2qb`, and
+    `player_id` is already a sleeper_id (a team abbreviation for DEF rows, same
+    as /v1/players/nfl) — no crosswalk needed downstream. A player with no ADP
+    sample carries the sentinel 999.0 rather than omitting the key, so callers
+    must filter it (see transform.build_sleeper_adp_entries). This is the
+    population real Sleeper drafts (and this product) draw from, unlike FFC's
+    self-selected mock-only lobby — verified to diverge by 15-20+ picks at TE
+    between the two. No dispersion field exists here, unlike FFC's stdev.
 
     Uses a list of tuples (not `_get`'s dict-of-kwargs) because a dict can't
     hold the same query key (`position[]`) six times.
@@ -59,27 +69,9 @@ def fetch_sleeper_season_projections(season: str) -> list[dict[str, Any]]:
     return resp.json()
 
 
-def fetch_sleeper_adp(season: str) -> list[dict[str, Any]]:
-    """Sleeper's own draft-lobby ADP, read off its undocumented projections endpoint.
-
-    Undocumented (not in Sleeper's published /v1 docs), but verified live: each
-    row embeds `stats.adp_ppr` / `adp_half_ppr` / `adp_std` / `adp_2qb`, and
-    `player_id` is already a sleeper_id (a team abbreviation for DEF rows, same
-    as /v1/players/nfl) — no crosswalk needed downstream. A player with no ADP
-    sample carries the sentinel 999.0 rather than omitting the key, so callers
-    must filter it (see transform.build_sleeper_adp_entries). This is the
-    population real Sleeper drafts (and this product) draw from, unlike FFC's
-    self-selected mock-only lobby — verified to diverge by 15-20+ picks at TE
-    between the two. No dispersion field exists here, unlike FFC's stdev.
-    """
-    resp = requests.get(
-        f"{SLEEPER_BASE}/projections/nfl/{season}",
-        params=[("season_type", "regular"), *[("position[]", p) for p in FANTASY_POSITIONS]],
-        headers={"User-Agent": USER_AGENT},
-        timeout=TIMEOUT,
-    )
-    resp.raise_for_status()
-    return resp.json()
+def fetch_sleeper_season_projections(season: str) -> list[dict[str, Any]]:
+    """Compatibility alias — same undocumented projections payload as ADP."""
+    return fetch_sleeper_adp(season)
 
 
 def fetch_ffc_adp_payload(fmt: str, teams: int = 12, year: int = 2026) -> dict[str, Any]:
@@ -98,3 +90,26 @@ def fetch_dynastyprocess_crosswalk() -> list[dict[str, str]]:
     resp = _get(DYNASTYPROCESS_PLAYERIDS_URL)
     resp.encoding = "utf-8"
     return list(csv.DictReader(io.StringIO(resp.text)))
+
+
+SLEEPER_WEEKLY_STATS_PATH = "/v1/stats/nfl/regular/{season}/{week}"
+
+
+def fetch_sleeper_weekly_stats(season: str, week: int) -> dict[str, dict[str, Any]]:
+    """Undocumented but verified live against every week of the 2025 season.
+
+    Object keyed by sleeper_id; DEF rows are keyed by team abbreviation, which
+    matches our DEF playerIds directly (empty `ids{}` on those records is fine —
+    no crosswalk is needed for this source, for any position).
+
+    Zero-valued stats are OMITTED from a row entirely, not written as 0 — for a
+    row that exists (the player was active that week), a missing key means 0,
+    never "unknown". `pos_rank_ppr` uses the same 999.0 "no sample" sentinel
+    documented on `fetch_sleeper_adp`; it is 999.0 for every K/DEF row, so
+    finish-rank must be computed downstream for those two positions.
+
+    On a DEF row, `td` is touchdowns ALLOWED (verified: e.g. a week with
+    `td: 6` alongside `pts_allow: 42`) — the defensive score is the separate
+    `def_td` key. Do not read `td` as "defensive touchdowns".
+    """
+    return _get(f"{SLEEPER_BASE}{SLEEPER_WEEKLY_STATS_PATH.format(season=season, week=week)}").json()

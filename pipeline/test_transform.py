@@ -2,10 +2,20 @@ import pytest
 
 from transform import (
     AdpEntry,
+    PlayerMeta,
+    apply_nflverse_draft,
+    apply_player_bye_weeks_to_adp,
+    backfill_bye_weeks_from_ids,
     build_adp_entries,
+    build_player_meta,
+    build_season_projections,
     build_sleeper_adp_entries,
     fitted_stdev,
     fit_adp_cv_bands,
+    parse_college,
+    parse_height_inches,
+    parse_jersey_number,
+    parse_weight_lbs,
     SLEEPER_ADP_SENTINEL,
 )
 
@@ -18,6 +28,13 @@ def test_fitted_stdev_matches_calibrated_bands():
     assert fitted_stdev(18) == pytest.approx(18 * 0.169)
     assert fitted_stdev(36) == pytest.approx(36 * 0.124)
     assert fitted_stdev(100) == pytest.approx(100 * 0.112)
+
+
+def test_first_non_empty_strips_padded_dynastyprocess_ids():
+    from transform import _first_non_empty
+    assert _first_non_empty(" 00-0035676") == "00-0035676"
+    assert _first_non_empty(None, "  NA  ", " 00-0035640") == "00-0035640"
+    assert _first_non_empty("  ", "NA") is None
 
 
 def test_fitted_stdev_floor_applies_at_the_very_top_of_the_board():
@@ -124,4 +141,156 @@ def test_fit_adp_cv_bands_uses_observed_ffc_spread_per_band_and_defaults_when_em
     assert bands[0] == pytest.approx((12, 0.25))
     assert bands[1] == pytest.approx((24, 0.2))
     assert bands[2][1] == pytest.approx(0.124)
+
+
+def _meta(player_id: str, *, bye: int | None) -> PlayerMeta:
+    return PlayerMeta(
+        playerId=player_id,
+        name=player_id,
+        position="RB",
+        eligiblePositions=["RB"],
+        team="BUF",
+        byeWeek=bye,
+        age=25,
+        yearsExp=3,
+        injuryStatus=None,
+        depthChartPosition=None,
+        depthChartOrder=None,
+        injuryBodyPart=None,
+        practiceParticipation=None,
+        ids={},
+    )
+
+
+def test_bye_weeks_from_ids_fill_players_and_propagate_to_sleeper_adp():
+    players = {"1": _meta("1", bye=None), "2": _meta("2", bye=9)}
+    backfill_bye_weeks_from_ids(players, {"1": 7, "2": 5})
+    # Existing FFC bye must win over a later FFToday value.
+    assert players["1"].byeWeek == 7
+    assert players["2"].byeWeek == 9
+
+    entries = [
+        AdpEntry(
+            playerId="1", name="A", position="RB", team="BUF", adp=1.0, stdev=0.7,
+            high=None, low=None, timesDrafted=None, byeWeek=None,
+            adpSource="sleeper", stdevSource="fitted",
+        ),
+        AdpEntry(
+            playerId="2", name="B", position="WR", team="DAL", adp=2.0, stdev=0.7,
+            high=None, low=None, timesDrafted=None, byeWeek=None,
+            adpSource="sleeper", stdevSource="fitted",
+        ),
+    ]
+    apply_player_bye_weeks_to_adp(entries, players)
+    assert entries[0].byeWeek == 7
+    assert entries[1].byeWeek == 9
+
+
+def test_parse_height_inches_accepts_inches_and_feet_strings():
+    assert parse_height_inches("77") == 77
+    assert parse_height_inches(77) == 77
+    assert parse_height_inches("6'5\"") == 77
+    assert parse_height_inches("6-5") == 77
+    assert parse_height_inches("NA") is None
+    assert parse_height_inches("") is None
+    assert parse_weight_lbs("237") == 237
+    assert parse_weight_lbs(90) is None
+    assert parse_jersey_number("17") == 17
+    assert parse_college("  Wyoming  ") == "Wyoming"
+    assert parse_college("NA") is None
+
+
+def test_build_player_meta_maps_sleeper_bio_fields():
+    result = build_player_meta(
+        {
+            "4984": {
+                "full_name": "Josh Allen",
+                "position": "QB",
+                "fantasy_positions": ["QB"],
+                "team": "BUF",
+                "age": 30,
+                "years_exp": 8,
+                "height": "77",
+                "weight": "237",
+                "college": "Wyoming",
+                "number": 17,
+            }
+        },
+        [],
+    )["4984"]
+    assert result.heightInches == 77
+    assert result.weightLbs == 237
+    assert result.college == "Wyoming"
+    assert result.jerseyNumber == 17
+    assert result.draftYear is None
+
+
+def test_apply_nflverse_draft_joins_on_gsis_and_skips_misses():
+    players = {
+        "1": PlayerMeta(
+            playerId="1", name="Has Gsis", position="QB", eligiblePositions=["QB"],
+            team="BUF", byeWeek=None, age=30, yearsExp=8, injuryStatus=None,
+            depthChartPosition=None, depthChartOrder=None, injuryBodyPart=None,
+            practiceParticipation=None, ids={"gsis": "00-0034857"},
+        ),
+        "2": PlayerMeta(
+            playerId="2", name="No Gsis", position="RB", eligiblePositions=["RB"],
+            team="DAL", byeWeek=None, age=24, yearsExp=2, injuryStatus=None,
+            depthChartPosition=None, depthChartOrder=None, injuryBodyPart=None,
+            practiceParticipation=None, ids={},
+        ),
+    }
+    applied = apply_nflverse_draft(players, [
+        {"gsis_id": " 00-0034857", "draft_year": 2018, "draft_round": 1, "draft_pick": 7},
+        {"gsis_id": "00-other", "draft_year": 2020, "draft_round": 2, "draft_pick": 40},
+    ])
+    assert applied == 1
+    assert players["1"].draftYear == 2018
+    assert players["1"].draftRound == 1
+    assert players["1"].draftPick == 7
+    assert players["2"].draftYear is None
+
+
+# --- build_season_projections --------------------------------------------------
+
+
+def _proj_row(player_id, position="RB", company="rotowire", stats=None):
+    return {
+        "player_id": player_id,
+        "player": {"first_name": "Test", "last_name": "Player", "position": position},
+        "company": company,
+        "stats": stats or {},
+    }
+
+
+def test_build_season_projections_filters_pool_and_strips_adp_keys():
+    rows = [
+        _proj_row("1", stats={"adp_ppr": 14.5, "rush_yd": 900, "rush_td": 8}),
+        _proj_row("2", stats={"rush_yd": 700}),
+        _proj_row("3", stats={"rush_yd": 300}),
+        _proj_row("999", stats={"rush_yd": 999}),  # not in the valid pool
+    ]
+    projections = build_season_projections(rows, valid_player_ids={"1", "2", "3"})
+    assert [p.playerId for p in projections] == ["1", "2", "3"]
+    # adp_* keys are stripped; source is the company field ("rotowire" for Sleeper).
+    assert projections[0].stats == {"rush_yd": 900, "rush_td": 8}
+    assert projections[0].source == "rotowire"
+
+
+def test_build_season_projections_drops_rows_without_meaningful_stats():
+    rows = [
+        _proj_row("1", stats={"rush_yd": 900}),
+        _proj_row("2", stats={"adp_ppr": 5.0}),  # cleans to {} after adp* stripping
+        _proj_row("3", stats={"rush_yd": 0}),     # all-zero is not a projection
+    ]
+    projections = build_season_projections(rows, valid_player_ids={"1", "2", "3"})
+    assert [p.playerId for p in projections] == ["1"]
+
+
+def test_build_season_projections_coerces_int_player_ids():
+    projections = build_season_projections(
+        [{"player_id": 1, "stats": {"rush_yd": 100}}],
+        valid_player_ids={"1"},
+    )
+    assert [p.playerId for p in projections] == ["1"]
 

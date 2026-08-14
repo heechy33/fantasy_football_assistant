@@ -25,8 +25,17 @@ _SUFFIX_RE = re.compile(r"\b(jr|sr|ii|iii|iv|v)\.?$", re.IGNORECASE)
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9 ]")
 _WHITESPACE_RE = re.compile(r"\s+")
 
-# FFC's own position vocabulary diverges from Sleeper's in exactly one place.
-FFC_POSITION_ALIAS = {"PK": "K"}
+# Position alias table shared by every named-row source (FFC's own vocabulary
+# only ever diverges from Sleeper's at "PK" -> "K"; FantasyPros additionally
+# uses DST/D-ST/DEFENSE spellings and rank-suffixed tokens like "WR1").
+POSITION_ALIASES = {
+    "PK": "K",
+    "DST": "DEF",
+    "D/ST": "DEF",
+    "DEFENSE": "DEF",
+}
+
+_RANK_SUFFIX_RE = re.compile(r"\d+$")
 
 TEAM_ALIASES = {
     "ARZ": "ARI", "BLT": "BAL", "CLV": "CLE", "HST": "HOU",
@@ -35,16 +44,51 @@ TEAM_ALIASES = {
     "SFO": "SF", "TAM": "TB", "OTI": "TEN", "WSH": "WAS",
 }
 
+# Full franchise names (lowercased) -> Sleeper-style abbreviation, used whenever a
+# source spells a defense by its whole team name rather than a three-letter code
+# (FFToday's DEF rows, FantasyPros' "Houston Texans DST" rows, CBS's "Denver" rows
+# use their own map). All 32 franchises, no exceptions — an unknown name is a real
+# identity problem and must raise, never guess.
+DEF_TEAM_NAMES = {
+    "arizona cardinals": "ARI", "atlanta falcons": "ATL", "baltimore ravens": "BAL",
+    "buffalo bills": "BUF", "carolina panthers": "CAR", "chicago bears": "CHI",
+    "cincinnati bengals": "CIN", "cleveland browns": "CLE", "dallas cowboys": "DAL",
+    "denver broncos": "DEN", "detroit lions": "DET", "green bay packers": "GB",
+    "houston texans": "HOU", "indianapolis colts": "IND", "jacksonville jaguars": "JAX",
+    "kansas city chiefs": "KC", "las vegas raiders": "LV", "los angeles chargers": "LAC",
+    "los angeles rams": "LAR", "miami dolphins": "MIA", "minnesota vikings": "MIN",
+    "new england patriots": "NE", "new orleans saints": "NO", "new york giants": "NYG",
+    "new york jets": "NYJ", "philadelphia eagles": "PHI", "pittsburgh steelers": "PIT",
+    "san francisco 49ers": "SF", "seattle seahawks": "SEA", "tampa bay buccaneers": "TB",
+    "tennessee titans": "TEN", "washington commanders": "WAS",
+}
+
+
+def normalize_position(raw: str) -> str:
+    """Translate any named-row source's position token into Sleeper's
+    vocabulary: trim/uppercase, strip a terminal rank suffix (FantasyPros'
+    `WR1` -> `WR`, `DST23` -> `DST`), then apply POSITION_ALIASES.
+
+    Digits are stripped only from this position token, never from a player
+    name — `_RANK_SUFFIX_RE` is applied here and nowhere near normalize_name.
+    """
+    value = raw.strip().upper()
+    value = _RANK_SUFFIX_RE.sub("", value)
+    return POSITION_ALIASES.get(value, value)
+
 
 def normalize_ffc_position(position: str) -> str:
     """Translate an FFC position string into Sleeper's vocabulary.
 
-    Single source of truth for the PK->K alias: used both to build the
-    matching key (so a kicker still resolves to a sleeper_id) and by
-    transform.py when writing AdpEntry.position, so the alias can't be
-    applied in one place and silently skipped in the other.
+    Delegates to the general normalize_position(): FFC never sends
+    rank-suffixed positions, and POSITION_ALIASES is a superset of the old
+    FFC-only FFC_POSITION_ALIAS ({"PK": "K"}), so this is behaviorally
+    identical to the previous direct lookup. Kept as its own function (rather
+    than calling normalize_position directly everywhere) so build_adp_entries
+    and transform.py keep a name that documents which source's positions it's
+    normalizing.
     """
-    return FFC_POSITION_ALIAS.get(position, position)
+    return normalize_position(position)
 
 
 # Letters with no canonical NFKD decomposition into base-letter + combining
@@ -92,6 +136,20 @@ def normalize_team(team: str | None) -> str | None:
     return TEAM_ALIASES.get(value, value)
 
 
+def normalize_def_team_name(name: str) -> str:
+    """Full franchise name (`Houston Texans`) → Sleeper-style abbreviation (`HOU`).
+
+    Raises ValueError for an unrecognized franchise rather than guessing — a DEF
+    row that can't be mapped to a real team is an identity failure, and the
+    caller decides whether that's fatal (FantasyPros parser) or a tolerant miss
+    (FFToday defers to `.get()` and sends the row to unmatched).
+    """
+    abbr = DEF_TEAM_NAMES.get(name.strip().lower())
+    if abbr is None:
+        raise ValueError(f"unknown defense franchise name: {name!r}")
+    return abbr
+
+
 MatchKey = tuple[str, str]
 
 
@@ -109,7 +167,12 @@ def build_sleeper_match_index(sleeper_players: dict[str, dict[str, Any]]) -> dic
     for sleeper_id, p in sleeper_players.items():
         position = p.get("position")
         if position == "DEF":
-            key: MatchKey = (p.get("team") or sleeper_id, "DEF")
+            # Same TEAM_ALIASES fold used on the FFC side — without it, JAC/KAN/…
+            # defenses silently miss even though the alias table exists for them.
+            team = normalize_team(p.get("team") or sleeper_id)
+            if not team:
+                continue
+            key: MatchKey = (team, "DEF")
         else:
             full_name = p.get("full_name")
             if not full_name or not position:
@@ -117,6 +180,30 @@ def build_sleeper_match_index(sleeper_players: dict[str, dict[str, Any]]) -> dic
             key = (normalize_name(full_name), position)
         index.setdefault(key, sleeper_id)
     return index
+
+
+def match_named_row(
+    name: str,
+    position: str,
+    team: str | None,
+    index: dict[MatchKey, str],
+) -> str | None:
+    """Resolve one name/position/team row (already position-normalized by the
+    caller) to a sleeper_id, or None if no match is found. This is the
+    provider-general matching rule both match_ffc_entry and the FantasyPros
+    parser key off of: defense is team keyed, everyone else is
+    normalized-name-and-position keyed. Team is otherwise not part of the key
+    for non-defense rows, so a free-agent row (no team) still resolves by
+    name and position.
+    """
+    if position == "DEF":
+        normalized_team = normalize_team(team)
+        if not normalized_team:
+            return None
+        key: MatchKey = (normalized_team, "DEF")
+    else:
+        key = (normalize_name(name), position)
+    return index.get(key)
 
 
 def match_ffc_entry(entry: dict[str, Any], sleeper_index: dict[MatchKey, str]) -> str | None:
@@ -128,8 +215,4 @@ def match_ffc_entry(entry: dict[str, Any], sleeper_index: dict[MatchKey, str]) -
     not draftable rather than untracked.
     """
     position = normalize_ffc_position(entry["position"])
-    if position == "DEF":
-        key: MatchKey = (entry.get("team") or "", "DEF")
-    else:
-        key = (normalize_name(entry["name"]), position)
-    return sleeper_index.get(key)
+    return match_named_row(entry["name"], position, entry.get("team"), sleeper_index)

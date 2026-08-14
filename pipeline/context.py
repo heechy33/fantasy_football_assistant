@@ -1,7 +1,8 @@
-"""Pure transforms for prior-season usage, availability, and injury history."""
+﻿"""Pure transforms for prior-season usage, availability, and injury history."""
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -10,6 +11,9 @@ from typing import Any, Iterable
 
 from match import normalize_team
 from transform import PlayerMeta
+
+WEEKLY_SCORING_SCHEMA_VERSION = 1
+_PPR_FIELD = "fantasy_points_ppr"
 
 ELIGIBLE_ROSTER_STATUSES = {"ACT", "INA", "PUP", "RES", "RSN"}
 KNOWN_ROSTER_STATUSES = ELIGIBLE_ROSTER_STATUSES | {
@@ -28,6 +32,7 @@ _SPACE_RE = re.compile(r"\s+")
 @dataclass
 class ContextResult:
     usage: dict[str, dict[str, Any]]
+    weekly: dict[str, list[dict[str, Any]]]
     diagnostics: dict[str, Any]
 
 
@@ -41,6 +46,17 @@ def _value(row: dict[str, Any], *names: str) -> Any:
 
 def _number(value: Any) -> float:
     return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def _finite_ppr(row: dict[str, Any]) -> float | None:
+    raw = row.get(_PPR_FIELD)
+    try:
+        points = float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+    if points is None or not math.isfinite(points):
+        return None
+    return points
 
 
 def _season(row: dict[str, Any]) -> int | None:
@@ -157,7 +173,10 @@ def _team_week(row: dict[str, Any]) -> tuple[int, int, str] | None:
 
 def _player_id(row: dict[str, Any], id_map: dict[str, str], *fields: str) -> str | None:
     value = _value(row, *fields)
-    return id_map.get(str(value)) if value not in (None, "") else None
+    if value in (None, ""):
+        return None
+    # Strip so padded DynastyProcess gsis keys still match clean nflverse ids.
+    return id_map.get(str(value).strip())
 
 
 def _team_snap_totals(snap_rows: list[dict[str, Any]]) -> dict[tuple[int, int, str], float]:
@@ -278,6 +297,103 @@ def air_yards_denominator_exists(value: float) -> bool:
     return value > 0
 
 
+def _production_summary(
+    pid: str,
+    keys: set[tuple[int, int, str]],
+    player_ppr: Counter[tuple[str, tuple[int, int, str]]],
+    player_receptions: Counter[tuple[str, tuple[int, int, str]]],
+    player_rec_yards: Counter[tuple[str, tuple[int, int, str]]],
+    player_rec_tds: Counter[tuple[str, tuple[int, int, str]]],
+    player_rush_yards: Counter[tuple[str, tuple[int, int, str]]],
+    player_rush_tds: Counter[tuple[str, tuple[int, int, str]]],
+) -> dict[str, Any]:
+    """Season PPR production over the same appearance weeks as opportunity. Display-only."""
+    games = len(keys)
+    points = sum(player_ppr[(pid, key)] for key in keys)
+    return {
+        "games": games,
+        "pointsPpr": points,
+        "pointsPprPerGame": points / games if games else None,
+        "receptions": sum(player_receptions[(pid, key)] for key in keys),
+        "receivingYards": sum(player_rec_yards[(pid, key)] for key in keys),
+        "receivingTds": sum(player_rec_tds[(pid, key)] for key in keys),
+        "rushingYards": sum(player_rush_yards[(pid, key)] for key in keys),
+        "rushingTds": sum(player_rush_tds[(pid, key)] for key in keys),
+    }
+
+
+def build_weekly_scoring(
+    player_stats: list[dict[str, Any]],
+    gsis_to_player: dict[str, str],
+    usage_season: int,
+    players: dict[str, PlayerMeta],
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    """One pass over already-loaded `player_stats`; no extra nflreadpy request.
+
+    Deliberately does not use `_team_week`: that helper rejects a missing team,
+    but a stats row can carry a valid `fantasy_points_ppr` with a null team.
+    """
+    rows_scanned = 0
+    rows_in_usage_season = 0
+    rows_missing_ppr_field = 0
+    had_usable_observation = False
+    totals: dict[tuple[str, int], float] = defaultdict(float)
+
+    for row in player_stats:
+        rows_scanned += 1
+        season = _season(row)
+        week = _week(row)
+        if not _is_regular(row) or season != usage_season or week is None or not 1 <= week <= 22:
+            continue
+        rows_in_usage_season += 1
+
+        raw = row.get(_PPR_FIELD)
+        points: float | None
+        try:
+            points = float(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            points = None
+        if points is None or not math.isfinite(points):
+            rows_missing_ppr_field += 1
+            continue
+        had_usable_observation = True
+
+        pid = _player_id(row, gsis_to_player, "player_id", "gsis_id")
+        if pid is None:
+            continue
+        totals[(pid, week)] += points
+
+    if rows_in_usage_season > 0 and not had_usable_observation:
+        raise ValueError(
+            f"No usable '{_PPR_FIELD}' observations found among usage-season player stats rows",
+        )
+
+    weekly: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for (pid, week), points in totals.items():
+        # Round after aggregation so binary float noise (e.g. 23.200000000000003)
+        # does not ship in the committed chart artifact; fantasy PPR is 2dp.
+        weekly[pid].append({"week": week, "pointsPpr": round(points, 2)})
+    for series in weekly.values():
+        series.sort(key=lambda entry: entry["week"])
+    weekly_sorted = dict(sorted(weekly.items()))
+
+    by_position: Counter[str] = Counter()
+    for pid in weekly_sorted:
+        meta = players.get(pid)
+        position = meta.position if meta and meta.position else "unknown"
+        by_position[position] += 1
+
+    diagnostics = {
+        "rowsScanned": rows_scanned,
+        "rowsInUsageSeason": rows_in_usage_season,
+        "rowsMissingPprField": rows_missing_ppr_field,
+        "playersWithSeries": len(weekly_sorted),
+        "weeksObserved": len(totals),
+        "byPosition": dict(sorted(by_position.items())),
+    }
+    return weekly_sorted, diagnostics
+
+
 def build_player_context(
     players: dict[str, PlayerMeta],
     player_stats: list[dict[str, Any]],
@@ -297,12 +413,21 @@ def build_player_context(
 
     history_seasons = list(range(draft_season - 3, draft_season))
     usage_season = draft_season - 1
+    # Strip id values: committed players.json can still carry padded
+    # DynastyProcess gsis/pfr strings until the next full refresh rewrites them.
     gsis_to_player = {
-        meta.ids["gsis"]: pid for pid, meta in players.items() if meta.ids.get("gsis")
+        meta.ids["gsis"].strip(): pid
+        for pid, meta in players.items()
+        if meta.ids.get("gsis") and meta.ids["gsis"].strip()
     }
     pfr_to_player = {
-        meta.ids["pfr"]: pid for pid, meta in players.items() if meta.ids.get("pfr")
+        meta.ids["pfr"].strip(): pid
+        for pid, meta in players.items()
+        if meta.ids.get("pfr") and meta.ids["pfr"].strip()
     }
+    weekly, weekly_diagnostics = build_weekly_scoring(
+        player_stats, gsis_to_player, usage_season, players,
+    )
 
     team_games = {_team_week(row) for row in snap_counts}
     team_games.discard(None)
@@ -341,6 +466,14 @@ def build_player_context(
     player_carries: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     player_air_yards: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     player_yac: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_ppr: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_receptions: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_rec_yards: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_rec_tds: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_rush_yards: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_rush_tds: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_pass_completions: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_pass_attempts: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     for row in player_stats:
         key = _team_week(row)
         if key is None:
@@ -357,6 +490,16 @@ def build_player_context(
             player_carries[(pid, key)] += carries
             player_air_yards[(pid, key)] += air_yards
             player_yac[(pid, key)] += yac
+            player_receptions[(pid, key)] += _number(row.get("receptions"))
+            player_rec_yards[(pid, key)] += _number(row.get("receiving_yards"))
+            player_rec_tds[(pid, key)] += _number(row.get("receiving_tds"))
+            player_rush_yards[(pid, key)] += _number(row.get("rushing_yards"))
+            player_rush_tds[(pid, key)] += _number(row.get("rushing_tds"))
+            player_pass_completions[(pid, key)] += _number(_value(row, "completions", "passing_completions", "pass_cmp"))
+            player_pass_attempts[(pid, key)] += _number(_value(row, "attempts", "passing_attempts", "pass_att"))
+            ppr = _finite_ppr(row)
+            if ppr is not None:
+                player_ppr[(pid, key)] += ppr
 
     injury_by_week: dict[tuple[str, int, int], list[tuple[str, str]]] = defaultdict(list)
     injury_report_weeks: dict[str, set[tuple[int, int]]] = defaultdict(set)
@@ -425,6 +568,7 @@ def build_player_context(
         snap_pct: float | None = None
         target_share: float | None = None
         carry_share: float | None = None
+        completion_pct: float | None = None
         if prior_snap_games:
             team_snap_sum = sum(team_snap_totals.get(key, 0) for key in prior_snap_games)
             player_snap_sum = sum(offensive_snaps[(pid, key)] for key in prior_snap_games)
@@ -437,6 +581,10 @@ def build_player_context(
                 target_share = target_numerator / target_denominator
             if carry_denominator > 0:
                 carry_share = carry_numerator / carry_denominator
+            pass_attempts = sum(player_pass_attempts[(pid, key)] for key in prior_snap_games)
+            pass_completions = sum(player_pass_completions[(pid, key)] for key in prior_snap_games)
+            if meta.position == "QB" and pass_attempts > 0:
+                completion_pct = pass_completions / pass_attempts
 
         appearances = sorted(prior_snap_games, key=lambda key: (key[0], key[1], key[2]))
         recent_team = appearances[-1][2] if appearances else None
@@ -515,6 +663,14 @@ def build_player_context(
                 },
             }
 
+        production = (
+            _production_summary(
+                pid, prior_snap_games, player_ppr, player_receptions, player_rec_yards,
+                player_rec_tds, player_rush_yards, player_rush_tds,
+            )
+            if prior_snap_games else None
+        )
+
         if not season_rows and not usage_season_observed:
             continue
         current_team = normalize_team(meta.team)
@@ -522,6 +678,7 @@ def build_player_context(
             "season": usage_season,
             "usageSeasonObserved": usage_season_observed,
             "snapPct": snap_pct,
+            **({"completionPct": completion_pct} if meta.position == "QB" else {}),
             "targetShare": target_share,
             "carryShare": carry_share,
             "gamesWithAnySnap": len(prior_snap_games),
@@ -533,14 +690,17 @@ def build_player_context(
             "injuryHistory": history,
             "durabilityScore": _durability_score(meta, season_rows, history),
             "opportunity": opportunity,
+            "production": production,
         }
 
     return ContextResult(
         usage=usage,
+        weekly=weekly,
         diagnostics={
             "unknownRosterStatuses": dict(sorted(unknown_statuses.items())),
             "historySeasons": history_seasons,
             "usageSeason": usage_season,
+            "weeklyScoring": weekly_diagnostics,
         },
     )
 
@@ -572,3 +732,4 @@ def coverage_report(
         "matchRate": len(covered) / len(cohort) if cohort else 0,
         "missingPlayerIds": missing,
     }
+

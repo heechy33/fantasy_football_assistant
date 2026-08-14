@@ -1,10 +1,12 @@
-import json
+﻿import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 import build_data
 import context
+import espn_projections
 import nflverse_source
 import sources
 import transform
@@ -47,11 +49,15 @@ def roster(season, week, team, gsis_id, status):
     }
 
 
-def stat(season, week, team, gsis_id, targets, carries):
-    return {
+def stat(season, week, team, gsis_id, targets, carries, points_ppr=0.0, **extra):
+    row = {
         "season": season, "week": week, "season_type": "REG", "recent_team": team,
         "player_id": gsis_id, "targets": targets, "carries": carries,
     }
+    if points_ppr is not None:
+        row["fantasy_points_ppr"] = points_ppr
+    row.update(extra)
+    return row
 
 
 def test_player_metadata_preserves_sleeper_context_nulls_and_adds_pfr():
@@ -112,6 +118,83 @@ def test_usage_handles_team_changes_weighted_shares_zeros_and_known_absence():
     assert opportunity["season"]["games"] == 2
     assert opportunity["finalFive"]["games"] == 2
     assert opportunity["roleEvolution"]["targetsPerGameDelta"] == 0
+
+
+def test_qb_completion_pct_aggregates_completions_over_attempts():
+    players = {"qb": player("qb", position="QB", gsis="gqb", pfr="pqb")}
+    snaps = [
+        snap(2025, 1, "BUF", "pqb", 60, .6),
+        snap(2025, 1, "BUF", "team-a", 100, 1),
+        snap(2025, 2, "BUF", "pqb", 60, .6),
+        snap(2025, 2, "BUF", "team-a", 100, 1),
+    ]
+    stats = [
+        stat(2025, 1, "BUF", "gqb", 0, 0, completions=22, attempts=30),
+        stat(2025, 2, "BUF", "gqb", 0, 0, completions=18, attempts=25),
+    ]
+    rosters = [
+        roster(2025, 1, "BUF", "gqb", "ACT"),
+        roster(2025, 2, "BUF", "gqb", "ACT"),
+    ]
+
+    usage = context.build_player_context(players, stats, snaps, rosters, [], 2026).usage["qb"]
+
+    assert usage["completionPct"] == 40 / 55
+
+def test_production_aggregates_ppr_and_skill_stats_over_appearance_weeks():
+    players = {"1": player("1", gsis="g1", pfr="p1")}
+    snaps = [
+        snap(2025, 1, "BUF", "p1", 50, .5),
+        snap(2025, 1, "BUF", "team-a", 100, 1),
+        snap(2025, 2, "BUF", "p1", 40, .4),
+        snap(2025, 2, "BUF", "team-a", 100, 1),
+        snap(2025, 3, "BUF", "team-a", 100, 1),
+    ]
+    stats = [
+        stat(2025, 1, "BUF", "g1", 4, 12, points_ppr=18.4,
+             receptions=3, receiving_yards=24, receiving_tds=0, rushing_yards=55, rushing_tds=1),
+        stat(2025, 2, "BUF", "g1", 2, 8, points_ppr=9.6,
+             receptions=1, receiving_yards=12, receiving_tds=0, rushing_yards=34, rushing_tds=0),
+        # Rostered DNP week Ã¢â‚¬â€ must not enter production denominators.
+        stat(2025, 3, "BUF", "other", 6, 10, points_ppr=12.0,
+             receptions=4, receiving_yards=40, receiving_tds=1, rushing_yards=20, rushing_tds=0),
+    ]
+    rosters = [
+        roster(2025, 1, "BUF", "g1", "ACT"),
+        roster(2025, 2, "BUF", "g1", "ACT"),
+        roster(2025, 3, "BUF", "g1", "INA"),
+    ]
+    production = context.build_player_context(players, stats, snaps, rosters, [], 2026).usage["1"]["production"]
+    assert production["games"] == 2
+    assert production["pointsPpr"] == 28.0
+    assert production["pointsPprPerGame"] == 14.0
+    assert production["receptions"] == 4
+    assert production["receivingYards"] == 36
+    assert production["receivingTds"] == 0
+    assert production["rushingYards"] == 89
+    assert production["rushingTds"] == 1
+
+
+def test_production_is_absent_without_usage_season_snaps():
+    players = {
+        "1": player("1", gsis="g1", pfr="p1"),
+        "3": player("3", team="DAL", gsis="g3", pfr="p3"),
+    }
+    snaps = [
+        snap(2023, 1, "BUF", "p1", 20, .2),
+        snap(2023, 1, "BUF", "team-a", 100, 1),
+        snap(2025, 1, "DAL", "team-c", 70, 1),
+    ]
+    stats = [stat(2023, 1, "BUF", "g1", 4, 8, points_ppr=12.0, receptions=3, receiving_yards=30, receiving_tds=0, rushing_yards=40, rushing_tds=0)]
+    rosters = [
+        roster(2023, 1, "BUF", "g1", "ACT"),
+        roster(2025, 1, "DAL", "g3", "INA"),
+    ]
+    result = context.build_player_context(players, stats, snaps, rosters, [], 2026).usage
+    assert result["1"]["usageSeasonObserved"] is False
+    assert result["1"]["production"] is None
+    assert result["3"]["knownAbsent"] is True
+    assert result["3"]["production"] is None
 
 
 def test_usage_shares_exclude_rostered_dnp_weeks_from_denominators():
@@ -236,7 +319,7 @@ def test_pbp_derives_red_zone_end_zone_and_goal_line_opportunity():
     pbp = [
         # Red-zone only: from the 18, air yards short of the goal line.
         {"season": 2025, "week": 1, "season_type": "REG", "posteam": "BUF", "yardline_100": 18, "air_yards": 12, "pass_attempt": 1, "receiver_player_id": "g1"},
-        # Inside the 10 but still short of the end zone — not an end-zone target.
+        # Inside the 10 but still short of the end zone Ã¢â‚¬â€ not an end-zone target.
         {"season": 2025, "week": 1, "season_type": "REG", "posteam": "BUF", "yardline_100": 8, "air_yards": 5, "pass_attempt": 1, "receiver_player_id": "g1"},
         # True end-zone target: air yards reach/beyond the goal line.
         {"season": 2025, "week": 1, "season_type": "REG", "posteam": "BUF", "yardline_100": 8, "air_yards": 8, "pass_attempt": 1, "receiver_player_id": "g1"},
@@ -265,11 +348,13 @@ def test_role_evolution_uses_final_five_observed_games():
             "season": 2025, "week": week, "season_type": "REG", "recent_team": "BUF",
             "player_id": "g1", "targets": player_targets, "carries": 0,
             "receiving_air_yards": player_air, "receiving_yards_after_catch": 10,
+            "fantasy_points_ppr": 0.0,
         })
         stats.append({
             "season": 2025, "week": week, "season_type": "REG", "recent_team": "BUF",
             "player_id": "other", "targets": 8, "carries": 0,
             "receiving_air_yards": 80, "receiving_yards_after_catch": 0,
+            "fantasy_points_ppr": 0.0,
         })
     opportunity = context.build_player_context(
         players, stats, snaps, rosters, [], 2026,
@@ -299,6 +384,182 @@ def test_qb_opportunity_suppresses_target_share():
     assert usage["opportunity"]["roleEvolution"]["targetShareDelta"] is None
 
 
+def _weekly_row(season, week, gsis_id, points_ppr, *, team="BUF", season_type="REG"):
+    return {
+        "season": season, "week": week, "season_type": season_type, "recent_team": team,
+        "player_id": gsis_id, "fantasy_points_ppr": points_ppr,
+    }
+
+
+def test_weekly_scoring_filters_to_usage_season_and_sorts_ascending():
+    gsis_to_player = {"g1": "1"}
+    rows = [
+        _weekly_row(2024, 1, "g1", 5.0),
+        _weekly_row(2025, 3, "g1", 12.0),
+        _weekly_row(2025, 1, "g1", 8.0),
+        _weekly_row(2026, 1, "g1", 99.0),
+    ]
+    weekly, diagnostics = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert weekly["1"] == [
+        {"week": 1, "pointsPpr": 8.0}, {"week": 3, "pointsPpr": 12.0},
+    ]
+    assert diagnostics["rowsInUsageSeason"] == 2
+    assert diagnostics["rowsScanned"] == 4
+
+
+def test_weekly_scoring_sums_split_team_rows_for_one_week():
+    gsis_to_player = {"g1": "1"}
+    rows = [
+        _weekly_row(2025, 1, "g1", 5.0, team="BUF"),
+        _weekly_row(2025, 1, "g1", 3.5, team="KC"),
+    ]
+    weekly, _ = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert weekly["1"] == [{"week": 1, "pointsPpr": 8.5}]
+
+
+def test_weekly_scoring_keeps_zero_and_omits_unplayed_weeks():
+    gsis_to_player = {"g1": "1"}
+    rows = [_weekly_row(2025, 1, "g1", 0.0)]
+    weekly, _ = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert weekly["1"] == [{"week": 1, "pointsPpr": 0.0}]
+    assert [entry["week"] for entry in weekly["1"]] == [1]
+
+
+def test_weekly_scoring_preserves_negative_points():
+    gsis_to_player = {"g1": "1"}
+    rows = [_weekly_row(2025, 1, "g1", -2.5)]
+    weekly, _ = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert weekly["1"] == [{"week": 1, "pointsPpr": -2.5}]
+
+
+def test_weekly_scoring_includes_row_with_no_team():
+    gsis_to_player = {"g1": "1"}
+    row = _weekly_row(2025, 1, "g1", 4.0)
+    row["recent_team"] = None
+    weekly, _ = context.build_weekly_scoring([row], gsis_to_player, 2025, {})
+    assert weekly["1"] == [{"week": 1, "pointsPpr": 4.0}]
+
+
+def test_weekly_scoring_ignores_postseason_rows():
+    gsis_to_player = {"g1": "1"}
+    rows = [_weekly_row(2025, 1, "g1", 10.0, season_type="POST")]
+    weekly, diagnostics = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert weekly == {}
+    assert diagnostics["rowsInUsageSeason"] == 0
+
+
+def test_weekly_scoring_raises_on_schema_drift():
+    gsis_to_player = {"g1": "1"}
+    rows = [{
+        "season": 2025, "week": 1, "season_type": "REG", "recent_team": "BUF",
+        "player_id": "g1", "targets": 4,
+    }]
+    with pytest.raises(ValueError, match="fantasy_points_ppr"):
+        context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+
+
+def test_weekly_scoring_counts_missing_and_malformed_ppr_without_raising():
+    gsis_to_player = {"g1": "1", "g2": "2"}
+    rows = [
+        _weekly_row(2025, 1, "g1", None),
+        _weekly_row(2025, 2, "g1", float("nan")),
+        _weekly_row(2025, 1, "g2", 9.0),
+    ]
+    weekly, diagnostics = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert weekly == {"2": [{"week": 1, "pointsPpr": 9.0}]}
+    assert diagnostics["rowsMissingPprField"] == 2
+    assert diagnostics["rowsInUsageSeason"] == 3
+
+
+def test_weekly_scoring_by_position_uses_canonical_metadata_position():
+    gsis_to_player = {"g1": "1", "g2": "2"}
+    players = {
+        "1": player("1", position="WR", gsis="g1"),
+        "2": player("2", position="RB", gsis="g2"),
+    }
+    rows = [_weekly_row(2025, 1, "g1", 10.0), _weekly_row(2025, 1, "g2", 5.0)]
+    _, diagnostics = context.build_weekly_scoring(rows, gsis_to_player, 2025, players)
+    assert diagnostics["byPosition"] == {"RB": 1, "WR": 1}
+    assert diagnostics["playersWithSeries"] == 2
+    assert diagnostics["weeksObserved"] == 2
+
+
+def test_weekly_scoring_by_position_falls_back_to_unknown_without_metadata():
+    gsis_to_player = {"g1": "1"}
+    rows = [_weekly_row(2025, 1, "g1", 10.0)]
+    _, diagnostics = context.build_weekly_scoring(rows, gsis_to_player, 2025, {})
+    assert diagnostics["byPosition"] == {"unknown": 1}
+
+
+def test_build_player_context_matches_padded_gsis_ids_for_weekly():
+    # DynastyProcess has historically padded some gsis values with a leading
+    # space; weekly scoring must still resolve those players to sleeper ids.
+    players = {"5859": player("5859", gsis=" 00-0035676", pfr="p1", position="WR")}
+    snaps = [snap(2025, 1, "PHI", "p1", 50, 0.5)]
+    rosters = [roster(2025, 1, "PHI", "00-0035676", "ACT")]
+    stats = [_weekly_row(2025, 1, "00-0035676", 18.4)]
+    stats[0]["targets"] = 8
+    stats[0]["carries"] = 0
+    result = context.build_player_context(players, stats, snaps, rosters, [], 2026)
+    assert result.weekly["5859"] == [{"week": 1, "pointsPpr": 18.4}]
+
+
+def test_build_player_context_writes_empty_weekly_and_raises_on_usage_season_drift():
+    players = {"1": player("1", gsis="g1", pfr="p1")}
+    snaps = [snap(2025, 1, "BUF", "p1", 50, 0.5)]
+    rosters = [roster(2025, 1, "BUF", "g1", "ACT")]
+    stats = [{
+        "season": 2025, "week": 1, "season_type": "REG", "recent_team": "BUF",
+        "player_id": "g1", "targets": 4, "carries": 0,
+    }]
+    with pytest.raises(ValueError, match="fantasy_points_ppr"):
+        context.build_player_context(players, stats, snaps, rosters, [], 2026)
+
+
+def test_context_loader_init_failure_fail_open_clears_weekly(monkeypatch):
+    """loaders() itself throwing is the first ContextArtifacts early return."""
+    players = {"1": player("1", gsis="g1", pfr="p1")}
+    adp = [SimpleNamespace(playerId="1")]
+    monkeypatch.setattr(
+        nflverse_source, "loaders",
+        lambda: (_ for _ in ()).throw(RuntimeError("nflreadpy unavailable")),
+    )
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+    context_artifacts = build_data._build_context_artifact(players, adp, 2026, "now", {}, [])
+    assert context_artifacts.usage == {}
+    assert context_artifacts.weekly == {}
+    assert context_artifacts.weeklyStats == {}
+    assert context_artifacts.sources["nflverse_player_stats"]["status"] == "error"
+    assert "nflreadpy unavailable" in context_artifacts.sources["nflverse_player_stats"]["diagnostic"]
+
+
+def test_context_transform_failure_fail_open_clears_weekly(monkeypatch):
+    """Schema-drift / transform errors must clear weekly via ContextArtifacts."""
+    players = {"1": player("1", gsis="g1", pfr="p1")}
+    adp = [SimpleNamespace(playerId="1")]
+    snaps = [snap(2025, 1, "BUF", "p1", 50, 0.5), snap(2025, 1, "BUF", "team-a", 100, 1)]
+    # Usage-season rows with no usable fantasy_points_ppr Ã¢â€ â€™ ValueError inside
+    # build_player_context, which _build_context_artifact must fail open on.
+    stats = [{
+        "season": 2025, "week": 1, "season_type": "REG", "recent_team": "BUF",
+        "player_id": "g1", "targets": 4, "carries": 0,
+    }]
+    rosters = [roster(2025, 1, "BUF", "g1", "ACT")]
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: {
+        "nflverse_player_stats": lambda _: Frame(stats),
+        "nflverse_snap_counts": lambda _: Frame(snaps),
+        "nflverse_weekly_rosters": lambda _: Frame(rosters),
+        "nflverse_injuries": lambda _: Frame([]),
+    })
+    context_artifacts = build_data._build_context_artifact(players, adp, 2026, "now", {}, [])
+    assert context_artifacts.usage == {}
+    assert context_artifacts.weekly == {}
+    assert context_artifacts.weeklyStats == {}
+    assert context_artifacts.sources["nflverse_player_stats"]["status"] == "error"
+    assert "fantasy_points_ppr" in context_artifacts.sources["nflverse_player_stats"]["diagnostic"]
+
+
 def test_optional_pbp_failure_keeps_core_context(monkeypatch):
     players = {"1": player("1", gsis="g1", pfr="p1")}
     adp = [SimpleNamespace(playerId="1")]
@@ -322,7 +583,8 @@ def test_optional_pbp_failure_keeps_core_context(monkeypatch):
     monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {
         "nflverse_pbp": broken_pbp,
     })
-    usage, _, source_entries = build_data._build_context_artifact(players, adp, 2026, "now")
+    context_artifacts = build_data._build_context_artifact(players, adp, 2026, "now", {}, [])
+    usage, source_entries = context_artifacts.usage, context_artifacts.sources
     assert "1" in usage
     assert usage["1"]["opportunity"]["season"]["targets"] == 4
     assert usage["1"]["opportunity"]["season"]["redZoneTargets"] is None
@@ -330,6 +592,7 @@ def test_optional_pbp_failure_keeps_core_context(monkeypatch):
     assert usage["1"]["opportunity"]["season"]["goalLineCarries"] is None
     assert source_entries["nflverse_player_stats"]["status"] == "ok"
     assert source_entries["nflverse_pbp"]["status"] == "error"
+    assert "1" in context_artifacts.weekly
 
 
 class Frame:
@@ -354,10 +617,15 @@ def test_context_loader_errors_and_season_leakage_fail_open(monkeypatch):
         "nflverse_weekly_rosters": lambda _: Frame([]),
         "nflverse_injuries": lambda _: Frame([]),
     })
-    usage, manifest, source_entries = build_data._build_context_artifact(
-        players, adp, 2026, "now",
+    context_artifacts = build_data._build_context_artifact(
+        players, adp, 2026, "now", {}, [],
+    )
+    usage, manifest, source_entries = (
+        context_artifacts.usage, context_artifacts.manifest, context_artifacts.sources,
     )
     assert usage == {}
+    assert context_artifacts.weekly == {}
+    assert context_artifacts.weeklyStats == {}
     assert manifest["coverage"]["covered"] == 0
     assert source_entries["nflverse_player_stats"]["status"] == "error"
     assert "example.invalid" not in source_entries["nflverse_player_stats"]["diagnostic"]
@@ -371,9 +639,184 @@ def test_context_loader_errors_and_season_leakage_fail_open(monkeypatch):
             "nflverse_injuries",
         )
     })
-    usage, _, source_entries = build_data._build_context_artifact(players, adp, 2026, "now")
-    assert usage == {}
-    assert source_entries["nflverse_injuries"]["status"] == "error"
+    context_artifacts = build_data._build_context_artifact(players, adp, 2026, "now", {}, [])
+    assert context_artifacts.usage == {}
+    assert context_artifacts.weekly == {}
+    assert context_artifacts.weeklyStats == {}
+    assert context_artifacts.sources["nflverse_injuries"]["status"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# Weekly Sleeper game-log integration (build_data._build_context_artifact /
+# build_data.main() seam) -- see weekly_stats.py's own test_weekly_stats.py
+# for the pure-transformer tests.
+# ---------------------------------------------------------------------------
+
+def _minimal_required_loaders(stats=None, snaps=None, rosters=None):
+    return {
+        "nflverse_player_stats": lambda _: Frame(stats or []),
+        "nflverse_snap_counts": lambda _: Frame(snaps or []),
+        "nflverse_weekly_rosters": lambda _: Frame(rosters or []),
+        "nflverse_injuries": lambda _: Frame([]),
+    }
+
+
+def test_optional_loaders_import_failure_gives_pbp_and_schedules_both_an_error_entry(monkeypatch):
+    """Regression for the generalization at build_data.py: a bare except that
+    only wrote nflverse_pbp's manifest entry would silently leave a later-added
+    optional source (schedules) with no manifest entry at all on this path."""
+    players = {"1": player("1", gsis="g1", pfr="p1")}
+    adp = [SimpleNamespace(playerId="1")]
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: _minimal_required_loaders())
+    monkeypatch.setattr(
+        nflverse_source, "optional_loaders",
+        lambda: (_ for _ in ()).throw(RuntimeError("nflreadpy unavailable")),
+    )
+    context_artifacts = build_data._build_context_artifact(players, adp, 2026, "now", {}, [])
+    assert context_artifacts.sources["nflverse_pbp"]["status"] == "error"
+    assert context_artifacts.sources["nflverse_schedules"]["status"] == "error"
+    assert "nflreadpy unavailable" in context_artifacts.sources["nflverse_pbp"]["diagnostic"]
+    assert "nflreadpy unavailable" in context_artifacts.sources["nflverse_schedules"]["diagnostic"]
+    # This path never touches loaders() itself, so the required sources are
+    # unaffected (empty fixtures here just mean nobody has usage rows).
+    assert context_artifacts.sources["nflverse_player_stats"]["status"] == "ok"
+
+
+def test_schedules_loader_failure_leaves_usage_intact_and_only_nulls_opponent(monkeypatch):
+    """A schedules failure must cost only the OPP/BYE columns of the weekly
+    artifact, not clear usage/weekly the way a REQUIRED-loader failure does."""
+    players = {"1": player("1", position="WR", gsis="g1", pfr="p1")}
+    adp = [SimpleNamespace(playerId="1")]
+    snaps = [snap(2025, 1, "BUF", "p1", 50, 0.5), snap(2025, 1, "BUF", "team-a", 100, 1)]
+    stats = [stat(2025, 1, "BUF", "g1", 4, 0, points_ppr=8.0)]
+    rosters = [roster(2025, 1, "BUF", "g1", "ACT")]
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: _minimal_required_loaders(stats, snaps, rosters))
+
+    def broken_schedules(_):
+        raise RuntimeError("schedules offline")
+
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {"nflverse_schedules": broken_schedules})
+
+    weekly_payloads = {1: {"1": {"pts_ppr": 8.0, "rec_tgt": 4}}}
+    context_artifacts = build_data._build_context_artifact(
+        players, adp, 2026, "now", weekly_payloads, [1],
+    )
+    assert "1" in context_artifacts.usage  # required sources unaffected
+    assert context_artifacts.sources["nflverse_schedules"]["status"] == "error"
+    weekly_row = context_artifacts.weeklyStats["players"]["1"]["w"][0]
+    opp_index = context_artifacts.weeklyStats["columns"]["WR"].index("opp") + 1
+    assert weekly_row[opp_index] is None  # nulled, not fabricated
+    assert context_artifacts.weeklyStats["players"]["1"]["bye"] is None
+
+
+def test_optional_loaders_schedules_pinned_to_usage_season(monkeypatch):
+    """load_schedules should be called with only the single usage season, not
+    the full multi-season history_seasons list every other loader receives."""
+    import nflreadpy
+
+    calls: list[list[int]] = []
+    monkeypatch.setattr(nflreadpy, "load_schedules", lambda seasons: calls.append(list(seasons)) or SimpleNamespace())
+    loader = nflverse_source.optional_loaders()["nflverse_schedules"]
+    loader([2023, 2024, 2025])
+    assert calls == [[2025]]
+
+
+def test_weekly_stats_fetch_retries_once_before_recording_failure(monkeypatch, tmp_path):
+    """WEEKLY_STATS_FETCH_ATTEMPTS is 2: a week that fails once then succeeds
+    on retry must land in the artifact, not in weeksFailed."""
+    call_counts: dict[int, int] = {}
+
+    def flaky(_season, week):
+        call_counts[week] = call_counts.get(week, 0) + 1
+        if week == 3 and call_counts[week] == 1:
+            raise RuntimeError("transient")
+        return {}
+
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", flaky)
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+    _patch_main_sources_for_offline_nflverse(monkeypatch, tmp_path)
+    assert build_data.main() == 0
+    assert call_counts[3] == 2  # failed once, retried once, succeeded
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert "3" not in manifest["sources"]["sleeper_weekly_stats"]["weeksFailed"]
+    assert manifest["sources"]["sleeper_weekly_stats"]["status"] == "ok"
+
+
+def test_weekly_stats_status_partial_when_some_weeks_fail(monkeypatch, tmp_path):
+    def half_fail(_season, week):
+        if week > 12:
+            raise RuntimeError("offline")
+        return {}
+
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", half_fail)
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+    _patch_main_sources_for_offline_nflverse(monkeypatch, tmp_path)
+    assert build_data.main() == 0
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    entry = manifest["sources"]["sleeper_weekly_stats"]
+    assert entry["status"] == "partial"
+    assert entry["weeksFetched"] == list(range(1, 13))
+    assert sorted(int(w) for w in entry["weeksFailed"]) == list(range(13, 19))
+
+
+def test_weekly_stats_status_error_when_every_week_fails(monkeypatch, tmp_path):
+    def always_fail(_season, _week):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", always_fail)
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+    _patch_main_sources_for_offline_nflverse(monkeypatch, tmp_path)
+    assert build_data.main() == 0
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["sources"]["sleeper_weekly_stats"]["status"] == "error"
+    assert json.loads((tmp_path / "weekly-stats.json").read_text()) == {}
+
+
+def _patch_main_sources_for_offline_nflverse(monkeypatch, tmp_path) -> None:
+    """Shared minimal main() fixture for the weekly-stats-fetch tests above --
+    only the weekly-stats fetch behavior differs between them; everything else
+    (players/ADP/projections) is the same minimal happy path."""
+    sleeper = {
+        "1": {
+            "full_name": "Test Player", "position": "RB", "fantasy_positions": ["RB"],
+            "team": "BUF", "years_exp": 3,
+        }
+    }
+    ffc_player = {
+        "name": "Test Player", "position": "RB", "team": "BUF", "adp": 1.0,
+        "stdev": 1.0, "high": 1, "low": 2, "times_drafted": 10, "bye": 7,
+    }
+    monkeypatch.setattr(sources, "fetch_sleeper_players", lambda: sleeper)
+    monkeypatch.setattr(sources, "fetch_dynastyprocess_crosswalk", lambda: [
+        {"sleeper_id": "1", "gsis_id": "g1", "pfr_id": "p1"}
+    ])
+    monkeypatch.setattr(sources, "fetch_ffc_adp_payload", lambda *args, **kwargs: {
+        "players": [ffc_player],
+        "meta": {"total_drafts": 10, "start_date": "2026-08-02", "end_date": "2026-08-09"},
+    })
+    monkeypatch.setattr(sources, "fetch_sleeper_adp", lambda _season: [])
+
+    # The provider-projections step fetches ESPN in main(); keep these tests
+    # network-free (fail-open is fine Ã¢â‚¬â€ the block just records an error).
+    monkeypatch.setattr(espn_projections, "fetch_espn_projections", lambda _season: {"players": []})
+
+    class ProjectionProvider:
+        def __init__(self, _):
+            pass
+
+        def load(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                projections=[], source_url="projection-source", fetched_at="now",
+                upstream_updated_at="today", position_rows={}, diagnostics={}, bye_weeks={},
+            )
+
+    monkeypatch.setattr(build_data, "FFTodayProjectionProvider", ProjectionProvider)
+    monkeypatch.setattr("sys.argv", [
+        "build_data.py", "--out-dir", str(tmp_path), "--coverage-threshold", "0",
+    ])
 
 
 def test_coverage_requires_observed_usage_or_verified_known_absence():
@@ -429,6 +872,8 @@ def test_main_writes_fresh_core_and_empty_context_when_nflverse_fails(monkeypatc
     })
     monkeypatch.setattr(sources, "fetch_sleeper_adp", lambda _season: sleeper_adp_rows)
 
+    monkeypatch.setattr(espn_projections, "fetch_espn_projections", lambda _season: {"players": []})
+
     class ProjectionProvider:
         def __init__(self, _):
             pass
@@ -436,25 +881,60 @@ def test_main_writes_fresh_core_and_empty_context_when_nflverse_fails(monkeypatc
         def load(self, *_args, **_kwargs):
             return SimpleNamespace(
                 projections=[transform.SeasonProjection("1", "test", {"rush_yd": 100})],
-                source_url="projection-source", fetched_at="now", upstream_updated_at="today",
+                source_url="projection-source",
+                fetched_at="now",
+                upstream_updated_at="today",
+                position_rows={"RB": 1},
+                diagnostics={"matchedRows": 1},
+                bye_weeks={"1": 7},
             )
 
     monkeypatch.setattr(build_data, "FFTodayProjectionProvider", ProjectionProvider)
     monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
     monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+
+    def weekly_stats_offline(*_args, **_kwargs):
+        raise RuntimeError("weekly stats offline")
+
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", weekly_stats_offline)
     monkeypatch.setattr("sys.argv", [
         "build_data.py", "--out-dir", str(tmp_path), "--coverage-threshold", "0",
     ])
     assert build_data.main() == 0
     assert json.loads((tmp_path / "player-usage.json").read_text()) == {}
-    assert json.loads((tmp_path / "players.json").read_text())[0]["name"] == "Test Player"
+    weekly_ppr = json.loads((tmp_path / "weekly-ppr.json").read_text())
+    assert weekly_ppr == {
+        "schemaVersion": context.WEEKLY_SCORING_SCHEMA_VERSION,
+        "season": 2025,
+        "players": {},
+    }
+    assert json.loads((tmp_path / "weekly-stats.json").read_text()) == {}
+    manifest_weekly_stats_precheck = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest_weekly_stats_precheck["sources"]["sleeper_weekly_stats"]["status"] == "error"
+    assert manifest_weekly_stats_precheck["sources"]["sleeper_weekly_stats"]["weeksFetched"] == []
+    assert len(manifest_weekly_stats_precheck["sources"]["sleeper_weekly_stats"]["weeksFailed"]) == 18
+    players_out = json.loads((tmp_path / "players.json").read_text())
+    assert players_out[0]["name"] == "Test Player"
+    assert players_out[0]["byeWeek"] == 7
     assert json.loads((tmp_path / "projections-season.json").read_text())[0]["stats"]["rush_yd"] == 100
     manifest = json.loads((tmp_path / "manifest.json").read_text())
     assert manifest["sources"]["nflverse_player_stats"]["status"] == "error"
     assert manifest["sources"]["adp_active_ppr"]["activeAdpSource"] == "sleeper"
+    # crosswalk = FFC identity gate; projection = active-board coverage Ã¢â‚¬â€ never swapped.
+    assert manifest["crosswalk"]["top300MatchRate"] == 1.0
+    assert manifest["crosswalk"]["unmatchedTop300"] == []
+    assert manifest["projection"]["source"] == "fftoday"
+    # Sleeper board has SLEEPER_ADP_MIN_ROWS rows; mock projects only id "1", which
+    # appears twice in the synthetic ADP list (index 0 overwritten + i==1).
+    assert manifest["projection"]["top300MatchRate"] == pytest.approx(
+        2 / build_data.SLEEPER_ADP_MIN_ROWS, rel=1e-4,
+    )
+    assert "Test Player" not in manifest["projection"]["unmatchedTop300"]
+    assert len(manifest["projection"]["unmatchedTop300"]) == build_data.SLEEPER_ADP_MIN_ROWS - 2
     adp = json.loads((tmp_path / "adp-ppr.json").read_text())
     assert adp[0]["adpSource"] == "sleeper"
     assert adp[0]["stdevSource"] == "fitted"
+    assert adp[0]["byeWeek"] == 7
     history_lines = (tmp_path / "history" / "adp-ppr.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(history_lines) == build_data.SLEEPER_ADP_MIN_ROWS + 1  # sleeper rows + one FFC row
     sleeper_hist = json.loads(history_lines[0])
@@ -488,6 +968,8 @@ def test_main_falls_back_to_ffc_when_sleeper_adp_fetch_fails(monkeypatch, tmp_pa
 
     monkeypatch.setattr(sources, "fetch_sleeper_adp", boom)
 
+    monkeypatch.setattr(espn_projections, "fetch_espn_projections", lambda _season: {"players": []})
+
     class ProjectionProvider:
         def __init__(self, _):
             pass
@@ -495,12 +977,22 @@ def test_main_falls_back_to_ffc_when_sleeper_adp_fetch_fails(monkeypatch, tmp_pa
         def load(self, *_args, **_kwargs):
             return SimpleNamespace(
                 projections=[transform.SeasonProjection("1", "test", {"rush_yd": 100})],
-                source_url="projection-source", fetched_at="now", upstream_updated_at="today",
+                source_url="projection-source",
+                fetched_at="now",
+                upstream_updated_at="today",
+                position_rows={"RB": 1},
+                diagnostics={"matchedRows": 1},
+                bye_weeks={},
             )
 
     monkeypatch.setattr(build_data, "FFTodayProjectionProvider", ProjectionProvider)
     monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
     monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+
+    def weekly_stats_offline(*_args, **_kwargs):
+        raise RuntimeError("weekly stats offline")
+
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", weekly_stats_offline)
     monkeypatch.setattr("sys.argv", [
         "build_data.py", "--out-dir", str(tmp_path), "--coverage-threshold", "0",
     ])
@@ -508,8 +1000,71 @@ def test_main_falls_back_to_ffc_when_sleeper_adp_fetch_fails(monkeypatch, tmp_pa
     manifest = json.loads((tmp_path / "manifest.json").read_text())
     assert manifest["sources"]["adp_active_ppr"]["activeAdpSource"] == "ffc-fallback"
     assert manifest["sources"]["sleeper_adp_ppr"]["status"] == "error"
+    weekly_ppr = json.loads((tmp_path / "weekly-ppr.json").read_text())
+    assert weekly_ppr == {
+        "schemaVersion": context.WEEKLY_SCORING_SCHEMA_VERSION,
+        "season": 2025,
+        "players": {},
+    }
     adp = json.loads((tmp_path / "adp-ppr.json").read_text())
     assert len(adp) == 1
     assert adp[0]["adpSource"] == "ffc"
     assert adp[0]["stdevSource"] == "observed"
+    assert adp[0]["byeWeek"] == 7
     assert json.loads((tmp_path / "players.json").read_text())[0]["byeWeek"] == 7
+
+
+def test_main_coverage_gate_failure_preserves_prior_artifacts(monkeypatch, tmp_path):
+    prior = {"keep": True}
+    (tmp_path / "players.json").write_text(json.dumps(prior), encoding="utf-8")
+    (tmp_path / "manifest.json").write_text(json.dumps(prior), encoding="utf-8")
+
+    sleeper = {
+        "1": {
+            "full_name": "Test Player", "position": "RB", "fantasy_positions": ["RB"],
+            "team": "BUF", "years_exp": 3,
+        }
+    }
+    # Unmatched FFC name Ã¢â€ â€™ gate rate 0.0 under default threshold.
+    ffc_player = {
+        "name": "Nobody Matching", "position": "RB", "team": "BUF", "adp": 1.0,
+        "stdev": 1.0, "high": 1, "low": 2, "times_drafted": 10, "bye": 7,
+    }
+    monkeypatch.setattr(sources, "fetch_sleeper_players", lambda: sleeper)
+    monkeypatch.setattr(sources, "fetch_dynastyprocess_crosswalk", lambda: [])
+    monkeypatch.setattr(sources, "fetch_ffc_adp_payload", lambda *args, **kwargs: {
+        "players": [ffc_player],
+        "meta": {"total_drafts": 10, "start_date": "2026-08-02", "end_date": "2026-08-09"},
+    })
+    monkeypatch.setattr(sources, "fetch_sleeper_adp", lambda _season: [])
+
+    class ProjectionProvider:
+        def __init__(self, _):
+            pass
+
+        def load(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                projections=[],
+                source_url="projection-source",
+                fetched_at="now",
+                upstream_updated_at="today",
+                position_rows={},
+                diagnostics={},
+                bye_weeks={},
+            )
+
+    monkeypatch.setattr(build_data, "FFTodayProjectionProvider", ProjectionProvider)
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+
+    def weekly_stats_offline(*_args, **_kwargs):
+        raise RuntimeError("weekly stats offline")
+
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", weekly_stats_offline)
+    monkeypatch.setattr("sys.argv", [
+        "build_data.py", "--out-dir", str(tmp_path),
+        "--coverage-threshold", str(build_data.COVERAGE_GATE_THRESHOLD),
+    ])
+    assert build_data.main() == 1
+    assert json.loads((tmp_path / "players.json").read_text()) == prior
+    assert json.loads((tmp_path / "manifest.json").read_text()) == prior
