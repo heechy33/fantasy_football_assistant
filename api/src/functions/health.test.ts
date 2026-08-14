@@ -11,7 +11,9 @@ describe('health', () => {
       status: 'ok',
       service: 'ffa-api',
     });
-    expect(typeof (response.jsonBody as { time: unknown }).time).toBe('string');
-    expect(() => new Date((response.jsonBody as { time: string }).time)).not.toThrow();
+    const time = (response.jsonBody as { time: string }).time;
+    expect(typeof time).toBe('string');
+    // new Date('garbage') never throws — require a parseable timestamp instead.
+    expect(Number.isFinite(Date.parse(time))).toBe(true);
   });
 });

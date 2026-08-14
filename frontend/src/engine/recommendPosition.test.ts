@@ -285,21 +285,24 @@ describe('near-tie display context', () => {
     expect(result.recommendations.map((entry) => entry.playerId)).toEqual(['rb-a', 'rb-b', 'rb-c']);
     expect(Math.abs(result.recommendations[0]!.replacementAdjustedValue
       - result.recommendations[1]!.replacementAdjustedValue)).toBeCloseTo(1, 8);
-    expect(result.recommendations.map((entry) => entry.nearTieWithLeader)).toEqual([true, true, false]);
+    expect(result.recommendations.map((entry) => entry.nearTie)).toEqual([true, true, false]);
   });
 
   it('uses projected points for K/D/ST and includes the one-percent boundary', () => {
     const result = buildRecommendationBoard({ ...tieInput, displayPosition: 'K', limit: 3 });
     expect(result.recommendations.map((entry) => entry.playerId)).toEqual(['k-a', 'k-b', 'k-c']);
-    expect(result.recommendations.map((entry) => entry.nearTieWithLeader)).toEqual([true, true, false]);
+    expect(result.recommendations.map((entry) => entry.nearTie)).toEqual([true, true, false]);
   });
 
-  it('calculates after slicing, requires two displayed qualifiers, and does not change order', () => {
+  it('bands are computed over the full priority-sorted order (not only the displayed slice), requires two band members, and does not change order', () => {
+    // Bands are localized to the fixed-anchor sorted order, independent of `limit` — rb-a and rb-b
+    // band together whether or not rb-b is actually displayed, so slicing to a single row still
+    // surfaces rb-a's band membership.
     const one = buildRecommendationBoard({ ...tieInput, displayPosition: 'RB', limit: 1 });
     expect(one.recommendations.map((entry) => entry.playerId)).toEqual(['rb-a']);
-    expect(one.recommendations.map((entry) => entry.nearTieWithLeader)).toEqual([false]);
+    expect(one.recommendations.map((entry) => entry.nearTie)).toEqual([true]);
     const two = buildRecommendationBoard({ ...tieInput, displayPosition: 'RB', limit: 2 });
     expect(two.recommendations.map((entry) => entry.playerId)).toEqual(['rb-a', 'rb-b']);
-    expect(two.recommendations.map((entry) => entry.nearTieWithLeader)).toEqual([true, true]);
+    expect(two.recommendations.map((entry) => entry.nearTie)).toEqual([true, true]);
   });
 });

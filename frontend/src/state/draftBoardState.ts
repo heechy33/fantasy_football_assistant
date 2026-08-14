@@ -32,9 +32,27 @@ export function createDraftBoardState(mode: DraftBoardState['mode'] = 'live'): D
   return { mode, livePicks: [], overrides: new Map() };
 }
 
-/** A poll's fresh picks. No-op in manual mode — manual sessions never have a live layer. */
+/** A poll's fresh picks. No-op in manual mode — manual sessions never have a live layer.
+ * Also a no-op when pick content is unchanged so the ~2.5s poll does not force a new state
+ * identity (and a full App → workspace re-render) on every tick. */
 export function setLivePicks(state: DraftBoardState, livePicks: Pick[]): DraftBoardState {
   if (state.mode === 'manual') return state;
+  if (state.livePicks === livePicks) return state;
+  if (
+    state.livePicks.length === livePicks.length
+    && state.livePicks.every((pick, index) => {
+      const next = livePicks[index];
+      return next != null
+        && pick.overall === next.overall
+        && pick.teamId === next.teamId
+        && pick.slot === next.slot
+        && pick.playerId === next.playerId
+        && pick.providerPlayerId === next.providerPlayerId
+        && pick.providerPlayerName === next.providerPlayerName;
+    })
+  ) {
+    return state;
+  }
   return { ...state, livePicks };
 }
 

@@ -39,6 +39,12 @@ describe('setLivePicks', () => {
     const state = setLivePicks(createDraftBoardState('manual'), [pick(1, 'A')]);
     expect(state.livePicks).toEqual([]);
   });
+
+  it('keeps the same state identity when pick content is unchanged', () => {
+    const first = setLivePicks(createDraftBoardState(), [pick(1, 'A')]);
+    const second = setLivePicks(first, [pick(1, 'A')]);
+    expect(second).toBe(first);
+  });
 });
 
 describe('computeEffectivePicks — plain live picks, no overrides', () => {

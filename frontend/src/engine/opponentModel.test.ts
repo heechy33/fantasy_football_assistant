@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AdpEntry, LeagueSettings, PlayerId, PlayerMeta, Position } from '../../../shared/types';
 import { prepareLineup } from './eligibility';
-import { buildOpponentPool, computeScenarioPriorities, needBonusFromLineup, pickForTeam, type OpponentModelConfig } from './opponentModel';
+import { buildOpponentPool, computeScenarioPriorities, defaultOpponentModelConfig, needBonusFromLineup, pickForTeam, type OpponentModelConfig } from './opponentModel';
 import { createRng, deriveStream, hashStateSeed } from './rng';
 
 const CONFIG: OpponentModelConfig = {
@@ -12,6 +12,23 @@ const CONFIG: OpponentModelConfig = {
   syntheticStep: 0.5,
   noAdpAtAllFallback: 180,
 };
+
+describe('defaultOpponentModelConfig', () => {
+  it('returns the documented uncalibrated S3 starting points', () => {
+    expect(defaultOpponentModelConfig(12, 15)).toEqual({
+      shockScale: 1,
+      needBonusCap: 12,
+      candidateWindow: 40,
+      fallbackStdev: 12,
+      syntheticStep: 1,
+      noAdpAtAllFallback: 180,
+    });
+  });
+
+  it('uses the supplied draft shape for the no-ADP fallback', () => {
+    expect(defaultOpponentModelConfig(10, 18).noAdpAtAllFallback).toBe(180);
+  });
+});
 
 function player(id: string, position: Position | null, eligiblePositions: Position[] = position ? [position] : []): PlayerMeta {
   return { playerId: id, name: id, position, eligiblePositions, team: null, byeWeek: null, age: null, yearsExp: null, injuryStatus: null, ids: {} };
@@ -41,17 +58,19 @@ describe('buildOpponentPool', () => {
 
   it('assigns synthetic ADP past the deepest observed ADP at that position, ordered by points desc', () => {
     const players = [player('rb1', 'RB'), player('rb2', 'RB'), player('rb3', 'RB')];
-    // rb1 has a real ADP row; rb2 and rb3 need synthetic ADP, ordered by points (rb3 > rb2).
+    // rb1 must be scored: observed depth only comes from scored players with ADP rows.
+    // rb2/rb3 need synthetic ADP, ordered by points (rb3 > rb2).
     const adp = [adpEntry({ playerId: 'rb1', adp: 30, stdev: 5 })];
-    const scores = new Map([['rb2', 10], ['rb3', 20]]);
+    const scores = new Map([['rb1', 30], ['rb2', 10], ['rb3', 20]]);
     const pool = buildOpponentPool(players, scores, adp, CONFIG);
     const rb3 = pool.entries.find((e) => e.playerId === 'rb3')!;
     const rb2 = pool.entries.find((e) => e.playerId === 'rb2')!;
     expect(rb3.synthetic).toBe(true);
     expect(rb2.synthetic).toBe(true);
     // Higher points -> earlier synthetic slot (closer to the deepest observed ADP).
-    expect(rb3.adp).toBeLessThan(rb2.adp);
-    expect(rb3.adp).toBeGreaterThan(30); // past the deepest observed RB ADP (30)
+    expect(rb3.adp).toBe(30 + CONFIG.syntheticStep);
+    expect(rb2.adp).toBe(30 + CONFIG.syntheticStep * 2);
+    expect(rb3.stdev).toBe(5);
   });
 
   it('uses drafted observed players to establish synthetic ADP depth and spread', () => {
@@ -142,16 +161,15 @@ describe('computeScenarioPriorities + pickForTeam', () => {
 
   it('common random numbers: the same scenario priorities are reused for multiple pickForTeam calls', () => {
     const pool = buildOpponentPool(players, scores, adp, CONFIG);
-    const rng = createRng(1n);
-    const priorities = computeScenarioPriorities(pool, rng, CONFIG);
-    // Calling pickForTeam twice with different `drafted` sets must not redraw shocks — the
-    // priorities array is reused as-is, exactly as simulate.ts will use it across a scenario.
+    // Zero shock so pick identities are hand-checkable; the CRN property is that pickForTeam
+    // consumes the frozen priority list without mutating or redrawing it.
+    const priorities = computeScenarioPriorities(pool, createRng(1n), { ...CONFIG, shockScale: 0 });
+    const frozen = priorities.map((entry) => ({ ...entry }));
     const first = pickForTeam(priorities, new Set(), new Map(), CONFIG.candidateWindow);
-    const second = pickForTeam(priorities, new Set(['p3']), new Map(), CONFIG.candidateWindow);
-    expect(first).not.toBeNull();
-    expect(second).not.toBeNull();
-    // priorities array itself is untouched between calls.
-    expect(priorities.some((p) => p.playerId === 'p3')).toBe(true);
+    const second = pickForTeam(priorities, new Set([first!]), new Map(), CONFIG.candidateWindow);
+    expect(priorities).toEqual(frozen);
+    expect(first).toBe('p1');
+    expect(second).toBe('p2');
   });
 
   it('respects the candidate window: a player outside the window is never picked regardless of need', () => {
@@ -237,12 +255,13 @@ describe('needBonusFromLineup', () => {
     const hybrid = player('hybrid1', 'RB', ['RB', 'WR']);
     const scores = new Map([['hybrid1', 15]]);
     const bonus = needBonusFromLineup(prepared(settings, [hybrid], scores), CONFIG);
-    // The optimizer will place the hybrid in exactly one slot (RB or FLEX/WR-eligible), leaving at
-    // least one of RB's two dedicated slots and WR's one dedicated slot still needing a bonus > 0.
     const rbBonus = bonus.get('RB') ?? 0;
     const wrBonus = bonus.get('WR') ?? 0;
-    // Both cannot be fully satisfied (0) by a single player occupying a single slot.
-    expect(rbBonus > 0 || wrBonus > 0).toBe(true);
+    // One occupant can fill at most one dedicated slot. With 2 RB + 1 WR dedicated slots, at least
+    // two dedicated slots remain unfilled — so the sum of need fractions stays strictly above one
+    // full position's worth (needBonusCap).
+    expect(rbBonus + wrBonus).toBeGreaterThan(CONFIG.needBonusCap);
+    expect(rbBonus === 0 && wrBonus === 0).toBe(false);
   });
 
   it('never reports need for a FLEX-family slot (dedicated positions only)', () => {

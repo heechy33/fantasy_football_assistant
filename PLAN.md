@@ -6,9 +6,10 @@
 **Active objective:** prove that the recommendation engine creates a measurable drafting edge in
 **PPR redraft snake drafts on Sleeper** before expanding the product.
 
-**Progress:** Gate 0, S0, S1, S2, and Phase 1 player context are complete and verified (see
-"Active execution plan" below for measured exit-criteria results). S3 (VONA rollout engine) is
-next. `vona` is deliberately `null` on every `Recommendation` today.
+**Progress:** Gate 0, S0, S1, S2, Phase 1 player context, and the Stage C VONA rollout integration
+are implemented and locally verified (see "Active execution plan" below for measured results).
+Stage C currently runs on the main thread under the existing budgeted mode; the Web Worker and
+calibration work remain open S3/S6 items.
 
 The long-term product is still a season-long assistant for Sleeper, ESPN, and Yahoo:
 
@@ -56,7 +57,11 @@ one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phas
   bitmask-DP solver, handles FLEX correctly), MRV, draining-pool replacement/VOR, leader-anchored
   tiers, survival-conditioned availability, and a ranked recommendation board with explanations
   (S2, `frontend/src/engine/`)
-- `RecommendationPanel` wired into the live-Sleeper session (not yet into manual mode — S4 gap)
+- `DraftWorkspace` wired into the live-Sleeper session with deterministic S2 and Stage C lookahead
+  recommendations (manual-mode recommendation UI remains an S4 gap)
+- Seeded Stage C opponent-pick rollouts with VONA, lookahead value, survival, downside, caching, and
+  deterministic S2 fallback; the rollout pool follows the global-leaders plus positive-MRV
+  positional-extension contract below
 - FFToday-sourced season projections via the offline Python pipeline (`pipeline/fftoday.py`),
   normalized into `SeasonProjection`, behind the `SeasonProjectionProvider` boundary
 - Azure Static Web Apps deploy with staged `data/`, `staticwebapp.config.json`, and artifact
@@ -71,21 +76,31 @@ one-QB snake), not a scaffold. See "Active execution plan" for the phase-by-phas
 
 ### Not implemented
 
-- VONA / opponent-pick rollout simulation (S3) — `vona` is `null` on every recommendation today
+- Web Worker execution for Stage C (deferred, not currently required by measured cost — see S3),
+  two-turn rollouts, empirical opponent-model calibration, and real clock testing against a live
+  mock (S3/S5/S6)
 - Draft-experience polish: filters/search, tier-cliff visualization, manual pin/avoid, data
   freshness panel (S4)
 - Reliability/clock testing under real conditions, edge validation against baselines (S5-S6)
 - Provider adapters beyond Sleeper, Cosmos DB, SWA auth (roadmap, gated by the Edge Validation Gate)
 - Real recorded Sleeper mock-draft fixtures — `fixtures/sleeper/` is still hand-authored
 
-### Verified locally on August 8, 2026
+### Verified locally on August 10, 2026
 
-- `npm test`: frontend 213/213 passing across 16 files; API 1/1 passing in 1 file
+- `npm test`: frontend 320/320 passing (1 opt-in scenario-count sweep skipped by design) across 28
+  files; API 1/1 passing in 1 file
 - Stage B focused selection: 100/100 passing across 6 files
 - `npm run typecheck`: frontend and API pass
-- Recommendation performance guard passes its 250 ms median ceiling; `git diff --check` passes
+- S2's deterministic recommendation guard passes its 250 ms median ceiling on real committed data
+  (measured ~110 ms). Stage C's two performance guards pass on the same data: the warm (realistic
+  steady-state) case measured ~233-475 ms median at `DEFAULT_SCENARIOS = 8`, the cold (first
+  Stage C-eligible turn of a session) case ~950-1150 ms — see S3's "Performance" note for the full
+  breakdown and the two engine-level fixes (`addPlayerToLineup`'s exact-tie fast path,
+  `teamRosterCache`) that made this measurement meaningful in the first place. `git diff --check`
+  passes.
 - `npm run build` and `npm run verify:artifact` pass
-- Pipeline tests: 13/13 passing, including nflverse failure and season-leakage fail-open cases
+- Pipeline tests: 44/44 passing, including FFToday retry/matching, ADP fallback, bye-week, and
+  nflverse failure/season-leakage fail-open cases
 - Generated data artifacts and crosswalk coverage: see the data manifest; the top-300 coverage gate
   is enforced in `pipeline/build_data.py` and fails the build below threshold
 
@@ -268,8 +283,9 @@ The draft board must be built with unions and left joins, never an inner join ac
    ECR players, top 20 undrafted ADP players, all players in the current positional tier, and any
    user-pinned player.
 5. Artifact generation fails if any top-200 PPR ECR or top-200 PPR ADP player cannot map to a
-   Sleeper ID. The top-300 union must have at least 99% projection coverage, and every uncovered row
-   must be emitted in a review report.
+   Sleeper ID. The current FFToday active top-300 board must have at least 90% projection coverage,
+   and every uncovered row must be emitted in a review report. The long-term multi-source union
+   target remains 99% coverage once the licensed multi-source stack is active.
 6. If the primary projection is missing for a covered player, use Rotowire only as a labeled
    fallback and lower confidence. A high-ECR/ADP player with no projection remains visible in an
    `unscoredNeedsReview` list.
@@ -512,25 +528,27 @@ the 401 alternate-endpoint retry, and `mPositionalRatings` as provider-adapter k
 ```text
 frontend/src/
   engine/
-    scoring.ts
-    eligibility.ts
-    lineupValue.ts
-    replacement.ts
-    tiers.ts
-    availability.ts
-    opponentModel.ts
-    simulate.ts
-    recommend.ts
-  workers/draftEngine.worker.ts
-  adapters/sleeper.ts
+    scoring.ts eligibility.ts replacement.ts tiers.ts availability.ts ranking.ts rng.ts
+    opponentModel.ts simulate.ts recommend.ts
+  adapters/sleeper.ts draftOrder.ts
+  data/dataHealth.ts dataInvariants.ts loadPlayerPool.ts playerContext.ts playerPortrait.ts
+  state/draftBoardState.ts persistence.ts
+  hooks/useDraftPoll.ts useDraftBoardState.ts useMediaQuery.ts useModalFocus.ts usePlayerBoardData.ts
   components/
-    ConnectSleeper DraftBoard MyRoster RecommendationPanel
+    ConnectSleeper DraftWorkspace DraftLog Drawer MyTeamRail
+    PlayerContextModal PlayerPortrait RecommendationCard
     DataHealth ManualPickCorrection
-  hooks/useDraftPoll.ts
 shared/types.d.ts
 pipeline/
 data/
 ```
+
+No `workers/` directory exists yet — Stage C's rollout runs on the main thread; see S3 below for
+why measured cost hasn't required moving it off yet. `DraftBoard`/`MyRoster`/`RecommendationPanel`
+(an earlier layout sketch) were superseded by `DraftWorkspace` + `MyTeamRail` +
+`RecommendationCard`/`PlayerContextModal` before those components existed; `lineupValue.ts` was
+never split out — the lineup optimizer and its `PreparedLineup`/`addPlayerToLineup` incremental
+step live in `eligibility.ts`.
 
 The API and infrastructure directories remain for the roadmap; do not delete them.
 
@@ -570,8 +588,12 @@ MRV(player, roster) =
 Use a small assignment/min-cost-flow, matching, or dynamic-programming solver. The implementation
 must correctly handle dedicated slots before FLEX and leave a path for SUPER_FLEX.
 
-Bench value is not zero, but it is discounted and should later reflect injury/replacement outcomes.
-Do not simply sum full VOR across starters and bench.
+Bench value is discounted and cannot be summed independently for every eligible starter. The
+implemented objective is `rosterUtility = optimizedStarterValue + maximumWeightDepthMatching`.
+Bench QB/RB/WR/TE players are matched one-to-one to occupied eligible core slots. Edge value is
+production over positional replacement multiplied by the incumbent's expected unavailable
+fraction. FLEX uses the starter solver's eligibility rules; starter upgrades remain on the starter
+path and cannot also receive a depth edge.
 
 ### 3. Replacement and VOR
 
@@ -624,6 +646,43 @@ The expectation comes from repeated rollouts of opponent picks using:
 Do not hard-code that every opponent blindly follows ADP. Start with a simple documented model,
 then calibrate it against recorded Sleeper mocks/drafts.
 
+**Implementation note (S3, `simulate.ts`):** the shipped board does not sort on this literal
+`VONA(player)` formula. `runSimulation` returns two related-but-distinct numbers per candidate:
+`lookaheadValue` (`E(finished-roster value) − commonBaseline`, what `recommend.ts` actually sorts
+skill candidates by) and `vona` (`MRV(c) − E(best MRV among survivors)`, this section's literal
+definition, surfaced only as an explanation field — see §8's interface below, which predates this
+distinction and only names `vona`).
+
+#### 2026-08-10 unified-utility timing revision
+
+The formulas above describe the original S3 rollout diagnostic. Production ranking now uses:
+
+```text
+planValue(c) =
+  marginalRosterUtility(c now)
+  + E(best conditional marginalRosterUtility at the next user pick)
+
+VONA(c) =
+  max(0, marginalRosterUtility(c)
+    - E(best surviving marginalRosterUtility in c's eligibility group))
+```
+
+The follow-up expectation orders candidates by conditional utility after `c` and uses ADP-based
+survival plus the probability that every higher-utility option is gone. ADP affects timing only,
+never intrinsic player quality. VONA is explanation only because its timing effect is already
+inside `planValue`; it is not added again.
+
+Missing ADP uses fixed-seed simulated survival when available and demotes confidence. If neither
+source exists, VONA is null and the planner does not credit the player as a future option.
+`lookaheadValue`, rollout VONA, downside, and simulated survival remain diagnostics/benchmark
+fields; they do not sort the production board. This explicitly supersedes the original S3
+starter-only sort note immediately above.
+
+The zero-hole two-future-pick policy was rejected at the nine-draft regret-ceiling prescreen:
+one-horizon mean regret was below the predeclared 0.5 utility-point absolute-improvement gate, so
+even a perfect two-pick policy could not qualify. Production therefore stays at one deterministic
+future pick; the second user-pick boundary remains available to a future analysis harness.
+
 ### 7. Candidate evaluation
 
 For each reasonable candidate at the current pick:
@@ -635,6 +694,10 @@ For each reasonable candidate at the current pick:
 
 Run this in a Web Worker, seed simulations for reproducibility, reuse the same random scenarios for
 candidate comparisons, and cache results until draft state changes.
+
+**Implementation note:** seeding, common-random-numbers reuse, and caching are built (`rng.ts`,
+`recommend.ts`'s `simulationCache`/`teamRosterCache`). The Web Worker is not — S3's "Performance"
+note explains why measured main-thread cost hasn't required it yet.
 
 The engine must have a fast fallback board based on MRV + VOR + bounded tier/availability context so
 the UI never freezes under the draft clock.
@@ -649,8 +712,13 @@ interface Recommendation {
   rank: number;
   projectedPoints: number;
   marginalRosterValue: number;
+  marginalRosterUtility: number;
+  expectedFollowUpValue: number;
+  planValue: number;
+  planningHorizon: 0 | 1 | 2;
   vor: number;
   vona: number | null;
+  vonaSource: 'analytic' | 'simulationFallback' | 'unavailable';
   tier: number;
   tierGapAfter: number;
   availableNextPickProbability: number | null;
@@ -659,6 +727,12 @@ interface Recommendation {
   warnings: string[];
 }
 ```
+
+**Implementation note:** `rankingBasis` is `planValue | rosterUtility | specialTeams`. The shipped
+`Recommendation` (`recommend.ts`) is a superset of this
+sketch — it also carries `lookaheadValue`, `downside` (10th-percentile), and
+`simulatedSurvivalProbability` alongside `vona`, plus S2 fields (`replacementAdjustedValue`,
+`tierBoundaryGap`, availability range/sample size, special-teams disposition) this sketch predates.
 
 Example rationale:
 
@@ -677,6 +751,53 @@ ceiling, and injury/replacement effects without pretending every player follows 
 
 Do not block the first live Sleeper board on a full season simulator. Add distributions in a
 measured step and prove that they improve historical results.
+
+### 10. Draft Score — 2026-08-11 composite decision record
+
+A published, audit-able 0–100 composite for card display and residual tie-breaking, decomposed into
+three named axes. Full spec: `DRAFT_SCORE_WAR_ROOM_REVISED_PLAN.md`.
+
+```text
+Value = 100 × clamp01(marginalRosterUtility / VALUE_ANCHOR)
+Edge  = 100 × clamp01(1 - availableNextPickProbability)     // 0 with no future pick or no ADP
+Risk  = 100 × clamp01(
+  0.50 × (100 - resolvedDurabilityScore) / 100
+  + 0.30 × injuryPenalty
+  + 0.20 × clamp01(availabilityStdev / dispersionAnchorPicks)
+)
+draftScore = clamp(0, 100, (0.65 × Value + 0.35 × Edge) × (1 - 0.25 × Risk / 100))
+```
+
+**The product name is Draft Score, not "3D Value."** FFToday supplies one point estimate per
+player, not a floor/ceiling/consensus distribution, so a third projection axis would be
+fabricated. Value/Edge/Risk are the three axes actually supported by data already on hand.
+
+**It does not become the primary sort.** `planValue` (§6's unified-utility revision) remains the
+production ranking objective, including the survival → ADP → planValue → id within-band near-tie
+order. Draft Score enters only as a residual tie-break, replacing `planValue` at the third
+comparator position, strictly after survival and ADP — a player who is scarcer/less likely to
+survive still outranks a prettier composite. Promotion to full primary sort requires a written
+decision after the Edge Validation Gate's benchmark harness reports paired regret/agreement numbers
+for the current policy versus the residual-breaker policy.
+
+**2026-08-11 A/B result** (`benchmarks/reports/2026-08-11-draft-score-tie-break-ab.md`): ran the
+9-recorded-draft availability/VONA harness with the residual breaker enabled and disabled. Sections
+A and B reproduced exactly, as expected (neither reads `draftScore`). Section C's regret and
+top-choice-agreement numbers were also identical — on this sample, no near-tie band containing the
+eventual top choice was also tied on survival and ADP, so the breaker never fired at rank 1. Not
+evidence for or against promoting to full primary sort; that remains its own future decision.
+
+**Edge excludes VONA and `tierUrgency`.** Both are already timing signals folded into `planValue`
+(§6); adding them to Edge would double-count scarcity and fight the validated near-tie order.
+`tierUrgency` remains explanation-only, consistent with `tiers.ts`'s existing doc comment. **Risk
+excludes engine `confidence`** — that field is data-quality (scoring severity, ADP sample size,
+K/DEF disposition), not player-medical risk; K/DEF rows are always `confidence: 'low'`, so folding
+it into Risk would silently discount every special-teams card.
+
+**Missing data resolves to unknown, never to safe.** A player with no `player-usage.json` row (most
+rookies; the artifact covers 997 of 4384 players) gets the league-median observed durability score
+(pipeline-measured; see `context.risk_defaults_report` and `manifest.riskDefaults`), not zero, and
+the card renders visibly hatched — never a green low-risk state built from an absent signal.
 
 ---
 
@@ -744,8 +865,9 @@ Built (`frontend/src/engine/`):
 - Survival-conditioned availability (`availability.ts`) — climbs monotonically as the player keeps
   surviving picks, guarded against near-zero-denominator noise
 - Ranked recommendation board with explanations (`recommend.ts`) — sorts on
-  `replacementAdjustedValue` (not raw points, fixing the old open-slot degeneracy), `vona` is
-  explicitly `null` with every value pending S3. K/DEF remain below the displayed skill-player
+  `replacementAdjustedValue` (not raw points, fixing the old open-slot degeneracy), and populates
+  Stage C lookahead/VONA fields when simulation is active with deterministic S2 fallback. K/DEF
+  remain below the displayed skill-player
   board until every non-K/DEF core starter slot, including FLEX, is filled and the user's
   settings-aware late-draft window arrives. In the standard one-D/ST, one-K format, D/ST is due at
   the penultimate team selection and kicker at the final selection. The schedule adapts to total
@@ -760,7 +882,7 @@ Built (`frontend/src/engine/`):
 Exit criteria — met, verified August 8, 2026:
 
 - Unit tests cover scoring, FLEX counterexamples, replacement, tiers, and probability boundaries.
-  207/207 frontend tests and 1/1 API test passing, including
+  308/308 frontend tests and 1/1 API test passing, including
   draining-pool replacement invariants, tier-boundary vs. adjacent-gap distinctions, and
   survival-conditioned availability monotonicity.
 - Known Sleeper league projections reconcile within an explained tolerance. Five real committed
@@ -769,26 +891,114 @@ Exit criteria — met, verified August 8, 2026:
   produces identical output including tie order; re-ranks correctly after an opponent pick; MRV
   degenerates to raw points only on a genuinely open slot.
 
-### S3 — VONA rollout engine (2–3 days)
+### S3 — VONA rollout engine — ✅ Implemented (main thread), calibration/two-turn deferred
 
-Build:
+> **Current ranking revision:** Stage C rollout fields are now diagnostics and a missing-ADP
+> fallback. Skill cards sort on deterministic one-pick `planValue` over unified roster utility in
+> both starter and bench states. The historical implementation notes below remain as the record of
+> the rollout subsystem, not the current production sort contract.
 
-- Opponent pick model
-- Next-turn and optional two-turn rollouts
-- Web Worker, seeded randomness, caching, and time budget
-- MRV/VOR fallback if simulation misses its deadline
-- Stage C rollout pool = the union of the global `max(3 * limit, 15)` deterministic S2 leaders
-  and up to two positive-MRV, non-deprioritized leaders from each of QB/RB/WR/TE, deduplicated and
-  returned in deterministic S2 order. S2's displayed ordering receives no positional quota.
-- Stage C's final recommendation sort must reapply the complete S2 special-teams policy: the
-  `isDeprioritized` core/clock gate, due/overdue priority, and configured-capacity exclusion.
-  Opponent drafting and the full survivor pool remain ungated.
+Opponent pick model (`opponentModel.ts`): per-scenario ADP noise plus a bounded roster-need bonus,
+deliberately not "every opponent blindly follows ADP." `defaultOpponentModelConfig(teams, rounds)`
+supplies uncalibrated starting values (documented "Uncalibrated pending S6" on every field) — S6
+calibrates them against a recorded Sleeper mock; nothing here is tuned yet.
+
+Seeded, Node-testable rollout (`rng.ts`, `simulate.ts`): PCG32 + Box-Muller RNG with a prefix
+property (`deriveStream`), one opponent-pick window simulated per scenario
+(`simulateOpponentWindow`), and an exact branch-and-bound best-follow-up search
+(`bestFollowUpValue`). Next-turn only — the two-turn rollout PLAN.md originally scoped is deferred;
+one-turn lookahead is what's built and tested.
+
+Stage C wiring (`recommend.ts`) — the seam that turns simulation output into a displayed board:
+
+- Rollout pool (`buildRolloutPool`) unions three terms, all in deterministic S2 order: the global
+  top `max(3 * limit, 15)`; up to two positive-MRV, non-deprioritized leaders per QB/RB/WR/TE; and
+  each of QB/RB/WR/TE's own top `limit` regardless of MRV — the third term is what guarantees a
+  position tab always returns a full board even when the global leaders are concentrated elsewhere
+  (e.g. a due K/DEF pick). K/DEF are excluded only from the simulated candidate set (they're never
+  useful VONA targets and simulating them wastes a rollout window) — they stay in the deterministic
+  order, `remainingPlayers`, and the final displayed sort.
+- All-or-nothing lookahead sort: the board ranks on `lookaheadValue` only when every displayed
+  skill candidate has one; any other case (no `simulation` context, an explicit zero-scenario
+  request with a real follow-up, off-clock) falls back wholesale to the S2 `replacementAdjustedValue`
+  sort, never a partial mix of the two scales. A null-follow-up (the user's final pick) is not a
+  fallback case — `simulate.ts` collapses it to the deterministic MRV cleanly, with fields still
+  populated.
+- Stage C only runs while `decisionPick === currentPick` — i.e. only during the user's own turn,
+  never speculatively for a future turn the current rollout has no pre-decision window for. Off
+  those turns the board is the plain S2 board; this is a known, currently-permanent boundary, not a
+  bug (see the exit-criteria note below).
+- Reapplies the complete S2 special-teams policy on the final sort (`isDeprioritized`, due/overdue
+  priority, configured-capacity exclusion) — opponent drafting and the full survivor pool remain
+  ungated.
+- Two caches, both cleared together by `clearSimulationCache()`: a single-entry simulation-result
+  cache keyed on every input that can vary independently, and an incrementally-extended
+  `teamRosterCache` (extends its previous pick-prefix via the fast incremental step below instead
+  of re-solving all opponent lineups from scratch — see "Performance," next).
+
+MRV/VOR fallback if simulation misses its deadline: the `'budgeted'` execution mode and `timedOut`
+diagnostic exist and are tested, but the shipped default is `'fixed'` (see "Performance" below) —
+`'budgeted'` remains available for callers that opt in.
+
+#### Performance — two engine-level fixes, not just a scenario-count choice
+
+Measuring Stage C's real cost surfaced two defects in shared engine code that a naive scenario-count
+sweep would have misdiagnosed as "simulation is inherently slow":
+
+1. **`addPlayerToLineup`'s exact-tie fallback was the dominant cost, not scenario count.** On an
+   ambiguous tie (~11% of calls on real committed data, deep in a draft) it re-ran the full
+   exponential `solveIndexed` DP (~37ms each) to resolve *which* tied assignment matches the
+   reference DP's canonical choice — necessary for display (`assignedRosterSlot`), but every one of
+   Stage C's hot-path callers (`bestFollowUpValue`, `simulateOpponentWindow`, the per-candidate MRV
+   pass in `runSimulation`) only ever reads `.result.value`, never occupant identity. `.result.value`
+   is exact regardless of which tied option is taken — augmenting-path optimality holds starting
+   from *any* tied-optimal assignment, not only the canonical one — so a new
+   `resolveAmbiguityExactly` parameter (default `true`, preserving exact behavior for
+   `recommend.ts`'s displayed S2 board) lets Stage C's three hot-path calls skip the fallback. This
+   alone cut a single scenario's cost from ~7.3s to ~44ms — roughly 150x.
+2. **`buildTeamRosters` re-solved all opponent lineups from scratch on every call.** A live draft
+   mostly *appends* picks between polls, so `recommend.ts` now maintains `teamRosterCache`: when the
+   new call's relevant picks are the previous call's plus a clean append, it extends incrementally
+   via the same value-safe fast path (occupancy-only consumers — `needBonusFromLineup` — never read
+   identity either); any non-append change (a manual correction, a settings change) falls back to a
+   full rebuild, so this is never wrong, only sometimes not faster. The same deferred-identity
+   principle was applied to `recommend.ts`'s own widened deterministic prefilter
+   (`patchExactAssignment`): exact identity is resolved only for cards that actually end up
+   displayed, not all ~100 evaluated candidates.
+
+`DEFAULT_SCENARIOS = 8`, selected 2026-08-10 against the real committed `data/` at Stage C's
+worst-case fixture (12 teams, 16 rounds, slot 1 — the longest opponent window a 12-team snake
+produces, near-full 14-incumbent roster). Two measurements matter, not one:
+
+- **Warm** (the realistic steady state — `teamRosterCache` extends rather than rebuilds, which is
+  what happens on every Stage C-eligible turn after the first in a session): ~75-90ms fixed
+  overhead plus ~23ms/scenario, roughly linear. 8 scenarios measured ~233ms in isolation — this is
+  what the default was actually chosen against.
+- **Cold** (nothing cached — only the very first Stage C-eligible turn of a session pays this):
+  dominated by fixed one-time cost (`buildTeamRosters` from scratch, the widened deterministic
+  pass) more than by scenario count; ~950-1150ms at 8 scenarios. Rare in practice, and still well
+  inside the 3s clock test, but deliberately not the number the default was tuned against.
+
+The 250ms internal target (tighter than the 3s product-level clock test) exists because the 2.5-3s
+live poll interval already consumes most of that 3s budget on its own — Stage C's own compute needs
+to be small relative to the poll interval, not merely small relative to 3s.
 
 Exit criteria:
 
-- Same seed/state produces the same recommendation.
-- Candidate comparisons use common scenarios and remain stable across reasonable simulation counts.
-- UI remains responsive and produces a result well inside the pick clock.
+- Same seed/state produces the same recommendation — verified: `'fixed'` mode is the shipped
+  default, and `simulate.ts`'s prefix property (`deriveStream`) plus `recommend.ts`'s cache-key
+  fingerprinting guarantee this; tested directly.
+- Candidate comparisons use common scenarios and remain stable across reasonable simulation
+  counts — verified for ordering stability at real-data scenario counts; not yet validated against
+  a recorded mock (S6).
+- UI remains responsive and produces a result well inside the pick clock — true for the warm case
+  (the common one) on the main thread today; the cold case and the still-unbuilt Web Worker are
+  open items below, not because measured cost has demanded a worker yet, but because the cold case
+  hasn't been stress-tested against the live poll loop end-to-end.
+
+Deferred, not built: the Web Worker (main-thread cost turned out to be a fixable engine defect, not
+an inherent scenario-count problem — revisit if real usage still shows main-thread jank), the
+two-turn rollout, and opponent-model calibration (S6).
 
 ### S4 — Draft experience and explanations (2 days)
 

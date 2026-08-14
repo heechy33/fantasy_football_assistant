@@ -28,6 +28,18 @@ export interface OpponentModelConfig {
   noAdpAtAllFallback: number;
 }
 
+/** Uncalibrated S3 starting points. S6 calibrates against a recorded Sleeper mock. */
+export function defaultOpponentModelConfig(teams: number, rounds: number): OpponentModelConfig {
+  return {
+    shockScale: 1, // Use each player's observed ADP stdev as-is — no extra tuning.
+    needBonusCap: 12, // ~one round of pick-equivalents in a 12-team league.
+    candidateWindow: 40, // Bound per-pick scan cost; uncalibrated pending S6.
+    fallbackStdev: 12, // Substitute only when a real ADP row has non-positive stdev.
+    syntheticStep: 1, // One-pick spacing between synthetic ADP rows at a position.
+    noAdpAtAllFallback: teams * rounds, // Deepest draft slot when the pool has no ADP at all.
+  };
+}
+
 const DEDICATED_POSITIONS: readonly Position[] = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
 function isDedicatedPositionSlot(slot: RosterSlot): slot is Position {

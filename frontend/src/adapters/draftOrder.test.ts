@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Pick } from '../../../shared/types';
-import { canonicalPicksSignature, computeOnTheClock, deriveDraftStatus, nextPickForTeam, userPickBoundaries } from './draftOrder';
+import {
+  canonicalPicksSignature,
+  computeOnTheClock,
+  deriveDraftStatus,
+  nextPickForTeam,
+  pickLabel,
+  roundForOverall,
+  slotForOverall,
+  userPickBoundaries,
+} from './draftOrder';
 
 const TEAMS = 12;
 const ROUNDS = 15;
@@ -76,6 +85,44 @@ describe('computeOnTheClock', () => {
   });
 });
 
+describe('roundForOverall', () => {
+  it('computes the 1-indexed round for a given overall pick', () => {
+    expect(roundForOverall(TEAMS, 1)).toBe(1);
+    expect(roundForOverall(TEAMS, 12)).toBe(1);
+    expect(roundForOverall(TEAMS, 13)).toBe(2);
+    expect(roundForOverall(TEAMS, 24)).toBe(2);
+    expect(roundForOverall(TEAMS, 25)).toBe(3);
+  });
+});
+
+describe('slotForOverall', () => {
+  it('never reverses for a linear draft', () => {
+    expect(slotForOverall('linear', TEAMS, 1)).toBe(1);
+    expect(slotForOverall('linear', TEAMS, 12)).toBe(12);
+    expect(slotForOverall('linear', TEAMS, 13)).toBe(1);
+    expect(slotForOverall('linear', TEAMS, 24)).toBe(12);
+  });
+
+  it('snake: ascending on odd rounds, reversed on even rounds', () => {
+    expect(slotForOverall('snake', TEAMS, 1)).toBe(1);
+    expect(slotForOverall('snake', TEAMS, 12)).toBe(12);
+    // round 1 -> round 2 boundary: slot 12 drafts picks 12 and 13 back-to-back.
+    expect(slotForOverall('snake', TEAMS, 13)).toBe(12);
+    expect(slotForOverall('snake', TEAMS, 24)).toBe(1);
+    // round 2 -> round 3 boundary: back to ascending order, same direction as round 1.
+    expect(slotForOverall('snake', TEAMS, 25)).toBe(1);
+    expect(slotForOverall('snake', TEAMS, 36)).toBe(12);
+  });
+});
+
+describe('pickLabel', () => {
+  it('formats round.slot with a zero-padded two-digit slot', () => {
+    expect(pickLabel(1, 1)).toBe('1.01');
+    expect(pickLabel(3, 7)).toBe('3.07');
+    expect(pickLabel(12, 12)).toBe('12.12');
+  });
+});
+
 describe('deriveDraftStatus', () => {
   it('passes through pre_draft as pre', () => {
     expect(deriveDraftStatus('pre_draft', 0, TEAMS, ROUNDS)).toBe('pre');
@@ -94,9 +141,15 @@ describe('deriveDraftStatus', () => {
   });
 
   it('overrides a stale pre_draft snapshot to drafting once any pick exists', () => {
-    // rawStatus reflects init()-time reality only; picks() never refetches it,
-    // so a real pick having landed is itself proof drafting has started.
+    // Sleeper can still report pre_draft briefly after the first pick lands (or a poll can
+    // observe a lagging status). A non-zero pick count is itself proof drafting has started.
     expect(deriveDraftStatus('pre_draft', 1, TEAMS, ROUNDS)).toBe('drafting');
+  });
+
+  it('trusts an init-time complete status even when the picks array is still partial', () => {
+    // picks() keeps a single upstream GET, so commissioner-complete mocks must be recognized
+    // from the init-cached rawStatus rather than from a second /draft/{id} refresh.
+    expect(deriveDraftStatus('complete', 15, TEAMS, ROUNDS)).toBe('complete');
   });
 });
 describe('nextPickForTeam', () => {
@@ -117,6 +170,7 @@ describe('userPickBoundaries', () => {
     expect(boundaries.decisionPick).toBe(22);
     // followUpPick is team-3's *next* pick after that — round 3, ascending again, slot 3.
     expect(boundaries.followUpPick).toBe(27);
+    expect(boundaries.secondFollowUpPick).toBe(46);
     // The opponent simulation window (decisionPick+1 .. followUpPick-1 = 23..26) must never
     // include decisionPick (22) or followUpPick (27) themselves.
     expect(boundaries.decisionPick).not.toBe(23);
@@ -129,6 +183,7 @@ describe('userPickBoundaries', () => {
     const boundaries = userPickBoundaries('snake', TEAMS, ROUNDS, 11, SLOT_TO_TEAM, 'team-12');
     expect(boundaries.decisionPick).toBe(12);
     expect(boundaries.followUpPick).toBe(13);
+    expect(boundaries.secondFollowUpPick).toBe(36);
     expect(boundaries.followUpPick).toBe((boundaries.decisionPick ?? 0) + 1);
   });
 
@@ -138,24 +193,28 @@ describe('userPickBoundaries', () => {
     const boundaries = userPickBoundaries('snake', TEAMS, ROUNDS, 168, SLOT_TO_TEAM, 'team-1');
     expect(boundaries.decisionPick).toBe(169);
     expect(boundaries.followUpPick).toBeNull();
+    expect(boundaries.secondFollowUpPick).toBeNull();
   });
 
   it('draft already complete: both boundaries are null', () => {
     const boundaries = userPickBoundaries('snake', TEAMS, ROUNDS, TEAMS * ROUNDS, SLOT_TO_TEAM, 'team-1');
     expect(boundaries.decisionPick).toBeNull();
     expect(boundaries.followUpPick).toBeNull();
+    expect(boundaries.secondFollowUpPick).toBeNull();
   });
 
   it('no team id: both boundaries are null', () => {
     const boundaries = userPickBoundaries('snake', TEAMS, ROUNDS, 0, SLOT_TO_TEAM, null);
     expect(boundaries.decisionPick).toBeNull();
     expect(boundaries.followUpPick).toBeNull();
+    expect(boundaries.secondFollowUpPick).toBeNull();
   });
 
   it('auction drafts are a documented no-op, matching nextPickForTeam', () => {
     const boundaries = userPickBoundaries('auction', TEAMS, ROUNDS, 0, SLOT_TO_TEAM, 'team-1');
     expect(boundaries.decisionPick).toBeNull();
     expect(boundaries.followUpPick).toBeNull();
+    expect(boundaries.secondFollowUpPick).toBeNull();
   });
 });
 

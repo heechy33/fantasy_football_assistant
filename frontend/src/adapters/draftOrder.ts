@@ -1,5 +1,22 @@
 import type { DraftStatus, DraftType, OnTheClock, Pick } from '../../../shared/types';
 
+/** 1-indexed round containing a given overall pick, for `teams` teams per round. */
+export function roundForOverall(teams: number, overall: number): number {
+  return Math.ceil(overall / teams);
+}
+
+/**
+ * 1-indexed draft slot on the clock at a given overall pick. Linear order is ascending slot
+ * order every round; snake reverses on even rounds. `auction` is a documented no-op at its
+ * callers (`computeOnTheClock`/`nextPickForTeam` short-circuit before reaching this), so this
+ * function's `draftType` param only ever distinguishes `snake` from `linear` in practice.
+ */
+export function slotForOverall(draftType: DraftType, teams: number, overall: number): number {
+  const round = roundForOverall(teams, overall);
+  const posInRound = overall - (round - 1) * teams;
+  return draftType === 'snake' && round % 2 === 0 ? teams - posInRound + 1 : posInRound;
+}
+
 /**
  * Pure, provider-agnostic draft-order arithmetic. Sleeper's picks endpoint has
  * no explicit "on the clock" field, so this is computed from the pick count
@@ -21,9 +38,8 @@ export function computeOnTheClock(
   if (picksCount >= teams * rounds) return null;
 
   const overall = picksCount + 1;
-  const round = Math.ceil(overall / teams);
-  const posInRound = overall - (round - 1) * teams;
-  const slot = draftType === 'snake' && round % 2 === 0 ? teams - posInRound + 1 : posInRound;
+  const round = roundForOverall(teams, overall);
+  const slot = slotForOverall(draftType, teams, overall);
   const teamId = slotToTeam[slot];
   if (teamId === undefined) return null;
 
@@ -45,12 +61,27 @@ export function nextPickForTeam(
   if (!teamId || teams <= 0 || rounds <= 0 || draftType === 'auction') return null;
   const firstOverall = picksCount + 1 + (afterCurrentPick ? 1 : 0);
   for (let overall = firstOverall; overall <= teams * rounds; overall += 1) {
-    const round = Math.ceil(overall / teams);
-    const posInRound = overall - (round - 1) * teams;
-    const slot = draftType === 'snake' && round % 2 === 0 ? teams - posInRound + 1 : posInRound;
+    const slot = slotForOverall(draftType, teams, overall);
     if (slotToTeam[slot] === teamId) return overall;
   }
   return null;
+}
+
+/** Single source of truth for the `round.slot` display label used across the command bar and
+ * draft log (e.g. `3.07`). */
+export function pickLabel(round: number, slot: number): string {
+  return `${round}.${String(slot).padStart(2, '0')}`;
+}
+
+/** `round.pick` display label (e.g. `4.09`) — the **linear** pick-within-round
+ * (`overall - (round - 1) * teams`, i.e. 1..teams), not the snake slot. That is the DraftSharks
+ * war-room convention and the way the round separators in DraftLog are keyed (`overall ===
+ * (round - 1) * teams + 1` starts each round). `pickLabel` above remains the snake-slot formatter;
+ * this is the shared helper for the top-bar hero and the draft log's pick numbering. */
+export function roundPickLabel(teams: number, overall: number): string {
+  const round = roundForOverall(teams, overall);
+  const pickInRound = overall - (round - 1) * teams;
+  return pickLabel(round, pickInRound);
 }
 
 /**
@@ -69,6 +100,7 @@ export function nextPickForTeam(
 export interface UserPickBoundaries {
   decisionPick: number | null;
   followUpPick: number | null;
+  secondFollowUpPick: number | null;
 }
 
 export function userPickBoundaries(
@@ -80,11 +112,14 @@ export function userPickBoundaries(
   myTeamId: string | null,
 ): UserPickBoundaries {
   const decisionPick = nextPickForTeam(draftType, teams, rounds, picksCount, slotToTeam, myTeamId, false);
-  if (decisionPick == null) return { decisionPick: null, followUpPick: null };
+  if (decisionPick == null) return { decisionPick: null, followUpPick: null, secondFollowUpPick: null };
   // Passing `decisionPick` itself as the "picks so far" count (with afterCurrentPick left false)
   // scans forward from decisionPick + 1 — i.e. "this team's next pick after decisionPick."
   const followUpPick = nextPickForTeam(draftType, teams, rounds, decisionPick, slotToTeam, myTeamId, false);
-  return { decisionPick, followUpPick };
+  const secondFollowUpPick = followUpPick == null
+    ? null
+    : nextPickForTeam(draftType, teams, rounds, followUpPick, slotToTeam, myTeamId, false);
+  return { decisionPick, followUpPick, secondFollowUpPick };
 }
 
 /**
@@ -92,9 +127,8 @@ export function userPickBoundaries(
  * `rng.ts`'s `hashStateSeed`), not a UI memo key. Must include `teamId` and `slot`: B3's
  * opponent-need modeling depends on which team owns each pick, so two draft states that differ only
  * in a pick's team ownership (e.g. a manual correction reassigning one) must hash to different
- * seeds rather than silently reusing a stale simulation. `DraftWorkspace.tsx`'s lighter
- * `${overall}:${playerId}` memo key stays as-is for its own render-optimization purpose; it is not
- * a substitute for this.
+ * seeds rather than silently reusing a stale simulation. `DraftWorkspace.tsx` also uses this
+ * complete signature for its render memo, so a team/slot correction cannot retain a stale board.
  */
 export function canonicalPicksSignature(picks: readonly Pick[]): string {
   const frame = (value: string): string => `${value.length}:${value}`;
@@ -109,14 +143,12 @@ export function canonicalPicksSignature(picks: readonly Pick[]): string {
     .join('');
 }
 
-/** `rawStatus` is refreshed from Sleeper's draft endpoint alongside picks.
- * A full picks count still provides a safe fallback if that status lags.
- * status field). Trusting it alone would leave the derived status frozen at
- * whatever it was when the draft was connected — e.g. stuck on 'pre' for an
- * entire live draft if the user connected before the first pick landed. Any
- * pick actually existing is itself proof drafting has started, so that
- * overrides a stale 'pre_draft' snapshot; a full pick count still overrides
- * everything to 'complete' even if Sleeper's field hasn't flipped yet.
+/** `rawStatus` is the draft status captured at `init()` (or last explicit refresh).
+ * Trusting it alone would leave the derived status frozen — e.g. stuck on 'pre' for an
+ * entire live draft if the user connected before the first pick landed. Any pick actually
+ * existing is itself proof drafting has started, so that overrides a stale 'pre_draft'
+ * snapshot; a full pick count still overrides everything to 'complete' even if Sleeper's
+ * field hasn't flipped yet. This is what lets `picks()` stay a single upstream GET.
  */
 export function deriveDraftStatus(
   rawStatus: string,

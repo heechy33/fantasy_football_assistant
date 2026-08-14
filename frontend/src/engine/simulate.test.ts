@@ -104,7 +104,7 @@ describe('runSimulation — determinism', () => {
 });
 
 describe('runSimulation — sim-count stability', () => {
-  it('mean lookaheadValue converges as scenario count grows (prefix property)', () => {
+  it('mean lookaheadValue stays within a tight band as scenario count grows on this fixture', () => {
     const at20 = runSimulation(baseInput({ executionMode: { mode: 'fixed', scenarios: 20 } }));
     const at80 = runSimulation(baseInput({ executionMode: { mode: 'fixed', scenarios: 80 } }));
     const at320 = runSimulation(baseInput({ executionMode: { mode: 'fixed', scenarios: 320 } }));
@@ -112,9 +112,13 @@ describe('runSimulation — sim-count stability', () => {
       const v20 = at20.candidates.find((c) => c.playerId === candidateId)!.lookaheadValue;
       const v80 = at80.candidates.find((c) => c.playerId === candidateId)!.lookaheadValue;
       const v320 = at320.candidates.find((c) => c.playerId === candidateId)!.lookaheadValue;
-      // Not asserting exact convergence tolerance (that's a recorded benchmark, not a strict
-      // invariant per the review) — just that more scenarios doesn't blow up or diverge wildly.
-      expect(Math.abs(v320 - v80)).toBeLessThan(Math.abs(v80 - v20) + 5);
+      expect(Number.isFinite(v20)).toBe(true);
+      expect(Number.isFinite(v80)).toBe(true);
+      expect(Number.isFinite(v320)).toBe(true);
+      // Absolute band: larger samples should not wander far from the 80-scenario estimate on this
+      // zero-ish-noise-friendly fixture. Ordering stability below remains the stronger lock.
+      expect(Math.abs(v320 - v80)).toBeLessThan(8);
+      expect(Math.abs(v80 - v20)).toBeLessThan(15);
     }
   });
 
@@ -149,7 +153,7 @@ describe('runSimulation — pick boundaries (opponent-on-clock regression)', () 
     // decisionPick=1, followUpPick=8 for 'me' (slot 1) in this 4-team snake league — hand-derived
     // and cross-checked against userPickBoundaries directly below.
     const boundaries = userPickBoundaries('snake', TEAMS, ROUNDS, 0, SLOT_TO_TEAM, 'me');
-    expect(boundaries).toEqual({ decisionPick: 1, followUpPick: 8 });
+    expect(boundaries).toEqual({ decisionPick: 1, followUpPick: 8, secondFollowUpPick: 9 });
 
     const { players, scores, adp } = buildPool();
     const playersById = new Map(players.map((p) => [p.playerId, p]));
@@ -170,12 +174,29 @@ describe('runSimulation — pick boundaries (opponent-on-clock regression)', () 
   });
 
   it('a candidate forced onto the user roster at decisionPick is never available to an opponent in the window', () => {
-    const result = runSimulation(baseInput({ candidates: [player('rb1', 'RB')] }));
-    // If rb1 (top ADP) were still draftable by opponents, its own deterministic MRV would be
-    // impossible to realize consistently; instead confirm every scenario's final value is at
-    // least as good as taking rb1 alone (i.e. rb1's presence on the user's roster is respected).
-    const rb1 = result.candidates[0]!;
-    expect(rb1.expectedFinalStarterValue).toBeGreaterThanOrEqual(0);
+    const { players, scores, adp } = buildPool();
+    const playersById = new Map(players.map((p) => [p.playerId, p]));
+    const baseRosters = buildTeamRosters(SETTINGS, [], playersById, scores, 1);
+    const priorities = [...players]
+      .map((p) => ({ playerId: p.playerId, position: p.position as Position, value: adp.find((a) => a.playerId === p.playerId)?.adp ?? 999 }))
+      .sort((a, b) => a.value - b.value);
+
+    // Without forcing: top-ADP rb1 is taken by the first opponent in the window.
+    const withoutForce = simulateOpponentWindow(
+      SETTINGS, 'snake', TEAMS, ROUNDS, SLOT_TO_TEAM,
+      2, 7, baseRosters, scores, playersById, priorities, new Set(), CONFIG,
+    );
+    expect(withoutForce.has('rb1')).toBe(true);
+
+    // With rb1 already claimed at decisionPick: opponents draft around it, never re-select it.
+    const withForce = simulateOpponentWindow(
+      SETTINGS, 'snake', TEAMS, ROUNDS, SLOT_TO_TEAM,
+      2, 7, baseRosters, scores, playersById, priorities, new Set(['rb1']), CONFIG,
+    );
+    const opponentPicks = [...withForce].filter((id) => id !== 'rb1');
+    expect(opponentPicks).toHaveLength(6);
+    expect(opponentPicks).not.toContain('rb1');
+    expect(withForce.has('wr1')).toBe(true); // next ADP after rb1 becomes the first opponent pick
   });
 });
 
@@ -184,7 +205,7 @@ describe('runSimulation — snake-turn empty window', () => {
     // 7 picks already made; 'me' (slot 1) is on the clock at 8 and picks again immediately at 9 —
     // the round2/round3 reversal boundary for the first slot. No opponents in between.
     const boundaries = userPickBoundaries('snake', TEAMS, ROUNDS, 7, SLOT_TO_TEAM, 'me');
-    expect(boundaries).toEqual({ decisionPick: 8, followUpPick: 9 });
+    expect(boundaries).toEqual({ decisionPick: 8, followUpPick: 9, secondFollowUpPick: 16 });
 
     const { players, scores, adp } = buildPool();
     // Everyone is still on the board (nobody drafted yet, for simplicity) except the candidate.
@@ -195,16 +216,13 @@ describe('runSimulation — snake-turn empty window', () => {
     }));
     const rb2 = result.candidates[0]!;
     // Since the window is empty, every survivor is available for the follow-up search — the best
-    // available (rb1, 100 pts) must be found. This must NOT degenerate to just rb2's own MRV.
-    const rb2Prepared = prepareLineup(SETTINGS, [], new Map());
-    const rb2Mrv = (() => {
-      const withRb2 = new Map(rb2Prepared.points);
-      withRb2.set('rb2', scores.get('rb2') ?? 0);
-      return 90; // rb2's own points, since roster starts empty and RB/FLEX are open
-    })();
+    // available (rb1, 100 pts) must be found. This must NOT degenerate to just rb2's own MRV
+    // (90 pts on an empty roster with open RB/FLEX).
+    const rb2Mrv = scores.get('rb2')!;
+    expect(rb2Mrv).toBe(90);
     expect(rb2.expectedFinalStarterValue).toBeGreaterThan(rb2Mrv);
     // rb1 is outside the displayed shortlist but is the best full-pool option at the next turn.
-    expect(rb2.vona).toBe(-10);
+    expect(rb2.vona).toBe(rb2Mrv - scores.get('rb1')!);
     void adp;
   });
 });

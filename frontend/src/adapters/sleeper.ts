@@ -156,6 +156,31 @@ function normalizeSlotToTeam(raw: Record<string, number> | null | undefined): Re
   );
 }
 
+function displayNameForUser(user: RawLeagueUser | undefined, fallbackOwnerId: string): string {
+  return user?.metadata?.team_name || user?.display_name || user?.username || fallbackOwnerId;
+}
+
+/**
+ * Built from `draft_order` (userId -> slot) and the league's `/users` list only — no roster
+ * request. A slot whose owning user has no matching `/users` entry is omitted entirely rather
+ * than falling back to the raw owner id; `DraftLog` supplies `Team {slot}` for those.
+ */
+function buildSlotToTeamName(
+  rawDraftOrder: Record<string, number> | null | undefined,
+  rawUsers: RawLeagueUser[],
+): Record<number, string> | undefined {
+  const usersById = new Map(rawUsers.map((user) => [user.user_id, user]));
+  const slotToTeamName = Object.fromEntries(
+    Object.entries(rawDraftOrder ?? {})
+      .map(([userId, slot]) => {
+        const user = usersById.get(userId);
+        return user ? [slot, displayNameForUser(user, userId)] : null;
+      })
+      .filter((entry): entry is [number, string] => entry !== null),
+  );
+  return Object.keys(slotToTeamName).length > 0 ? slotToTeamName : undefined;
+}
+
 function normalizeScoring(raw: Record<string, number> | undefined): ScoringMap {
   return Object.fromEntries(
     Object.entries(raw ?? {}).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)),
@@ -358,6 +383,17 @@ async function init(cred: Cred, draftId: string): Promise<DraftInit> {
   const rawLeague = rawDraft.league_id
     ? await sleeperFetch<RawLeague>(`/league/${encodeURIComponent(rawDraft.league_id)}`)
     : null;
+  let slotToTeamName: Record<number, string> | undefined;
+  if (rawDraft.league_id) {
+    try {
+      const rawUsers = await sleeperFetch<RawLeagueUser[]>(`/league/${encodeURIComponent(rawDraft.league_id)}/users`);
+      slotToTeamName = buildSlotToTeamName(rawDraft.draft_order, rawUsers);
+    } catch {
+      // Team names are display metadata only. A transient user-lookup failure
+      // must not make a usable draft fail initialization.
+      slotToTeamName = undefined;
+    }
+  }
   await loadKnownPlayerIds(); // warms the memoized cache ahead of the picks() hot path
 
   const teams = rawDraft.settings?.teams ?? rawLeague?.total_rosters ?? 0;
@@ -381,6 +417,7 @@ async function init(cred: Cred, draftId: string): Promise<DraftInit> {
     teams,
     rounds,
     slotToTeam,
+    ...(slotToTeamName ? { slotToTeamName } : {}),
     myTeamId,
     mySlot,
     settings: rawLeague ? normalizeLeagueSettings(rawLeague, draftType) : normalizeMockDraftSettings(rawDraft, draftType),
@@ -396,12 +433,10 @@ async function picks(cred: Cred, draftId: string): Promise<DraftPicks> {
   }
 
   const knownPlayerIds = await loadKnownPlayerIds(); // already resolved by init(); no extra fetch
-  // The picks endpoint does not carry status, so refresh the draft record too.
-  const [rawPicks, rawDraft] = await Promise.all([
-    sleeperFetch<RawPick[]>(`/draft/${encodeURIComponent(draftId)}/picks`),
-    sleeperFetch<RawDraft>(`/draft/${encodeURIComponent(draftId)}`),
-  ]);
-  cached.rawStatus = rawDraft.status;
+  // Hot path: exactly one upstream GET. Status is derived from the init-cached rawStatus plus
+  // pick count — `deriveDraftStatus` already treats any picks as drafting and a full board as
+  // complete, so a second `/draft/{id}` poll is unnecessary for the live clock path.
+  const rawPicks = await sleeperFetch<RawPick[]>(`/draft/${encodeURIComponent(draftId)}/picks`);
 
   const normalizedPicks = rawPicks.map((raw) => toPick(raw, knownPlayerIds));
   const status = deriveDraftStatus(cached.rawStatus, normalizedPicks.length, cached.teams, cached.rounds);
@@ -430,7 +465,7 @@ async function rosters(cred: Cred, leagueId: string): Promise<Roster[]> {
     return {
       teamId: String(raw.roster_id),
       ownerId: raw.owner_id,
-      ownerName: user?.metadata?.team_name || user?.display_name || user?.username || raw.owner_id,
+      ownerName: displayNameForUser(user, raw.owner_id),
       starters: starters.map((id) => (id && id !== '0' ? id : null)),
       bench: (raw.players ?? []).filter((id) => !starters.includes(id)),
       ir: raw.reserve ?? [],

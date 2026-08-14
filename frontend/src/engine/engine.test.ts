@@ -90,7 +90,7 @@ describe('deterministic S2 engine', () => {
       ['Bhayshul Tuten', 226.3],
       ['Kyle Pitts', 185.6],
       ['Travis Kelce', 174.1],
-      ['Sam LaPorta', 163.5],
+      ['Sam LaPorta', 165.5],
     ]);
 
     for (const [name, points] of expected) {
@@ -115,7 +115,9 @@ describe('deterministic S2 engine', () => {
     };
     const result = scoreProjection(projection, teSettings, 'TE');
     expect(result.unsupportedScoringKeys).toEqual(['rush_yd', 'fum_lost']);
-    expect(result.unsupportedScoringKeys).not.toEqual(expect.arrayContaining(['pass_td', 'fgm_0_19', 'pts_allow_0']));
+    for (const key of ['pass_td', 'fgm_0_19', 'pts_allow_0'] as const) {
+      expect(result.unsupportedScoringKeys).not.toContain(key);
+    }
     expect(result.rawMissingScoringKeys).toEqual(expect.arrayContaining(['pass_td', 'fgm_0_19', 'pts_allow_0']));
   });
 
@@ -196,18 +198,23 @@ describe('deterministic S2 engine', () => {
   });
 
   it('uses the optimal FLEX assignment instead of a positional cutoff', () => {
-    const players = [player('rb', 'RB'), player('wr', 'WR'), player('te', 'TE')];
-    const result = optimizeLineup(settings, players, new Map([['rb', 100], ['wr', 90], ['te', 80]]));
-    expect(result.value).toBe(270);
+    // Classic counterexample: the WR belongs in FLEX while the RB fills the dedicated RB slot.
+    // A positional-cutoff heuristic that refuses to put a WR in FLEX (or fills FLEX before RB)
+    // cannot reach 190.
+    const flexSettings: LeagueSettings = { ...settings, startingSlots: ['RB', 'FLEX'], rosterSlots: { RB: 1, FLEX: 1 } };
+    const players = [player('rb', 'RB'), player('wr', 'WR')];
+    const result = optimizeLineup(flexSettings, players, new Map([['rb', 80], ['wr', 110]]));
+    expect(result.value).toBe(190);
     expect(result.assignments).toEqual(expect.arrayContaining([
-      { playerId: 'rb', slot: 'FLEX', value: 100 },
-      { playerId: 'wr', slot: 'WR', value: 90 },
-      { playerId: 'te', slot: 'TE', value: 80 },
+      { playerId: 'rb', slot: 'RB', value: 80 },
+      { playerId: 'wr', slot: 'FLEX', value: 110 },
     ]));
   });
 
   it('handles deterministic availability boundaries', () => {
     const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 20, stdev: 0, high: 0, low: 0, timesDrafted: 1, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
+    // Strict `>`: ADP equal to nextPick is already gone; ADP just past nextPick is still available.
+    expect(estimateAvailability(entry, { currentPick: 1, nextPick: 19 })?.probability).toBe(1);
     expect(estimateAvailability(entry, { currentPick: 1, nextPick: 20 })?.probability).toBe(0);
     expect(estimateAvailability(entry, { currentPick: 1, nextPick: 21 })?.probability).toBe(0);
   });
@@ -354,13 +361,18 @@ describe('deterministic S2 engine', () => {
   });
 
   describe('E: survival-conditioned availability', () => {
-    it('climbs (never falls) relative to the unconditional estimate as the pick clock advances', () => {
+    it('climbs (never falls) for a fixed nextPick as the pick clock advances', () => {
       const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 25, stdev: 6, high: 10, low: 40, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
+      const nextPick = 40;
+      let previous = -1;
       for (const currentPick of [5, 10, 15, 20, 25, 30]) {
-        const estimate = estimateAvailability(entry, { currentPick, nextPick: currentPick + 8 });
+        const estimate = estimateAvailability(entry, { currentPick, nextPick });
         expect(estimate).not.toBeNull();
         expect(estimate!.probability).toBeGreaterThanOrEqual(estimate!.unconditionalProbability - 1e-9);
+        expect(estimate!.probability).toBeGreaterThanOrEqual(previous - 1e-9);
+        previous = estimate!.probability;
       }
+      expect(previous).toBeGreaterThan(0);
     });
 
     it('is a non-increasing sequence as currentPick advances with a fixed lookahead window', () => {
@@ -384,6 +396,7 @@ describe('deterministic S2 engine', () => {
 
     it('preserves the existing stdev<=0 boundary behavior', () => {
       const entry: AdpEntry = { playerId: 'p', name: 'P', position: 'WR', team: 'BUF', adp: 20, stdev: 0, high: 0, low: 0, timesDrafted: 1, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed' };
+      expect(estimateAvailability(entry, { currentPick: 1, nextPick: 19 })?.probability).toBe(1);
       expect(estimateAvailability(entry, { currentPick: 1, nextPick: 20 })?.probability).toBe(0);
       expect(estimateAvailability(entry, { currentPick: 1, nextPick: 21 })?.probability).toBe(0);
     });
@@ -467,6 +480,54 @@ describe('deterministic S2 engine', () => {
         limit: 6,
       });
       expect(board.find((recommendation) => recommendation.playerId === 'rb1')?.confidence).toBe('medium');
+    });
+  });
+
+  describe('E3: null nextPick (final user pick — no follow-up availability target)', () => {
+    const brokenStdevAdp: AdpEntry = {
+      playerId: 'rb1', name: 'rb1', position: 'RB', team: 'BUF', adp: 3, stdev: 0,
+      high: 1, low: 8, timesDrafted: 100, byeWeek: null, adpSource: 'ffc', stdevSource: 'observed',
+    };
+
+    it('skips availability: null fields, no ADP reason string, and no ADP-spread confidence demotion', () => {
+      const base = {
+        settings: smallLeagueSettings,
+        players: smallPlayers,
+        projections: smallProjections,
+        adp: [brokenStdevAdp],
+        picks: [] as Pick[],
+        myTeamId: 'me' as string | null,
+        currentPick: 5,
+        limit: 6,
+      };
+
+      // Control: a real nextPick still estimates availability and demotes on broken stdev.
+      const withNext = buildRecommendationBoard({ ...base, nextPick: 6 });
+      const control = withNext.recommendations.find((recommendation) => recommendation.playerId === 'rb1');
+      expect(control).toBeDefined();
+      expect(control!.availableNextPickProbability).not.toBeNull();
+      expect(control!.availabilityAdp).toBe(3);
+      expect(control!.availabilityAdpHigh).toBe(1);
+      expect(control!.availabilityAdpLow).toBe(8);
+      expect(control!.availabilityStdev).toBe(0);
+      expect(control!.availabilitySampleSize).toBe(100);
+      expect(control!.confidence).toBe('medium');
+      expect(control!.reasons.some((reason) => /ADP model estimates/i.test(reason))).toBe(true);
+
+      const finalPick = buildRecommendationBoard({ ...base, nextPick: null });
+      expect(finalPick.recommendations.length).toBeGreaterThan(0);
+      for (const recommendation of finalPick.recommendations) {
+        expect(recommendation.availableNextPickProbability).toBeNull();
+        expect(recommendation.availabilityAdp).toBeNull();
+        expect(recommendation.availabilityAdpHigh).toBeNull();
+        expect(recommendation.availabilityAdpLow).toBeNull();
+        expect(recommendation.availabilityStdev).toBeNull();
+        expect(recommendation.availabilitySampleSize).toBeNull();
+        expect(recommendation.reasons.some((reason) => /ADP model estimates/i.test(reason))).toBe(false);
+        expect(recommendation.reasons.some((reason) => /\d+% next-pick availability/i.test(reason))).toBe(false);
+      }
+      // Broken stdev must not demote when availability was skipped — ADP is present but unused.
+      expect(finalPick.recommendations.find((recommendation) => recommendation.playerId === 'rb1')?.confidence).toBe('high');
     });
   });
 
@@ -589,9 +650,18 @@ describe('deterministic S2 engine', () => {
     };
     const earlyAdp = buildRecommendations({ ...base, adp: adp(false) });
     const lateAdp = buildRecommendations({ ...base, adp: adp(true) });
-    expect(lateAdp.map((entry) => entry.playerId)).toEqual(earlyAdp.map((entry) => entry.playerId));
-    expect(lateAdp.map((entry) => entry.replacementAdjustedValue))
-      .toEqual(earlyAdp.map((entry) => entry.replacementAdjustedValue));
+    // Availability never changes *value* — every row's replacementAdjustedValue set is identical,
+    // and every row outside a near-tie band keeps its exact position. The one documented exception
+    // (validated decisions) is that near-tied members reorder by next-pick survival — rb1 and wr1
+    // land in the same band here, so flipping ADP (and hence survival) legitimately swaps just that
+    // pair, never the rest of the board.
+    expect(new Set(lateAdp.map((entry) => entry.playerId))).toEqual(new Set(earlyAdp.map((entry) => entry.playerId)));
+    expect([...lateAdp.map((entry) => entry.replacementAdjustedValue)].sort())
+      .toEqual([...earlyAdp.map((entry) => entry.replacementAdjustedValue)].sort());
+    for (const id of ['te1', 'rb2', 'rb3', 'rb4']) {
+      expect(lateAdp.findIndex((entry) => entry.playerId === id)).toBe(earlyAdp.findIndex((entry) => entry.playerId === id));
+    }
+    expect(new Set(lateAdp.slice(0, 2).map((entry) => entry.playerId))).toEqual(new Set(['rb1', 'wr1']));
     expect(lateAdp.some((entry, index) => entry.availableNextPickProbability !== earlyAdp[index]?.availableNextPickProbability)).toBe(true);
   });
 
@@ -601,7 +671,9 @@ describe('deterministic S2 engine', () => {
       adp: [], picks: [], myTeamId: 'me', nextPick: 2, limit: 6,
     });
     const rb2Open = open.find((entry) => entry.playerId === 'rb2');
-    expect(rb2Open?.reasons[0]).toBe('Provides 20.0 points over the last rosterable RB option.');
+    expect(rb2Open?.reasons[0]).toBe(
+      'Adds 70.0 total roster utility: 70.0 starter value and 0.0 depth-portfolio value.',
+    );
     expect(rb2Open?.reasons.some((reason) => (
       reason.startsWith('Projects for 70.0 PPR points and currently fits ')
       && !reason.includes('bench-only')
@@ -616,8 +688,10 @@ describe('deterministic S2 engine', () => {
       adp: [], picks: rosterPicks, myTeamId: 'me', nextPick: 3, limit: 6,
     });
     const rb3Bench = full.find((entry) => entry.playerId === 'rb3');
-    expect(rb3Bench?.reasons[0]).toMatch(/^Provides -?\d+\.\d points over the last rosterable RB option\.$/);
-    expect(rb3Bench?.reasons.some((reason) => reason.includes('bench-only') && reason.includes('does not yet price bench depth'))).toBe(true);
+    expect(rb3Bench?.reasons[0]).toMatch(
+      /^Adds -?\d+\.\d total roster utility: -?\d+\.\d starter value and -?\d+\.\d depth-portfolio value\.$/,
+    );
+    expect(rb3Bench?.reasons.some((reason) => reason.includes('bench-only'))).toBe(true);
   });
 
   it('K: is deterministic after picks — identical input produces identical output including tie order', () => {

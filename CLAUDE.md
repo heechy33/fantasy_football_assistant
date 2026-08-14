@@ -25,9 +25,13 @@ kept in the repo deliberately — they're future work, not dead code to delete.
   a `/api/health` scaffold endpoint; no provider endpoints exist yet.
 - **Data pipeline**: Python, runs via GitHub Actions cron (not Azure — that's the scheduler)
 - **Draft engine**: pure TypeScript running client-side, not the API — see "Why no auth/Cosmos in
-  the active path" below. The deterministic S2 engine (`frontend/src/engine/`) is built and tested;
-  it currently runs on the main thread. Moving it into a Web Worker is S3 scope, once VONA rollout
-  cost makes that necessary.
+  the active path" below. The deterministic S2 engine and S3's Stage C VONA rollout
+  (`frontend/src/engine/`) are built and tested; both run on the main thread. Moving Stage C into a
+  Web Worker was S3's anticipated next step if measured rollout cost demanded it — instead, the
+  real cost turned out to be two fixable engine defects (an exact-tie lineup-solver fallback firing
+  far more than expected, and opponent rosters being re-solved from scratch every call), not an
+  inherent scenario-count problem. See `PLAN.md`'s S3 "Performance" note for the measured numbers;
+  revisit the worker only if real usage still shows main-thread jank after that fix.
 - **DB**: Cosmos DB, free tier (1000 RU/s + 25 GB), provisioned throughput — **not serverless**,
   and `enableFreeTier` can only be set at account creation, never after. **Roadmap only** — not
   needed or provisioned for the active Sleeper path.
@@ -39,21 +43,26 @@ kept in the repo deliberately — they're future work, not dead code to delete.
 
 ## Repo layout
 
-What's actually on disk (S0-S2 complete — Sleeper connection, manual mode, and the deterministic
-PPR engine are real and tested; see `PLAN.md`'s "Active execution plan" for phase status):
+What's actually on disk (S0-S3 implemented — Sleeper connection, manual mode, the deterministic PPR
+engine, and Stage C's VONA rollout are real and tested; see `PLAN.md`'s "Active execution plan" for
+phase status):
 
 ```
 frontend/src/
-  engine/            pure functions, no network/provider awareness (S2, deterministic)
-    scoring.ts eligibility.ts replacement.ts tiers.ts availability.ts recommend.ts
-    (opponentModel.ts / simulate.ts land with S3 — VONA is `null` until then)
+  engine/            pure functions, no network/provider awareness
+    scoring.ts eligibility.ts replacement.ts tiers.ts availability.ts ranking.ts   (S2, deterministic)
+    rng.ts opponentModel.ts simulate.ts                                            (S3, seeded rollout)
+    recommend.ts       wires unified starter+depth utility and analytic one-pick `planValue`;
+                        rollout fields remain diagnostics and missing-ADP fallback inputs
   adapters/sleeper.ts, draftOrder.ts   the only active adapter — espn.ts/yahoo.ts are roadmap
-  data/              manifest/data-health/invariants/player-pool helpers, not engine logic
-    dataInvariants.ts dataHealth.ts loadPlayerPool.ts
+  data/              manifest/data-health/invariants/player-pool/context helpers, not engine logic
+    dataInvariants.ts dataHealth.ts loadPlayerPool.ts playerContext.ts playerPortrait.ts
   state/             draftBoardState.ts, persistence.ts   local draft-board reducer + storage
-  hooks/             useDraftPoll.ts, useDraftBoardState.ts
+  hooks/             useDraftPoll.ts useDraftBoardState.ts useMediaQuery.ts useModalFocus.ts
+                     usePlayerBoardData.ts
   components/
-    ConnectSleeper DraftBoard RecommendationPanel
+    ConnectSleeper DraftWorkspace DraftLog Drawer MyTeamRail
+    PlayerContextModal PlayerPortrait RecommendationCard
     DataHealth ManualPickCorrection
   App.tsx
 frontend/public/    staticwebapp.config.json, robots.txt, (staged at build time) data/
@@ -68,9 +77,10 @@ fixtures/sleeper/    hand-authored Sleeper league/draft/picks fixtures — not y
 infra/main.bicep    Cosmos DB + SWA Bicep — roadmap infra, not provisioned/active
 ```
 
-Not yet built: `workers/draftEngine.worker.ts` (recommend.ts runs on the main thread until S3's
-rollout cost makes a worker necessary) and a dedicated `MyRoster` component (folded into
-`DraftBoard`/`RecommendationPanel` for now).
+Not yet built: `workers/draftEngine.worker.ts` — see "Draft engine" above for why Stage C's
+main-thread cost hasn't required one yet. `DraftBoard`/`RecommendationPanel`/a separate `MyRoster`
+component (an earlier layout sketch) were superseded by `DraftWorkspace` + `MyTeamRail` +
+`RecommendationCard`/`PlayerContextModal` before those components existed.
 
 `api/_shared/providers/` (`espn.ts`, `yahoo.ts`, `cosmos.ts`, `crypto.ts`) is a **roadmap** path
 from the pre-revision plan — don't create it until Yahoo/ESPN work actually starts. The API and
@@ -158,6 +168,12 @@ active Sleeper path anyway — not something to run unprompted.
   FLEX/SUPER_FLEX counterexamples, draining-pool replacement/VOR, tier boundaries, availability
   probability boundaries, crosswalk-miss handling, and end-to-end determinism. `--passWithNoTests`
   is removed; `npm test` fails on zero test files.
+- Stage C (S3) has its own test files: `recommendStageC.test.ts`/`recommendSimulation.test.ts`
+  cover `buildRolloutPool`, analytic plan sorting, cache-key invalidation, and the fallback matrix
+  (off-clock, zero-scenario, null-follow-up, timed-out) mostly against synthetic fixtures;
+  `recommendSimulation.integration.test.ts` runs the real (unmocked) simulator end to end;
+  `recommendPerformance.test.ts` is where `DEFAULT_SCENARIOS` is measured and pinned against real
+  committed `data/` — see its file doc before changing scenario counts or engine hot paths.
 - Data-layer helpers (`frontend/src/data/`): tested against the real committed `data/*.json` for
   invariants — unique player IDs, finite/non-negative stats, valid ADP ranges — and against
   `fixtures/sleeper/` for the degraded-data-mode resolver.

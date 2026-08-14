@@ -10,13 +10,12 @@ import { createRng, deriveStream, hashStateSeed, type Seed } from './rng';
  * (PLAN.md §6/§7). Pure and Node-testable — no worker, no React; Stage C wires this into
  * `recommend.ts`'s output.
  *
- * `candidates` here is expected to already be the top `max(3 * limit, 15)` players by the
- * deterministic S2 ordering — computing that ordering is Stage C's job (it lives in
- * `recommend.ts`, which this module deliberately does not import, to keep the simulation core
- * independently testable). `selectCandidates`'s per-eligibility-group prefilter is *not* reused
- * here for that purpose: it would keep `3*limit+2` **per group** (~170 players), and its loss-free
- * proof rests on `replacementAdjustedValue`'s monotonicity within a group — a property that does
- * not extend to the lookahead value this module computes.
+ * `candidates` here is Stage C's display-independent rollout pool: the deterministic global top
+ * unioned with per-position extensions. `recommend.ts` computes it without importing this module,
+ * which keeps the simulation core independently testable. `selectCandidates`'s per-eligibility-
+ * group prefilter is not itself the simulation pool: its loss-free proof rests on
+ * `replacementAdjustedValue` monotonicity within a group, a property that does not extend to the
+ * lookahead value this module computes.
  */
 
 export interface ExecutionMode {
@@ -65,6 +64,14 @@ export interface SimulationInput {
   executionMode: ExecutionMode;
   /** Injectable clock for 'budgeted' mode; defaults to `Date.now`. */
   now?: () => number;
+  /** Caller-supplied `buildTeamRosters` result, bypassing that call inside `runSimulation`. Every
+   * team's dedicated-slot solve there is a full exact re-solve (~33ms on a 15-man roster; 12 teams
+   * ≈ 250-500ms measured on real committed data), yet is otherwise recomputed from scratch on every
+   * call even though only one pick usually changed since the last one during a live draft.
+   * `recommend.ts` maintains a persistent, incrementally-updated cache across calls and passes it
+   * here; direct callers (tests) omit this and get the original from-scratch behavior, so
+   * `runSimulation` stays pure and independently testable either way. */
+  precomputedTeamRosters?: ReadonlyMap<string, PreparedLineup>;
 }
 
 export interface CandidateSimulationResult {
@@ -204,7 +211,10 @@ export function simulateOpponentWindow(
     const pickedMeta = playersById.get(picked);
     if (pickedMeta) {
       const points = scores.get(picked) ?? 0;
-      teamRosters.set(teamId, addPlayerToLineup(prepared, pickedMeta, points).state);
+      // false: only needBonusFromLineup's per-dedicated-slot filled/empty count reads this state —
+      // never occupant identity — so the exact-tie re-solve is pure overhead here (eligibility.ts's
+      // addPlayerToLineup doc explains the value-invariance this relies on).
+      teamRosters.set(teamId, addPlayerToLineup(prepared, pickedMeta, points, false).state);
     }
   }
   return drafted;
@@ -228,7 +238,10 @@ export function bestFollowUpValue(
     if (candidate.playerId === excludePlayerId || drafted.has(candidate.playerId)) continue;
     const points = scores.get(candidate.playerId) ?? 0;
     if (points <= best) break; // bound: no remaining (lower-points) survivor can beat `best` either
-    const gain = addPlayerToLineup(base, candidate, points).result.value - base.value;
+    // false: this scan only ever reads .result.value (never .state/.addedPlayerSlot), and it never
+    // chains this call's result into anything else — the exact-tie identity re-solve buys nothing
+    // here and was the dominant cost of a Stage C rollout (see eligibility.ts's doc).
+    const gain = addPlayerToLineup(base, candidate, points, false).result.value - base.value;
     if (gain > best) best = gain;
   }
   return best;
@@ -251,10 +264,13 @@ export function runSimulation(input: SimulationInput): SimulationResult {
   const observedScoredPlayers = [...input.playersById.values()].filter((player) => input.scores.has(player.playerId));
   const pool = buildOpponentPool(input.remainingPlayers, input.scores, input.adp, input.opponentConfig, observedScoredPlayers);
 
-  // Deterministic per-candidate MRV never depends on scenarios — compute once.
+  // Deterministic per-candidate MRV never depends on scenarios — compute once. `false`: every
+  // consumer of this map (below, and in the followUpPick === null branch) reads only
+  // `.result.value`, directly or via `bestFollowUpValue` (itself value-only) — never occupant
+  // identity — so the exact-tie re-solve is pure overhead (see eligibility.ts's doc).
   const afterCandidate = new Map(candidates.map((c) => [
     c.playerId,
-    addPlayerToLineup(preparedRoster, c, input.scores.get(c.playerId) ?? 0),
+    addPlayerToLineup(preparedRoster, c, input.scores.get(c.playerId) ?? 0, false),
   ]));
 
   // followUpPick === null: no second pick exists at all. No opponent randomness to model, no
@@ -281,7 +297,8 @@ export function runSimulation(input: SimulationInput): SimulationResult {
     };
   }
 
-  const baseTeamRosters = buildTeamRosters(input.settings, input.picks, input.playersById, input.scores, input.decisionPick);
+  const baseTeamRosters = input.precomputedTeamRosters
+    ?? buildTeamRosters(input.settings, input.picks, input.playersById, input.scores, input.decisionPick);
   const windowStart = input.decisionPick + 1;
   const windowEnd = input.followUpPick - 1;
   const opponentWindowSchedule = buildOpponentWindowSchedule(

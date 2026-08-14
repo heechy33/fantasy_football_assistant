@@ -113,7 +113,7 @@ describe('listSleeperDrafts', () => {
 
 describe('sleeperAdapter.init', () => {
   it('derives slotToTeam, myTeamId/mySlot, and league format for a PPR one-QB league', async () => {
-    installFetchMock();
+    const fetchMock = installFetchMock();
     const draftInit = await sleeperAdapter.init(CRED, 'raw-draft-ppr');
 
     expect(draftInit.teams).toBe(12);
@@ -123,6 +123,16 @@ describe('sleeperAdapter.init', () => {
     expect(draftInit.slotToTeam[12]).toBe('112');
     expect(draftInit.mySlot).toBe(3);
     expect(draftInit.myTeamId).toBe('103');
+    // Fixture users only cover u-1..u-3; unmapped slots must be omitted, not invented.
+    expect(draftInit.slotToTeamName).toEqual({
+      1: 'Team One',
+      2: 'Team Two',
+      3: "Coach's Crew",
+    });
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.some((url) => url.endsWith('/league/raw-league-ppr/users'))).toBe(true);
+    // init() resolves team names from draft_order + /users only — never a roster request.
+    expect(urls.some((url) => url.includes('/rosters'))).toBe(false);
 
     expect(draftInit.settings.startingSlots).toEqual([
       'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF',
@@ -131,6 +141,71 @@ describe('sleeperAdapter.init', () => {
     expect(draftInit.settings.rosterSlots.RB).toBe(2);
     expect(draftInit.settings.scoring.rec).toBe(1);
     expect(draftInit.settings.format).toEqual({ reception: 'ppr', qb: 'one-qb', draft: 'snake' });
+  });
+
+  it('maps slot display names with team_name > display_name > username precedence, omitting unresolved slots', async () => {
+    const draft = {
+      ...rawDraft,
+      draft_order: { 'u-team': 1, 'u-display': 2, 'u-user': 3, 'u-orphan': 4 },
+    };
+    const users = [
+      {
+        user_id: 'u-team',
+        username: 'ignored_username',
+        display_name: 'Ignored Display',
+        metadata: { team_name: 'Custom Team' },
+      },
+      {
+        user_id: 'u-display',
+        username: 'ignored_username_2',
+        display_name: 'Display Only',
+        metadata: {},
+      },
+      {
+        user_id: 'u-user',
+        username: 'plain_user',
+        display_name: '',
+        metadata: {},
+      },
+      // u-orphan intentionally has no /users entry.
+    ];
+    const fetchMock = vi.fn((input: string) => {
+      const url = String(input);
+      if (url === '/data/players.json') return jsonResponse(knownPlayerPool);
+      if (url.endsWith('/draft/raw-draft-ppr')) return jsonResponse(draft);
+      if (url.endsWith('/league/raw-league-ppr')) return jsonResponse(rawLeagues[0]);
+      if (url.endsWith('/league/raw-league-ppr/users')) return jsonResponse(users);
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await sleeperAdapter.init(CRED, 'raw-draft-ppr');
+    // Slot 4 (u-orphan) has no matching /users entry and is omitted, not invented from the raw id.
+    expect(result.slotToTeamName).toEqual({
+      1: 'Custom Team',
+      2: 'Display Only',
+      3: 'plain_user',
+    });
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.some((url) => url.includes('/rosters'))).toBe(false);
+  });
+
+  it('leaves slotToTeamName undefined (init still succeeds) when the /users response fails', async () => {
+    const fetchMock = vi.fn((input: string) => {
+      const url = String(input);
+      if (url === '/data/players.json') return jsonResponse(knownPlayerPool);
+      if (url.endsWith('/draft/raw-draft-ppr')) return jsonResponse(rawDraft);
+      if (url.endsWith('/league/raw-league-ppr')) return jsonResponse(rawLeagues[0]);
+      if (url.endsWith('/league/raw-league-ppr/users')) {
+        return Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve(null) });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await sleeperAdapter.init(CRED, 'raw-draft-ppr');
+    expect(result.slotToTeamName).toBeUndefined();
+    expect(result.settings.name).toBe('Raw Fixture League PPR');
   });
 });
 
@@ -170,7 +245,12 @@ describe('sleeperAdapter.init — standalone mock draft', () => {
         format: { reception: 'ppr', qb: 'one-qb', draft: 'snake' },
       },
     });
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(expect.stringContaining('/league/null'));
+    // Vitest's toContain does not honor expect.stringContaining on string arrays — assert with
+    // an explicit predicate so a regression that GETs /league/null actually fails this test.
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.some((url) => url.includes('/league/null'))).toBe(false);
+    expect(urls.some((url) => url.includes('/users'))).toBe(false);
+    expect(result.slotToTeamName).toBeUndefined();
     expect(result.settings.scoring).toMatchObject({ pass_yd: 0.04, pass_td: 4, rush_yd: 0.1, rec: 1, rec_yd: 0.1, rec_td: 6 });
   });
 });
@@ -195,14 +275,14 @@ describe('sleeperAdapter.picks', () => {
     await expect(sleeperAdapter.picks(CRED, 'never-inited-draft-xyz')).rejects.toThrow(/init/);
   });
 
-  it('normalizes picks, computes onTheClock, and refreshes the draft status alongside picks', async () => {
+  it('normalizes picks and computes onTheClock with a single upstream GET', async () => {
     const fetchMock = installFetchMock();
     await sleeperAdapter.init(CRED, 'raw-draft-ppr');
     const callsAfterInit = fetchMock.mock.calls.length;
 
     const draftPicks = await sleeperAdapter.picks(CRED, 'raw-draft-ppr');
 
-    expect(fetchMock.mock.calls.length - callsAfterInit).toBe(2);
+    expect(fetchMock.mock.calls.length - callsAfterInit).toBe(1);
     expect(draftPicks.status).toBe('drafting');
     expect(draftPicks.picks).toHaveLength(15);
 
@@ -239,11 +319,19 @@ describe('sleeperAdapter.picks', () => {
       if (url.endsWith('/draft/raw-draft-ppr/picks')) return jsonResponse(rawDraftPicks);
       if (url.endsWith('/draft/raw-draft-ppr')) return jsonResponse(completedDraft);
       if (url.endsWith('/league/raw-league-ppr')) return jsonResponse(rawLeagues[0]);
+      if (url.endsWith('/league/raw-league-ppr/rosters')) return jsonResponse(rawLeagueRosters);
+      if (url.endsWith('/league/raw-league-ppr/users')) return jsonResponse(rawLeagueUsers);
       return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
     });
     vi.stubGlobal('fetch', fetchMock);
     await sleeperAdapter.init(CRED, 'raw-draft-ppr');
+    const callsAfterInit = fetchMock.mock.calls.length;
     await expect(sleeperAdapter.picks(CRED, 'raw-draft-ppr')).resolves.toMatchObject({ status: 'complete' });
+    // Status comes from init-cached rawStatus + pick count — picks() must not re-fetch /draft/{id}.
+    expect(fetchMock.mock.calls.length - callsAfterInit).toBe(1);
+    expect(
+      fetchMock.mock.calls.slice(callsAfterInit).every(([url]) => String(url).endsWith('/draft/raw-draft-ppr/picks')),
+    ).toBe(true);
   });
 
   it('rejects a non-Sleeper credential', async () => {

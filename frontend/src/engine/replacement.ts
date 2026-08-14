@@ -1,5 +1,6 @@
-import type { AdpEntry, LeagueSettings, PlayerId, PlayerMeta } from '../../../shared/types';
+import type { AdpEntry, LeagueSettings, PlayerId, PlayerMeta, SeasonProjection } from '../../../shared/types';
 import { comparePlayersByScoreDesc } from './ranking';
+import { scoreProjection } from './scoring';
 
 export const REPLACEMENT_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] as const;
 
@@ -258,4 +259,67 @@ export function replacementPointsByPosition(levels: ReplacementLevel[]): Map<str
 
 export function vorForPlayer(player: PlayerMeta, points: number, levels: ReplacementLevel[]): number {
   return points - (levels.find((level) => level.position === player.position)?.points ?? 0);
+}
+
+export interface ValueAnchorInput {
+  settings: LeagueSettings;
+  players: PlayerMeta[];
+  projections: SeasonProjection[];
+  adp: readonly AdpEntry[];
+  /** Overrides `rosterSpotsPerTeam(settings)` — pass a real round count (e.g. `DraftInit.rounds`)
+   * exactly as `buildRecommendationBoard` does, so the anchor's replacement baseline matches the
+   * board's. */
+  rosterSpotsPerTeam?: number;
+}
+
+/**
+ * `VALUE_ANCHOR = max_position(bestInitialPoints[position] - initialReplacementPoints[position])`,
+ * computed from the **full scored player pool with zero consumed players** — never the remaining
+ * board, and never cached only by `draftId` (a user can join late, switch format, or reuse a draft
+ * ID in tests; caching is the caller's problem, not this function's). This makes the anchor
+ * invariant across poll ticks: a first-round elite scores differently from a late-round flier
+ * without forcing the top currently-visible card to 100.
+ *
+ * Returns `null` when the computation is degenerate (non-finite or <= 0) — e.g. a league with empty
+ * `settings.scoring` (custom/unknown Sleeper scoring, already handled elsewhere in `DraftWorkspace`)
+ * scores every projection to 0, so every position's "best minus replacement" is 0. Callers must
+ * treat `null` as an unusable anchor, never coerce it to a divisor.
+ */
+export function computeValueAnchor(input: ValueAnchorInput): number | null {
+  const playersById = new Map(input.players.map((player) => [player.playerId, player]));
+  const scores = new Map<PlayerId, number>();
+  for (const projection of input.projections) {
+    const diagnostic = scoreProjection(projection, input.settings, playersById.get(projection.playerId)?.position);
+    scores.set(projection.playerId, diagnostic.points);
+  }
+
+  // "Zero consumed players": the full scored pool, no drafted filter, no consumedByPosition.
+  const allScoredPlayers = input.players.filter((player) => scores.has(player.playerId));
+
+  const demand = positionalDemand({
+    settings: input.settings,
+    adp: input.adp,
+    rosterSpotsPerTeam: input.rosterSpotsPerTeam,
+    scoredPlayerIds: new Set(scores.keys()),
+  });
+  const levels = replacementLevels(input.settings, allScoredPlayers, scores, {
+    demandByPosition: demand.byPosition,
+    // consumedByPosition intentionally omitted — zero consumed players.
+  });
+  const replacementPoints = replacementPointsByPosition(levels);
+
+  let anchor = 0;
+  for (const position of REPLACEMENT_POSITIONS) {
+    let best = 0;
+    for (const player of allScoredPlayers) {
+      if (player.position !== position) continue;
+      const points = scores.get(player.playerId) ?? 0;
+      if (points > best) best = points;
+    }
+    const replacement = replacementPoints.get(position) ?? 0;
+    const gap = best - replacement;
+    if (gap > anchor) anchor = gap;
+  }
+
+  return Number.isFinite(anchor) && anchor > 0 ? anchor : null;
 }
