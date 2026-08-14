@@ -11,8 +11,15 @@ const required = [
   join('data', 'manifest.json'),
   join('data', 'players.json'),
   join('data', 'projections-season.json'),
+  join('data', 'projections-providers.json'),
   join('data', 'player-usage.json'),
   join('data', 'adp-ppr.json'),
+  join('data', 'weekly-ppr.json'),
+  join('data', 'weekly-stats.json'),
+  join('fonts', 'inter.woff2'),
+  join('fonts', 'inter-italic.woff2'),
+  join('fonts', 'archivo.woff2'),
+  join('fonts', 'archivo-italic.woff2'),
 ];
 
 // data/history/ is the append-only ADP snapshot log (pipeline/history.py) —

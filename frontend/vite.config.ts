@@ -23,5 +23,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    // `*.bench.ts` files here use plain `describe`/`it` (gated opt-in, like
+    // benchmarkAvailability.bench.ts), not Vitest's separate `bench()` benchmarking API — so they
+    // must be picked up by `vitest run`, not routed to the distinct `vitest bench` command.
+    include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '**/*.bench.ts'],
   },
 });

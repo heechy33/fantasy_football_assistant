@@ -10,7 +10,9 @@
     "test": "npm --prefix frontend run test -- --run && npm --prefix api run test -- --run",
     "typecheck": "npm --prefix frontend run typecheck && npm --prefix api run typecheck",
     "verify:artifact": "node scripts/verify-artifact.mjs",
-    "pipeline": "python pipeline/build_data.py"
+    "pipeline": "python pipeline/build_data.py",
+    "fetch:sleeper-mock": "node scripts/fetch-sleeper-mock.mjs",
+    "benchmark:availability": "node scripts/run-benchmark.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

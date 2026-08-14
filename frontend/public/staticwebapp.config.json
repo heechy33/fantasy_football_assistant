@@ -6,7 +6,7 @@
   "trailingSlash": "auto",
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/data/*", "/assets/*", "*.{png,svg,ico,webmanifest}"]
+    "exclude": ["/api/*", "/data/*", "/assets/*", "/fonts/*", "*.{png,svg,ico,webmanifest,woff2}"]
   },
   "routes": [
     { "route": "/login", "redirect": "/.auth/login/github" },
