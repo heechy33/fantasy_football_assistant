@@ -5,6 +5,10 @@
   const STORAGE_KEY = 'ffa.espn.recon.snapshot.v1';
   const FRAME_SAMPLE_MAX = 50;
   const REJECTED_URL_MAX = 50;
+  // Live pick-stream key: a SEPARATE, uncapped, ordered structure from the recon snapshot. Recon
+  // keeps its bounded/deduped frames sample; the live stream must retain every SELECTED in order.
+  const LIVE_SCHEMA_VERSION = 1;
+  const LIVE_STORAGE_KEY = 'ffa.espn.live.snapshot.v1';
   const SECRET = /(?:authorization|cookie|token|password|secret|session|swid|espn_s2|s2|chat|message|conversation)/i;
   const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
   const scalar = (value) => typeof value === 'string' ? value.slice(0, 500) : (typeof value === 'number' || typeof value === 'boolean' || value === null ? value : undefined);
@@ -91,5 +95,62 @@
     // transport-only candidate cannot zero out counts earlier DOM candidates established.
     return { ...next, sequence: Math.max(Number(previous.sequence) || 0, Number(next.sequence) || 0), draft: { draftId: next.draft.draftId || previous.draft.draftId || null, leagueId: next.draft.leagueId || previous.draft.leagueId || null, status: next.draft.status || previous.draft.status || null }, structure: next.structure ?? previous.structure ?? null, frames: mergeFrames(previous.frames, next.frames), frameCount: (Number(previous.frameCount) || 0) + (Number(next.frameCount) || 0), picks: mergedPicks, domRows, rejectedUrls: [...new Set([...(previous.rejectedUrls || []), ...(next.rejectedUrls || [])])].slice(0, REJECTED_URL_MAX), page: { url: next.page?.url || previous.page?.url || null, frame: next.page?.frame || previous.page?.frame || null }, diagnostics: { payloadObserved: Boolean(previous.diagnostics?.payloadObserved || next.diagnostics?.payloadObserved), pickCount: mergedPicks.length, domRowCount: domRows.length } };
   }
-  globalThis.FfaEspnNormalize = { SCHEMA_VERSION, STORAGE_KEY, redact, normalizeCandidate, mergeSnapshots };
+  // ---------------------------------------------------------------------------
+  // Live pick stream — parses the confirmed plaintext WS command vocabulary. The
+  // socket is never JSON (recon-verified 2026-08-15): INIT is a base64 binary blob
+  // that is explicitly NOT decoded (settings come from the Step 1 manual form),
+  // and SELECTED/JOINED/TOKEN are the only pick carriers.
+  // ---------------------------------------------------------------------------
+  function parseFrameLine(line) {
+    if (typeof line !== 'string') return null;
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+    const space = trimmed.indexOf(' ');
+    const keyword = space === -1 ? trimmed : trimmed.slice(0, space);
+    const rest = space === -1 ? '' : trimmed.slice(space + 1).trim();
+    if (keyword === 'SELECTED') {
+      const parts = rest.split(' ');
+      const slot = number(parts[0]);
+      const playerId = text(parts[1]);
+      if (slot === null || !playerId) return null;
+      // The third token <n> (observed 2 and 4; meaning unknown) is ignored — slot + playerId are
+      // sufficient. A trailing {GUID} marks the user's own pick; it is retained, not parsed.
+      const trailing = parts.length >= 4 ? text(parts[parts.length - 1]) : null;
+      return { kind: 'SELECTED', slot, playerId, guid: trailing && trailing.startsWith('{') ? trailing : null };
+    }
+    if (keyword === 'JOINED') {
+      const slot = number(rest.split(' ')[0]);
+      return slot === null ? null : { kind: 'JOINED', slot };
+    }
+    if (keyword === 'TOKEN') {
+      const parts = rest.split(':');
+      const slot = number(parts[0]);
+      const leagueId = text(parts[1]);
+      return slot === null || !leagueId ? null : { kind: 'TOKEN', slot, leagueId };
+    }
+    // SELECTING / CLOCK / STATE / AUTODRAFT / AUTOSUGGEST / PONG / INIT are not pick carriers.
+    return null;
+  }
+
+  function createLiveSnapshot() {
+    return { schemaVersion: LIVE_SCHEMA_VERSION, streamPicks: [], mySlot: null, leagueId: null, lastHeartbeatAt: null };
+  }
+
+  /** Accumulate one socket line into the live snapshot: every arrival refreshes the heartbeat;
+   * SELECTED appends (uncapped, ordered by arrival -> overall; a player id already picked is
+   * skipped, the strongest guard against duplicate-corruption of availability), and JOINED/TOKEN
+   * set mySlot. */
+  function applyFrameToLive(previous, line, now) {
+    const base = previous && previous.schemaVersion === LIVE_SCHEMA_VERSION ? previous : createLiveSnapshot();
+    const live = { ...base, streamPicks: (base.streamPicks || []).slice(), lastHeartbeatAt: now };
+    const frame = parseFrameLine(line);
+    if (!frame) return live;
+    if (frame.kind === 'JOINED') return { ...live, mySlot: frame.slot };
+    if (frame.kind === 'TOKEN') return { ...live, mySlot: frame.slot, leagueId: frame.leagueId };
+    if (live.streamPicks.some((pick) => pick.playerId === frame.playerId)) return live;
+    live.streamPicks.push({ overall: live.streamPicks.length + 1, slot: frame.slot, playerId: frame.playerId, guid: frame.guid, source: 'frame' });
+    return live;
+  }
+
+  globalThis.FfaEspnNormalize = { SCHEMA_VERSION, STORAGE_KEY, LIVE_SCHEMA_VERSION, LIVE_STORAGE_KEY, redact, normalizeCandidate, mergeSnapshots, parseFrameLine, createLiveSnapshot, applyFrameToLive };
 })();

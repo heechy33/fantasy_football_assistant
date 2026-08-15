@@ -152,4 +152,43 @@ const poolSnap = N.normalizeCandidate(
 assert.equal(poolSnap.diagnostics.payloadObserved, true, 'a real JSON payload must still be observed');
 assert.equal(poolSnap.picks.length, 0, 'player-pool stat records must not fabricate picks');
 
+// 10. parseFrameLine: SELECTED with and without the trailing GUID, JOINED slot extraction, TOKEN.
+assert.deepEqual(N.parseFrameLine('SELECTED 3 3139477 2'), { kind: 'SELECTED', slot: 3, playerId: '3139477', guid: null }, 'SELECTED without GUID');
+assert.deepEqual(N.parseFrameLine('SELECTED 7 15847 4 {ABC-123}'), { kind: 'SELECTED', slot: 7, playerId: '15847', guid: '{ABC-123}' }, 'SELECTED with the user-own-pick GUID');
+assert.deepEqual(N.parseFrameLine('JOINED 2 {XYZ-9}'), { kind: 'JOINED', slot: 2 }, 'JOINED exposes the user draft slot');
+assert.deepEqual(N.parseFrameLine('TOKEN 2:996408758:1:{XYZ-9}:3'), { kind: 'TOKEN', slot: 2, leagueId: '996408758' }, 'TOKEN also carries the user draft slot and league id');
+
+// 11. Non-pick carriers parse to null — including INIT, which is explicitly never decoded.
+for (const line of ['SELECTING 8 30000', 'CLOCK 8 15000 5', 'STATE 12', 'AUTODRAFT 3 false', 'AUTOSUGGEST 3139477', 'PONG PING 12345', 'INIT AAAA...', '']) {
+  assert.equal(N.parseFrameLine(line), null, `non-pick frame must be ignored: ${line}`);
+}
+
+// 12. applyFrameToLive: uncapped ordered accumulation, mySlot/leagueId from JOINED/TOKEN, heartbeat on
+// every frame, and duplicate protection (identical resend AND same player selected again are skipped).
+let live = N.createLiveSnapshot();
+live = N.applyFrameToLive(live, 'JOINED 2 {G}', 1000);
+assert.equal(live.mySlot, 2, 'JOINED sets mySlot');
+assert.equal(live.lastHeartbeatAt, 1000);
+live = N.applyFrameToLive(live, 'TOKEN 2:996408758:1:{XYZ-9}:3', 1100);
+assert.equal(live.leagueId, '996408758', 'TOKEN carries the league id');
+live = N.applyFrameToLive(live, 'SELECTED 1 11111 2', 2000);
+live = N.applyFrameToLive(live, 'SELECTED 2 22222 4 {G}', 3000);
+live = N.applyFrameToLive(live, 'SELECTED 2 22222 4 {G}', 4000); // identical resend of the last pick
+live = N.applyFrameToLive(live, 'SELECTED 1 11111 2', 5000); // same player re-selected (replay/dup)
+assert.equal(live.streamPicks.length, 2, 'resends and duplicate players must not duplicate the stream');
+assert.equal(live.streamPicks[0].overall, 1);
+assert.equal(live.streamPicks[0].playerId, '11111');
+assert.equal(live.streamPicks[1].overall, 2);
+assert.equal(live.streamPicks[1].slot, 2);
+assert.equal(live.streamPicks[1].guid, '{G}');
+assert.equal(live.streamPicks[1].source, 'frame');
+assert.equal(live.lastHeartbeatAt, 5000, 'every frame refreshes the heartbeat');
+live = N.applyFrameToLive(live, 'CLOCK 2 15000 4', 6000);
+assert.equal(live.streamPicks.length, 2, 'ignored frames must not add picks');
+assert.equal(live.lastHeartbeatAt, 6000, 'ignored frames still refresh the heartbeat');
+// A fresh snapshot rejects a stale/incompatible previous shape.
+const fresh = N.applyFrameToLive({ schemaVersion: 99, streamPicks: [{ overall: 1, playerId: 'bogus' }] }, 'SELECTED 1 11111 2', 7000);
+assert.equal(fresh.schemaVersion, N.LIVE_SCHEMA_VERSION, 'a wrong-version prior must reset the live snapshot');
+assert.equal(fresh.streamPicks.length, 1);
+
 console.log('normalize.test.mjs: all assertions passed');

@@ -158,6 +158,29 @@ export interface DraftPicks {
   fetchedAt: number;
 }
 
+/**
+ * The extension's live pick stream, kept in its own storage key separate from the bounded, deduped
+ * recon snapshot. `streamPicks` is uncapped and ordered by arrival (overall 1-based); `mySlot`
+ * comes from the plaintext JOINED/TOKEN frames; `leagueId` from TOKEN (or the socket URL).
+ */
+export interface EspnLivePick {
+  overall: number;
+  slot: number;
+  /** ESPN player id from the SELECTED frame (negative synthetics for D/ST — never canonical). */
+  playerId: string;
+  /** Trailing {GUID} marks the user's own pick; retained for recon, unused by the app. */
+  guid?: string | null;
+  source?: string;
+}
+
+export interface EspnLiveSnapshot {
+  schemaVersion: number;
+  streamPicks: EspnLivePick[];
+  mySlot: number | null;
+  leagueId: string | null;
+  lastHeartbeatAt: number | null;
+}
+
 export interface Pick {
   /** 1-indexed overall pick number. Must be strictly increasing across the array. */
   overall: number;
@@ -713,6 +736,14 @@ export interface EspnCred {
   espnS2: string;
 }
 
+/** ESPN access via the local Chrome-extension relay — never cookie-based. Kept separate from the
+ * legacy cookie {@link EspnCred} so the draft-day extension flow can never touch SWID/espn_s2. */
+export interface EspnExtensionCred {
+  provider: 'espn';
+  transport: 'extension';
+  leagueId: string;
+}
+
 export interface YahooCred {
   provider: 'yahoo';
   /** Yahoo refresh tokens do not expire; access tokens last 1 hour. */
@@ -762,6 +793,19 @@ export interface ProviderAdapter {
   rosters(cred: Cred, leagueId: string): Promise<Roster[]>;
   freeAgents(cred: Cred, leagueId: string): Promise<PlayerId[]>;
   settings(cred: Cred, leagueId: string): Promise<LeagueSettings>;
+}
+
+/**
+ * Narrow draft-day adapter for locally relayed snapshot providers (the ESPN extension bridge).
+ * Both methods are local reads over the relayed snapshot — there is deliberately no upstream GET
+ * hot path, and no fake rosters/freeAgents/listLeagues are shipped for this MVP.
+ */
+export interface DraftProviderAdapter {
+  readonly provider: Provider;
+  /** Merge the manual form's DraftInit with the relayed live snapshot (mySlot/leagueId). Local read. */
+  init(base: DraftInit, live: EspnLiveSnapshot | null): DraftInit;
+  /** Normalize the relayed live snapshot into DraftPicks (player crosswalk + derived clock). */
+  picks(init: DraftInit, live: EspnLiveSnapshot | null): Promise<DraftPicks>;
 }
 
 // ---------------------------------------------------------------------------

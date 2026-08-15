@@ -10,6 +10,15 @@
       await chrome.storage.local.set({ [FfaEspnNormalize.STORAGE_KEY]: FfaEspnNormalize.mergeSnapshots(prior, next) });
     }).catch(() => {}); // Never affect ESPN if local extension storage is unavailable.
   }
+  // The live pick stream lives in its own storage key, separate from the bounded/deduped recon
+  // sample. Every text frame refreshes the heartbeat; SELECTED frames accumulate uncapped in order.
+  function applyLiveFrame(frameText) {
+    queue = queue.then(async () => {
+      const key = FfaEspnNormalize.LIVE_STORAGE_KEY;
+      const prior = (await chrome.storage.local.get(key))[key] || null;
+      await chrome.storage.local.set({ [key]: FfaEspnNormalize.applyFrameToLive(prior, frameText, Date.now()) });
+    }).catch(() => {});
+  }
   const SELECTORS = ['[data-pick]', '[data-pick-number]', '[data-testid*="pick"]', '[data-player-id]'];
   const ROW_CONTAINER = 'tr, [role="row"], li';
   const dataAttributes = (element) => Object.fromEntries([...element.attributes].filter((attribute) => attribute.name.startsWith('data-') && !/(?:token|cookie|session|chat|message)/i.test(attribute.name)).map((attribute) => [attribute.name, attribute.value.slice(0, 160)]));
@@ -38,7 +47,11 @@
   // the documented cross-world channel (CustomEvent.detail is not reliably shared into this world).
   window.addEventListener('message', (event) => {
     if (event.source !== window || event.origin !== location.origin || event.data?.type !== EVENT) return;
-    persist(event.data);
+    const candidate = event.data;
+    persist(candidate);
+    // A text frame candidate is the raw socket line (bounded/redacted by espn-main.js); feed it into
+    // the separate live pick stream. INIT previews parse to null and are harmlessly skipped.
+    if (typeof candidate?.frame === 'string' && candidate.frame) applyLiveFrame(candidate.frame);
   });
   // At document_start the <html> root is not constructed yet; observe the document itself, which
   // still covers the whole subtree once the parser builds it.

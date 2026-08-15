@@ -12,6 +12,7 @@ import { APP_NAME, TopNav, type AppPage } from './components/TopNav';
 import { loadRankedPlayers, type AdpFormat, type RankedPlayer } from './data/loadPlayerPool';
 import { useDraftBoardState } from './hooks/useDraftBoardState';
 import { useDraftPoll } from './hooks/useDraftPoll';
+import { useEspnBridge } from './hooks/useEspnBridge';
 import { loadPersistedSession, savePersistedSession } from './state/persistence';
 import './App.css';
 
@@ -25,6 +26,11 @@ type Session =
       /** The live session that was taken over, so "Reconnect" restores polling in one click. */
       reconnectCred: SleeperCred | null;
       reconnectDraftId: string | null;
+    }
+  | {
+      kind: 'bridge';
+      /** Settings come from the manual form; JOINED/TOKEN override mySlot via the bridge init. */
+      frozenInit: DraftInit;
     };
 
 interface Correcting {
@@ -91,6 +97,7 @@ export default function App() {
   const draftId = session.kind === 'connected' ? session.draftId : null;
   const cred = session.kind === 'connected' ? session.cred : IDLE_CRED;
   const poll = useDraftPoll({ adapter: sleeperAdapter, cred, draftId });
+  const bridge = useEspnBridge(session.kind === 'bridge' ? session.frozenInit : null);
   // Live picks flow straight from the poll into the effective draft state (merged with manual
   // overrides) — no effect-driven relay, so a changed poll renders the log/clock once, not twice.
   const board = useDraftBoardState(poll.draftPicks?.picks ?? EMPTY_PICKS, undefined, poll.lastChangedPollId);
@@ -104,18 +111,21 @@ export default function App() {
       draftId: session.kind === 'connected'
         ? session.draftId
         : (session.kind === 'manual' ? session.reconnectDraftId : null),
-      mode: session.kind === 'manual' ? 'manual' : 'live',
+      mode: session.kind === 'manual' || session.kind === 'bridge' ? 'manual' : 'live',
       overrides: [...board.state.overrides.values()],
-      frozenInit: session.kind === 'manual' ? session.frozenInit : null,
+      frozenInit: session.kind === 'manual' || session.kind === 'bridge' ? session.frozenInit : null,
     });
   }, [hydrated, session, board.state.overrides]);
 
   // Manual takeover freezes the latest DraftInit into the manual session, so the workspace and
   // clock math keep working with no live poll. `effectiveInit` is the single source for that:
-  // connected sessions read the poll's init, takeover sessions read the frozen copy.
+  // connected sessions read the poll's init, takeover sessions read the frozen copy, and bridge
+  // sessions read the bridge-merged init (form settings + JOINED/TOKEN mySlot).
   const effectiveInit = session.kind === 'connected'
     ? poll.draftInit
-    : (session.kind === 'manual' ? session.frozenInit : null);
+    : (session.kind === 'bridge'
+        ? bridge.init
+        : (session.kind === 'manual' ? session.frozenInit : null));
   const adpFormat = adpFormatForDraft(effectiveInit?.settings.format.reception, effectiveInit?.settings.format.qb);
 
   // Clock math lifted up from DraftWorkspace so the full-bleed TopNav hero/countdown and the
@@ -162,6 +172,19 @@ export default function App() {
     ? roundPickLabel(effectiveInit.teams, currentOverall)
     : null;
 
+  /** One honest status line for the bridge bar: extension missing, tab silent, or streaming. */
+  const bridgeStatus = session.kind === 'bridge'
+    ? (!bridge.extensionPresent
+        ? 'ESPN extension not detected — install the unpacked extension and reload this page. Picks can still be logged manually.'
+        : bridge.lastHeartbeatAt != null && Date.now() - bridge.lastHeartbeatAt > 10000
+          ? 'ESPN draft tab is silent — keep it open. Picks can still be logged manually.'
+          : `Streaming ${bridge.picks?.picks.length ?? 0} pick(s) from the ESPN tab${bridge.live?.mySlot != null ? ` — your slot is ${bridge.live.mySlot}` : ''}.`)
+    : null;
+  /** Extension missing or the socket silent >10s reads as a stale bridge in the health banner. */
+  const bridgeStale = session.kind === 'bridge'
+    ? !bridge.extensionPresent || (bridge.lastHeartbeatAt != null && Date.now() - bridge.lastHeartbeatAt > 10000)
+    : false;
+
   useEffect(() => {
     let active = true;
     loadRankedPlayers(adpFormat)
@@ -196,6 +219,42 @@ export default function App() {
     setSession((current) => (current.kind === 'manual' ? { ...current, frozenInit: init } : current));
     setManualSetup(null);
   }
+
+  /** Upgrade a pure-manual session to the ESPN bridge (settings stay from the form; picks auto-type
+   * as manual-entry overrides so refresh/correction/takeover all keep working). */
+  function handleEspnBridgeConnect() {
+    if (session.kind !== 'manual' || !session.frozenInit || session.reconnectCred) return;
+    setSession({ kind: 'bridge', frozenInit: session.frozenInit });
+  }
+
+  /** Drop back to pure manual. Every streamed pick is already a manual override, so nothing is lost. */
+  function handleBridgeToManual() {
+    if (session.kind !== 'bridge') return;
+    setSession({ kind: 'manual', frozenInit: session.frozenInit, reconnectCred: null, reconnectDraftId: null });
+  }
+
+  // The ESPN bridge auto-types each normalized streamed pick as a manual-entry override — the same
+  // model manual logging uses. User-authored overrides always win (skipped here), and the result
+  // persists through refresh, survives correction, and degrades to manual by construction.
+  useEffect(() => {
+    if (session.kind !== 'bridge') return;
+    for (const pick of bridge.picks?.picks ?? []) {
+      if (board.state.overrides.has(pick.overall)) continue;
+      board.applyOverride({
+        overall: pick.overall,
+        round: pick.round,
+        slot: pick.slot,
+        teamId: pick.teamId,
+        playerId: pick.playerId,
+        providerPlayerId: pick.providerPlayerId,
+        providerPlayerName: pick.providerPlayerName,
+        source: 'manual-entry',
+        correctedAt: Date.now(),
+      });
+    }
+    // New picks arrive only when `bridge.picks` changes; the skip-loop keeps this idempotent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.kind, bridge.picks]);
 
   /** Freeze the live board (picks → manual-entry overrides) plus the latest DraftInit, then stop polling. */
   function handleTakeoverManual() {
@@ -357,24 +416,37 @@ export default function App() {
             </>
           )}
 
-          {session.kind === 'manual' && (session.frozenInit ? (
+          {(session.kind === 'manual' || session.kind === 'bridge') && (session.frozenInit ? (
             <>
               <section className="manual-takeover-bar" aria-label="Manual takeover">
                 <div className="section-heading">
                   <div>
-                    <p className="eyebrow">Manual takeover</p>
-                    <h2>Live sync stopped — frozen board</h2>
-                    <p className="muted">Picks and draft settings were frozen when sync stopped. The log, clock, and recommendations keep working from the frozen state.</p>
+                    <p className="eyebrow">{session.kind === 'bridge' ? 'ESPN bridge' : 'Manual takeover'}</p>
+                    <h2>{session.kind === 'bridge' ? 'Live ESPN picks streaming' : 'Live sync stopped — frozen board'}</h2>
+                    <p className="muted">
+                      {session.kind === 'bridge'
+                        ? bridgeStatus
+                        : 'Picks and draft settings were frozen when sync stopped. The log, clock, and recommendations keep working from the frozen state.'}
+                    </p>
                   </div>
                   <div className="draft-actions">
                     <button type="button" onClick={() => setCorrecting({ mode: 'add-manual', overall: nextManualOverall })}>Log next pick</button>
-                    <button className="quiet-button" type="button" onClick={() => setManualSetup('edit')}>Edit draft setup</button>
-                    <button className="quiet-button" type="button" onClick={handleReconnect}>Reconnect</button>
+                    {session.kind === 'bridge' ? (
+                      <button className="quiet-button" type="button" onClick={handleBridgeToManual}>Switch to manual</button>
+                    ) : (
+                      <>
+                        <button className="quiet-button" type="button" onClick={() => setManualSetup('edit')}>Edit draft setup</button>
+                        {!session.reconnectCred && (
+                          <button className="quiet-button" type="button" onClick={handleEspnBridgeConnect}>Connect ESPN tab</button>
+                        )}
+                        <button className="quiet-button" type="button" onClick={handleReconnect}>Reconnect</button>
+                      </>
+                    )}
                   </div>
                 </div>
               </section>
               <DraftWorkspace
-                draftInit={session.frozenInit}
+                draftInit={effectiveInit}
                 effectivePicks={board.effectivePicks}
                 manifest={manifest}
                 adpFormat={adpFormat}
@@ -412,17 +484,17 @@ export default function App() {
             </section>
           ))}
 
-          {(session.kind === 'connected' || session.kind === 'manual') && (
+          {(session.kind === 'connected' || session.kind === 'manual' || session.kind === 'bridge') && (
             <DataHealth
               manifest={manifest}
               effectivePicks={board.effectivePicks}
-              isStale={session.kind === 'connected' ? poll.isStale : false}
-              dataAgeMs={session.kind === 'connected' ? poll.dataAgeMs : null}
+              isStale={session.kind === 'connected' ? poll.isStale : bridgeStale}
+              dataAgeMs={session.kind === 'connected' ? poll.dataAgeMs : (bridgeStale && bridge.lastHeartbeatAt != null ? Date.now() - bridge.lastHeartbeatAt : null)}
               consecutiveFailures={session.kind === 'connected' ? poll.consecutiveFailures : 0}
-              lastError={session.kind === 'connected' ? poll.lastError : null}
+              lastError={session.kind === 'connected' ? poll.lastError : (session.kind === 'bridge' ? bridge.lastError : null)}
               pollHealthRef={session.kind === 'connected' ? poll.healthRef : null}
               adpFormat={adpFormat}
-              scoringDiagnostics={session.kind === 'manual' ? MANUAL_SCORING_DIAGNOSTICS : undefined}
+              scoringDiagnostics={session.kind === 'manual' || session.kind === 'bridge' ? MANUAL_SCORING_DIAGNOSTICS : undefined}
             />
           )}
         </>
