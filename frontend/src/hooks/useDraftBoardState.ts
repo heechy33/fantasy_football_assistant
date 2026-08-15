@@ -1,10 +1,11 @@
-import { useLayoutEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useReducer, useRef } from 'react';
 import type { Pick } from '../../../shared/types';
 import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 import {
   applyOverride,
   computeEffectivePicks,
   createDraftBoardState,
+  freezeLivePicksToOverrides,
   setMode,
   undoOverride,
   type DraftBoardState,
@@ -15,7 +16,10 @@ type Action =
   | { type: 'applyOverride'; override: PickOverride }
   | { type: 'undoOverride'; overall: number }
   | { type: 'setMode'; mode: DraftBoardState['mode'] }
+  | { type: 'freeze'; livePicks: Pick[] }
   | { type: 'reset'; mode: DraftBoardState['mode'] };
+
+const NO_LIVE_PICKS: Pick[] = [];
 
 function reducer(state: DraftBoardState, action: Action): DraftBoardState {
   switch (action.type) {
@@ -25,6 +29,10 @@ function reducer(state: DraftBoardState, action: Action): DraftBoardState {
       return undoOverride(state, action.overall);
     case 'setMode':
       return setMode(state, action.mode);
+    case 'freeze':
+      // Live picks intentionally remain a prop so a poll change reaches the UI in one commit.
+      // Supply that current layer here because the reducer itself never owns it.
+      return freezeLivePicksToOverrides({ ...state, livePicks: action.livePicks });
     case 'reset':
       return createDraftBoardState(action.mode);
     default:
@@ -38,6 +46,8 @@ export interface UseDraftBoardStateResult {
   applyOverride: (override: PickOverride) => void;
   undoOverride: (overall: number) => void;
   setMode: (mode: DraftBoardState['mode']) => void;
+  /** Atomic manual takeover: every effective pick becomes a complete manual-entry override. */
+  freeze: () => void;
   reset: (mode: DraftBoardState['mode']) => void;
 }
 
@@ -56,7 +66,7 @@ export function useDraftBoardState(
 ): UseDraftBoardStateResult {
   const [state, dispatch] = useReducer(reducer, initial ?? createDraftBoardState());
   const effectivePicks = useMemo(
-    () => computeEffectivePicks({ ...state, livePicks }),
+    () => computeEffectivePicks({ ...state, livePicks: state.mode === 'live' ? livePicks : NO_LIVE_PICKS }),
     // state.livePicks is inert (never dispatched to) — only mode/overrides and the prop change it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.mode, state.overrides, livePicks],
@@ -86,6 +96,7 @@ export function useDraftBoardState(
     applyOverride: (override) => dispatch({ type: 'applyOverride', override }),
     undoOverride: (overall) => dispatch({ type: 'undoOverride', overall }),
     setMode: (mode) => dispatch({ type: 'setMode', mode }),
+    freeze: useCallback(() => dispatch({ type: 'freeze', livePicks }), [livePicks]),
     reset: (mode) => dispatch({ type: 'reset', mode }),
   };
 }

@@ -14,6 +14,8 @@ export interface DraftLogProps {
   /** Row-click → player detail drawer, threaded from `DraftWorkspace`'s `handleViewDetails`.
    * Must stay a stable reference (see `stableViewPlayer` below) to honor the row memo contract. */
   onViewPlayer?: (playerId: PlayerId) => void;
+  /** Row-level correction ("Edit pick"). Stable-reference contract like `onViewPlayer`. */
+  onCorrect?: (overall: number) => void;
   /** The user's own next selection (from `boundaries.decisionPick`) — the same target the top-bar
    * countdown is built from. Never recomputed here, so the recommendation board, top bar, and log
    * always agree on which pick is "yours." */
@@ -36,6 +38,7 @@ interface DraftLogRowProps {
   isScrollTarget: boolean;
   currentRowRef: RefObject<HTMLLIElement | null>;
   onViewPlayer: ((playerId: PlayerId) => void) | undefined;
+  onCorrect: ((overall: number) => void) | undefined;
 }
 
 function youUpLabel(picksUntilUserTurn: number | null): string | null {
@@ -66,6 +69,7 @@ const DraftLogRow = memo(function DraftLogRow({
   isScrollTarget,
   currentRowRef,
   onViewPlayer,
+  onCorrect,
 }: DraftLogRowProps) {
   const isUnmatched = pick != null && pick.playerId === null;
   const hasPlayerToView = playerId != null;
@@ -108,6 +112,16 @@ const DraftLogRow = memo(function DraftLogRow({
           </div>
         )}
       </div>
+      {pick && (
+        <button
+          type="button"
+          className="quiet-button draft-log-edit"
+          aria-label={`Edit pick ${pickNo}`}
+          onClick={() => onCorrect?.(overall)}
+        >
+          Edit
+        </button>
+      )}
     </li>
   );
 });
@@ -148,6 +162,7 @@ export const DraftLog = memo(function DraftLog({
   playersById,
   onTheClock,
   onViewPlayer,
+  onCorrect,
   userNextOverall,
   picksUntilUserTurn,
 }: DraftLogProps) {
@@ -162,6 +177,12 @@ export const DraftLog = memo(function DraftLog({
   onViewPlayerRef.current = onViewPlayer;
   const stableViewPlayer = useCallback((playerId: PlayerId) => {
     onViewPlayerRef.current?.(playerId);
+  }, []);
+
+  const onCorrectRef = useRef(onCorrect);
+  onCorrectRef.current = onCorrect;
+  const stableCorrect = useCallback((overall: number) => {
+    onCorrectRef.current?.(overall);
   }, []);
 
   const pickedByOverall = useMemo(() => new Map(effectivePicks.map((p) => [p.overall, p])), [effectivePicks]);
@@ -307,6 +328,7 @@ export const DraftLog = memo(function DraftLog({
               isScrollTarget={isScrollTarget}
               currentRowRef={currentRowRef}
               onViewPlayer={stableViewPlayer}
+              onCorrect={stableCorrect}
             />
           );
         })}

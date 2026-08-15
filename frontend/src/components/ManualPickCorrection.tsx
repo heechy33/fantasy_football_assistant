@@ -10,6 +10,8 @@ export interface ManualPickCorrectionProps {
   round?: number;
   slot?: number;
   teamId?: string;
+  /** Display name for `teamId` (e.g. "Team 7") — purely informational, never submitted. */
+  teamName?: string;
   currentProviderName?: string;
   rankedPlayers: RankedPlayer[];
   unavailablePlayerIds: ReadonlySet<PlayerId>;
@@ -19,9 +21,11 @@ export interface ManualPickCorrectionProps {
 }
 
 /**
- * Same component serves both a live-pick correction and universal manual entry.
- * Instead of an opaque name search, it exposes the available ADP board in rank
- * order so the next player is always one click away.
+ * Same component serves both a live-pick correction and universal manual entry. Round/slot/team
+ * are always derived by the caller from the snake draft order and passed in read-only — the whole
+ * point of tracking a draft is that its order is known in advance, so re-typing "who's picking"
+ * for every pick would just be busywork. Instead of an opaque name search, the available ADP
+ * board is exposed in rank order so the next player is always one click away.
  */
 export function ManualPickCorrection({
   mode,
@@ -29,6 +33,7 @@ export function ManualPickCorrection({
   round,
   slot,
   teamId,
+  teamName,
   currentProviderName,
   rankedPlayers,
   unavailablePlayerIds,
@@ -38,24 +43,12 @@ export function ManualPickCorrection({
 }: ManualPickCorrectionProps) {
   const isAddManual = mode === 'add-manual';
   const [selected, setSelected] = useState<RankedPlayer | null>(null);
-  const [teamIdInput, setTeamIdInput] = useState(teamId ?? '');
-  const [roundInput, setRoundInput] = useState(String(round ?? 1));
-  const [slotInput, setSlotInput] = useState(String(slot ?? 1));
 
   const availablePlayers = useMemo(
     () => rankedPlayers.filter((player) => !unavailablePlayerIds.has(player.playerId)),
     [rankedPlayers, unavailablePlayerIds],
   );
-  const trimmedTeamId = teamIdInput.trim();
-  const parsedRound = Number(roundInput);
-  const parsedSlot = Number(slotInput);
-  const canSubmit = selected != null && (!isAddManual || (
-    trimmedTeamId !== ''
-    && Number.isFinite(parsedRound)
-    && parsedRound >= 1
-    && Number.isFinite(parsedSlot)
-    && parsedSlot >= 1
-  ));
+  const canSubmit = selected != null && (!isAddManual || teamId != null);
   const dialogRef = useModalFocus(onClose);
 
   function handleSubmit(e: FormEvent) {
@@ -63,9 +56,9 @@ export function ManualPickCorrection({
     if (!canSubmit || !selected) return;
     onSubmit({
       overall,
-      round: isAddManual ? parsedRound : round,
-      slot: isAddManual ? parsedSlot : slot,
-      teamId: isAddManual ? trimmedTeamId : teamId,
+      round,
+      slot,
+      teamId,
       playerId: selected.playerId,
       providerPlayerName: selected.name,
       source: isAddManual ? 'manual-entry' : 'manual-correction',
@@ -94,23 +87,12 @@ export function ManualPickCorrection({
           <button className="quiet-button" type="button" onClick={onClose}>Close</button>
         </header>
         {currentProviderName && <p>Currently recorded as <strong>{currentProviderName}</strong>.</p>}
+        {round != null && slot != null && (
+          <p className="pick-target">
+            Round {round}, pick {slot} — <strong>{teamName ?? teamId ?? 'unknown team'}</strong> is on the clock.
+          </p>
+        )}
         <form onSubmit={handleSubmit}>
-          {isAddManual && (
-            <div className="pick-details">
-              <label>
-                Team
-                <input value={teamIdInput} onChange={(e) => setTeamIdInput(e.target.value)} placeholder="Team or owner" required />
-              </label>
-              <label>
-                Round
-                <input type="number" min={1} value={roundInput} onChange={(e) => setRoundInput(e.target.value)} required />
-              </label>
-              <label>
-                Draft slot
-                <input type="number" min={1} value={slotInput} onChange={(e) => setSlotInput(e.target.value)} required />
-              </label>
-            </div>
-          )}
           <div className="player-board-heading">
             <div>
               <h3>Available players</h3>

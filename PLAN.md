@@ -42,6 +42,15 @@ Do not begin Yahoo, ESPN, multi-user credential storage, or the in-season featur
 because the Sleeper UI appears complete. Expansion starts only when the **Edge Validation Gate** in
 this document passes, or when the user explicitly changes the priority.
 
+> **Authorized exception — August 14, 2026.** The narrow ESPN draft-day project defined in
+> `espn_provider_chrome_extension_2026-08-14.plan.md` (Phases 0-5: manual takeover, ESPN
+> reconnaissance Chrome extension, a draft-only `DraftProviderAdapter`, and draft-day packaging) is
+> explicitly authorized to proceed **ahead of** the Edge Validation Gate for the August 15, 2026
+> private league draft. This exception is limited to that draft-day scope: it stays strictly additive
+> to the Sleeper path (no changes to `ProviderAdapter`, `adapters/sleeper.ts`, Sleeper fixtures, or
+> the engine's public surface), does not open the in-season ESPN feature track, does not store ESPN
+> cookies or raw traffic, and does not change the gate or its passing criteria.
+
 ---
 
 ## What exists today

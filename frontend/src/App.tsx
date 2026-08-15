@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { DataManifest, OnTheClock, Pick, PlayerId, SleeperCred } from '../../shared/types';
-import { canonicalPicksSignature, computeOnTheClock, roundPickLabel, userPickBoundaries, type UserPickBoundaries } from './adapters/draftOrder';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { DataManifest, DraftInit, OnTheClock, Pick, PlayerId, SleeperCred } from '../../shared/types';
+import { canonicalPicksSignature, computeOnTheClock, roundForOverall, roundPickLabel, slotForOverall, userPickBoundaries, type UserPickBoundaries } from './adapters/draftOrder';
 import { sleeperAdapter } from './adapters/sleeper';
 import { ConnectSleeper } from './components/ConnectSleeper';
 import { DataHealth } from './components/DataHealth';
 import { DraftWorkspace } from './components/DraftWorkspace';
+import { MANUAL_SCORING_DIAGNOSTICS, ManualDraftSetup } from './components/ManualDraftSetup';
 import { ManualPickCorrection } from './components/ManualPickCorrection';
 import { TeamsPage } from './components/TeamsPage';
 import { APP_NAME, TopNav, type AppPage } from './components/TopNav';
@@ -17,7 +18,14 @@ import './App.css';
 type Session =
   | { kind: 'disconnected' }
   | { kind: 'connected'; cred: SleeperCred; draftId: string }
-  | { kind: 'manual' };
+  | {
+      kind: 'manual';
+      /** DraftInit frozen at takeover so the workspace/clock keep working with no live layer. */
+      frozenInit: DraftInit | null;
+      /** The live session that was taken over, so "Reconnect" restores polling in one click. */
+      reconnectCred: SleeperCred | null;
+      reconnectDraftId: string | null;
+    };
 
 interface Correcting {
   mode: 'correct-existing' | 'add-manual';
@@ -42,6 +50,8 @@ export default function App() {
   const [manifest, setManifest] = useState<DataManifest | null>(null);
   const [rankedPlayers, setRankedPlayers] = useState<RankedPlayer[]>([]);
   const [correcting, setCorrecting] = useState<Correcting | null>(null);
+  /** Which manual setup dialog is open: 'create' (first setup) or 'edit' (correct mySlot mid-draft). */
+  const [manualSetup, setManualSetup] = useState<'create' | 'edit' | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -58,7 +68,12 @@ export default function App() {
 
       if (persisted.mode === 'manual') {
         board.setMode('manual');
-        setSession({ kind: 'manual' });
+        setSession({
+          kind: 'manual',
+          frozenInit: persisted.frozenInit,
+          reconnectCred: persisted.userId ? { provider: 'sleeper', userId: persisted.userId } : null,
+          reconnectDraftId: persisted.draftId,
+        });
         setPage('draft');
       } else if (persisted.userId && persisted.draftId) {
         setSession({
@@ -83,14 +98,25 @@ export default function App() {
   useEffect(() => {
     if (!hydrated) return;
     savePersistedSession({
-      userId: session.kind === 'connected' ? session.cred.userId : null,
-      draftId: session.kind === 'connected' ? session.draftId : null,
+      userId: session.kind === 'connected'
+        ? session.cred.userId
+        : (session.kind === 'manual' ? session.reconnectCred?.userId ?? null : null),
+      draftId: session.kind === 'connected'
+        ? session.draftId
+        : (session.kind === 'manual' ? session.reconnectDraftId : null),
       mode: session.kind === 'manual' ? 'manual' : 'live',
       overrides: [...board.state.overrides.values()],
+      frozenInit: session.kind === 'manual' ? session.frozenInit : null,
     });
   }, [hydrated, session, board.state.overrides]);
 
-  const adpFormat = adpFormatForDraft(poll.draftInit?.settings.format.reception, poll.draftInit?.settings.format.qb);
+  // Manual takeover freezes the latest DraftInit into the manual session, so the workspace and
+  // clock math keep working with no live poll. `effectiveInit` is the single source for that:
+  // connected sessions read the poll's init, takeover sessions read the frozen copy.
+  const effectiveInit = session.kind === 'connected'
+    ? poll.draftInit
+    : (session.kind === 'manual' ? session.frozenInit : null);
+  const adpFormat = adpFormatForDraft(effectiveInit?.settings.format.reception, effectiveInit?.settings.format.qb);
 
   // Clock math lifted up from DraftWorkspace so the full-bleed TopNav hero/countdown and the
   // workspace board agree on the same pick without recomputing. These are the expensive memos
@@ -103,12 +129,12 @@ export default function App() {
   // Computed from `effectivePicks` (not the raw `poll.draftPicks.onTheClock`) so it accounts for
   // manual corrections/additions to the live feed — the same source the engine board reads.
   const onTheClock: OnTheClock | null = useMemo(
-    () => poll.draftInit
-      ? computeOnTheClock(poll.draftInit.draftType, poll.draftInit.teams, poll.draftInit.rounds, board.effectivePicks.length, poll.draftInit.slotToTeam)
+    () => effectiveInit
+      ? computeOnTheClock(effectiveInit.draftType, effectiveInit.teams, effectiveInit.rounds, board.effectivePicks.length, effectiveInit.slotToTeam)
       : null,
     // picksSignature stands in for `effectivePicks` here — see the memo below's comment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [poll.draftInit, picksSignature],
+    [effectiveInit, picksSignature],
   );
 
   // Availability's target pick is always "the next time it's my decision after the currently-
@@ -117,23 +143,23 @@ export default function App() {
   // Computed independently of the board build so pagination-reset can depend on
   // `boundaries.decisionPick` without re-running the whole engine.
   const boundaries: UserPickBoundaries | null = useMemo(() => {
-    if (!poll.draftInit || poll.draftInit.myTeamId == null) return null;
+    if (!effectiveInit || effectiveInit.myTeamId == null) return null;
     return userPickBoundaries(
-      poll.draftInit.draftType, poll.draftInit.teams, poll.draftInit.rounds, board.effectivePicks.length,
-      poll.draftInit.slotToTeam, poll.draftInit.myTeamId,
+      effectiveInit.draftType, effectiveInit.teams, effectiveInit.rounds, board.effectivePicks.length,
+      effectiveInit.slotToTeam, effectiveInit.myTeamId,
     );
     // picksSignature stands in for `effectivePicks` here — see comment on the memo below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poll.draftInit, picksSignature]);
+  }, [effectiveInit, picksSignature]);
 
   // Clock math is independent of recommendation-board readiness — the top-bar hero/countdown must
   // not hide while players/projections load.
-  const currentOverall = onTheClock?.overall ?? (poll.draftInit ? board.effectivePicks.length + 1 : null);
+  const currentOverall = onTheClock?.overall ?? (effectiveInit ? board.effectivePicks.length + 1 : null);
   const picksUntilUserTurn = boundaries?.decisionPick != null && currentOverall != null
     ? Math.max(0, boundaries.decisionPick - currentOverall)
     : null;
-  const roundPick = poll.draftInit && currentOverall != null
-    ? roundPickLabel(poll.draftInit.teams, currentOverall)
+  const roundPick = effectiveInit && currentOverall != null
+    ? roundPickLabel(effectiveInit.teams, currentOverall)
     : null;
 
   useEffect(() => {
@@ -152,10 +178,48 @@ export default function App() {
   }
 
   function handleManualMode() {
+    setManualSetup('create');
+  }
+
+  /** Commit a fresh manual draft from the setup form — a brand-new draft, so the board resets. */
+  function handleManualSetupSubmit(init: DraftInit) {
     board.reset('manual');
     setCorrecting(null);
-    setSession({ kind: 'manual' });
+    setSession({ kind: 'manual', frozenInit: init, reconnectCred: null, reconnectDraftId: null });
+    setManualSetup(null);
     setPage('draft');
+  }
+
+  /** Re-target an existing manual session (e.g. mySlot after the ~6:00 PM order reveal) without
+   * touching the board — picks are keyed by slot, so changing mySlot only re-targets *my* math. */
+  function handleManualSetupEdit(init: DraftInit) {
+    setSession((current) => (current.kind === 'manual' ? { ...current, frozenInit: init } : current));
+    setManualSetup(null);
+  }
+
+  /** Freeze the live board (picks → manual-entry overrides) plus the latest DraftInit, then stop polling. */
+  function handleTakeoverManual() {
+    board.freeze();
+    setCorrecting(null);
+    setSession({
+      kind: 'manual',
+      frozenInit: poll.draftInit,
+      reconnectCred: session.kind === 'connected' ? session.cred : null,
+      reconnectDraftId: session.kind === 'connected' ? session.draftId : null,
+    });
+    setPage('draft');
+  }
+
+  /** Resume live polling for the taken-over session; falls back to the connect flow without one. */
+  function handleReconnect() {
+    if (session.kind === 'manual' && session.reconnectCred && session.reconnectDraftId) {
+      board.reset('live');
+      setCorrecting(null);
+      setSession({ kind: 'connected', cred: session.reconnectCred, draftId: session.reconnectDraftId });
+      setPage('draft');
+      return;
+    }
+    handleReturnToConnect();
   }
 
   function handleChooseAnotherDraft() {
@@ -177,6 +241,18 @@ export default function App() {
     ? board.effectivePicks.find((p) => p.overall === correcting.overall)
     : undefined;
   const correctingCurrentName = correctingPick?.providerPlayerName;
+  // Round/slot/team for a brand-new manual pick are fully determined by the snake draft order —
+  // never re-typed by the user. `correct-existing` already carries these on the pick itself.
+  const manualTargetInfo = useMemo(() => {
+    if (!correcting || correcting.mode !== 'add-manual' || !effectiveInit) return null;
+    if (effectiveInit.draftType === 'auction') return null;
+    const round = roundForOverall(effectiveInit.teams, correcting.overall);
+    const slot = slotForOverall(effectiveInit.draftType, effectiveInit.teams, correcting.overall);
+    const teamId = effectiveInit.slotToTeam[slot] ?? null;
+    if (teamId == null) return null;
+    const teamName = effectiveInit.slotToTeamName?.[slot] ?? teamId;
+    return { round, slot, teamId, teamName };
+  }, [correcting, effectiveInit]);
   const unavailablePlayerIds = useMemo(() => {
     const ids = new Set<PlayerId>();
     for (const pick of board.effectivePicks) {
@@ -184,6 +260,11 @@ export default function App() {
     }
     return ids;
   }, [board.effectivePicks, correcting?.overall]);
+
+  /** Stable row-level correction trigger so the memoized DraftLog rows don't reconcile on every render. */
+  const openCorrection = useCallback((overall: number) => {
+    setCorrecting({ mode: 'correct-existing', overall });
+  }, []);
 
   return (
     <>
@@ -193,7 +274,7 @@ export default function App() {
         roundPick={roundPick}
         picksUntilUserTurn={picksUntilUserTurn}
         onChooseAnotherDraft={session.kind === 'connected' ? handleChooseAnotherDraft : undefined}
-        leagueName={poll.draftInit?.settings.name ?? null}
+        leagueName={effectiveInit?.settings.name ?? null}
         adpFormat={adpFormat}
         isStale={false}
         dataAgeMs={null}
@@ -255,21 +336,56 @@ export default function App() {
                 </section>
               )}
               {poll.phase !== 'init-error' && (
-                <DraftWorkspace
-                  draftInit={poll.draftInit}
-                  effectivePicks={board.effectivePicks}
-                  manifest={manifest}
-                  adpFormat={adpFormat}
-                  picksSignature={picksSignature}
-                  timingPollId={poll.lastChangedPollId}
-                  onTheClock={onTheClock}
-                  boundaries={boundaries}
-                />
+                <>
+                  <section className="draft-actions" aria-label="Draft controls">
+                    <button type="button" onClick={() => setCorrecting({ mode: 'add-manual', overall: nextManualOverall })}>Log next pick</button>
+                    <button className="quiet-button" type="button" onClick={handleTakeoverManual} disabled={!poll.draftInit}>Take over manually</button>
+                  </section>
+                  <DraftWorkspace
+                    draftInit={poll.draftInit}
+                    effectivePicks={board.effectivePicks}
+                    manifest={manifest}
+                    adpFormat={adpFormat}
+                    picksSignature={picksSignature}
+                    timingPollId={poll.lastChangedPollId}
+                    onTheClock={onTheClock}
+                    boundaries={boundaries}
+                    onCorrect={openCorrection}
+                  />
+                </>
               )}
             </>
           )}
 
-          {session.kind === 'manual' && (
+          {session.kind === 'manual' && (session.frozenInit ? (
+            <>
+              <section className="manual-takeover-bar" aria-label="Manual takeover">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Manual takeover</p>
+                    <h2>Live sync stopped — frozen board</h2>
+                    <p className="muted">Picks and draft settings were frozen when sync stopped. The log, clock, and recommendations keep working from the frozen state.</p>
+                  </div>
+                  <div className="draft-actions">
+                    <button type="button" onClick={() => setCorrecting({ mode: 'add-manual', overall: nextManualOverall })}>Log next pick</button>
+                    <button className="quiet-button" type="button" onClick={() => setManualSetup('edit')}>Edit draft setup</button>
+                    <button className="quiet-button" type="button" onClick={handleReconnect}>Reconnect</button>
+                  </div>
+                </div>
+              </section>
+              <DraftWorkspace
+                draftInit={session.frozenInit}
+                effectivePicks={board.effectivePicks}
+                manifest={manifest}
+                adpFormat={adpFormat}
+                picksSignature={picksSignature}
+                timingPollId={null}
+                onTheClock={onTheClock}
+                boundaries={boundaries}
+                onCorrect={openCorrection}
+              />
+            </>
+          ) : (
             <section className="manual-draft">
               <div className="section-heading">
                 <div>
@@ -285,7 +401,7 @@ export default function App() {
                   {board.effectivePicks.map((pick) => (
                     <li key={pick.overall}>
                       <span>#{pick.overall}</span>
-                      <span>{pick.teamId || 'unknown team'}</span>
+                      <span>{effectiveInit?.slotToTeamName?.[pick.slot] ?? pick.teamId ?? 'unknown team'}</span>
                       <strong>{pick.providerPlayerName ?? pick.playerId ?? 'unmatched'}</strong>
                       <button className="quiet-button" type="button" onClick={() => setCorrecting({ mode: 'correct-existing', overall: pick.overall })}>Edit</button>
                     </li>
@@ -294,7 +410,7 @@ export default function App() {
               )}
               <button type="button" onClick={() => setCorrecting({ mode: 'add-manual', overall: nextManualOverall })}>Log next pick</button>
             </section>
-          )}
+          ))}
 
           {(session.kind === 'connected' || session.kind === 'manual') && (
             <DataHealth
@@ -306,6 +422,7 @@ export default function App() {
               lastError={session.kind === 'connected' ? poll.lastError : null}
               pollHealthRef={session.kind === 'connected' ? poll.healthRef : null}
               adpFormat={adpFormat}
+              scoringDiagnostics={session.kind === 'manual' ? MANUAL_SCORING_DIAGNOSTICS : undefined}
             />
           )}
         </>
@@ -317,15 +434,24 @@ export default function App() {
         <ManualPickCorrection
           mode={correcting.mode}
           overall={correcting.overall}
-          round={correctingPick?.round}
-          slot={correctingPick?.slot}
-          teamId={correctingPick?.teamId}
+          round={correcting.mode === 'add-manual' ? manualTargetInfo?.round : correctingPick?.round}
+          slot={correcting.mode === 'add-manual' ? manualTargetInfo?.slot : correctingPick?.slot}
+          teamId={correcting.mode === 'add-manual' ? manualTargetInfo?.teamId ?? undefined : correctingPick?.teamId}
+          teamName={correcting.mode === 'add-manual' ? manualTargetInfo?.teamName : undefined}
           currentProviderName={correctingCurrentName || undefined}
           rankedPlayers={rankedPlayers}
           unavailablePlayerIds={unavailablePlayerIds}
           onSubmit={(override) => board.applyOverride(override)}
           onUndo={(overall) => board.undoOverride(overall)}
           onClose={() => setCorrecting(null)}
+        />
+      )}
+
+      {manualSetup && (
+        <ManualDraftSetup
+          initial={manualSetup === 'edit' && session.kind === 'manual' ? session.frozenInit : null}
+          onSubmit={manualSetup === 'edit' ? handleManualSetupEdit : handleManualSetupSubmit}
+          onCancel={() => setManualSetup(null)}
         />
       )}
       </main>

@@ -335,4 +335,22 @@ describe('DraftLog', () => {
     render(<DraftLog {...baseProps()} draftInit={null} />);
     expect(screen.getByText('No draft connected yet.')).toBeInTheDocument();
   });
+
+  it('renders an Edit button only on drafted rows and calls onCorrect with the overall', async () => {
+    const user = userEvent.setup();
+    const onCorrect = vi.fn();
+    render(
+      <DraftLog
+        {...baseProps()}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+        onCorrect={onCorrect}
+      />,
+    );
+
+    const editButton = screen.getByRole('button', { name: 'Edit pick #1' });
+    await user.click(editButton);
+    expect(onCorrect).toHaveBeenCalledWith(1);
+    // Future slots (overall 2-4) must not get an Edit affordance.
+    expect(screen.queryByRole('button', { name: 'Edit pick #2' })).not.toBeInTheDocument();
+  });
 });

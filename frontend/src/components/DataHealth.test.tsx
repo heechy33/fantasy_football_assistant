@@ -45,4 +45,21 @@ describe('DataHealth', () => {
     act(() => { vi.advanceTimersByTime(3000); });
     expect(screen.getByText(/Live draft data is stale \(3s old\)/)).toBeInTheDocument();
   });
+
+  it('renders unmodeled-scoring diagnostics as banner items when provided', () => {
+    render(
+      <DataHealth
+        manifest={null}
+        effectivePicks={[]}
+        isStale={false}
+        dataAgeMs={null}
+        consecutiveFailures={0}
+        lastError={null}
+        adpFormat={'ppr'}
+        scoringDiagnostics={['Custom PPR bonuses are not modeled.']}
+      />,
+    );
+    expect(screen.getByText('Custom PPR bonuses are not modeled.')).toBeInTheDocument();
+  });
+
 });

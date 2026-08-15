@@ -30,6 +30,8 @@ export interface DraftWorkspaceProps {
   timingPollId?: number | null;
   onTheClock: OnTheClock | null;
   boundaries: UserPickBoundaries | null;
+  /** Row-level "Edit pick" trigger threaded to the draft log (manual correction/takeover). */
+  onCorrect?: (overall: number) => void;
 }
 
 /**
@@ -50,6 +52,7 @@ export function DraftWorkspace({
   timingPollId = null,
   onTheClock,
   boundaries,
+  onCorrect,
 }: DraftWorkspaceProps) {
   const {
     players, playersById, projections, adp, usage, usageLoadStatus, loadError,
@@ -114,6 +117,7 @@ export function DraftWorkspace({
       playersById={playersById}
       onTheClock={onTheClock}
       onViewPlayer={handleViewDetails}
+      onCorrect={onCorrect}
       userNextOverall={boundaries?.decisionPick ?? null}
       picksUntilUserTurn={picksUntilUserTurn}
     />

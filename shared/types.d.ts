@@ -14,7 +14,7 @@
 // Providers and identity
 // ---------------------------------------------------------------------------
 
-export type Provider = 'sleeper' | 'espn' | 'yahoo';
+export type Provider = 'sleeper' | 'espn' | 'yahoo' | 'manual';
 
 /**
  * Canonical player id across the whole product = Sleeper's player id.

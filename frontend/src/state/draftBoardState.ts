@@ -17,6 +17,12 @@ export interface PickOverride {
   slot?: number;
   teamId?: string;
   playerId: PlayerId | null;
+  /**
+   * Provider's own player id, retained verbatim so a manual-entry override can round-trip the
+   * provider id a live pick carried (the atomic manual-takeover freeze depends on this). Falls
+   * back to the canonical id at read time.
+   */
+  providerPlayerId?: string;
   providerPlayerName?: string;
   source: 'manual-correction' | 'manual-entry';
   correctedAt: number;
@@ -62,6 +68,32 @@ export function setMode(state: DraftBoardState, mode: DraftBoardState['mode']): 
 }
 
 /**
+ * Atomic manual-takeover freeze: every effective pick (the live layer merged with any existing
+ * corrections) becomes a complete `manual-entry` override and the state switches to manual mode in
+ * the same operation — this is the "switch to manual while retaining N picks" action. Nothing is
+ * dropped: overall/round/slot/team, canonical id, provider id, and name are all retained, so the
+ * frozen board and the DraftWorkspace keep working with no live layer underneath. Idempotent when
+ * already in manual mode (effective picks are simply re-frozen).
+ */
+export function freezeLivePicksToOverrides(state: DraftBoardState): DraftBoardState {
+  const overrides = new Map<number, PickOverride>();
+  for (const pick of computeEffectivePicks(state)) {
+    overrides.set(pick.overall, {
+      overall: pick.overall,
+      round: pick.round,
+      slot: pick.slot,
+      teamId: pick.teamId,
+      playerId: pick.playerId,
+      providerPlayerId: pick.providerPlayerId,
+      providerPlayerName: pick.providerPlayerName,
+      source: 'manual-entry',
+      correctedAt: Date.now(),
+    });
+  }
+  return { mode: 'manual', livePicks: [], overrides };
+}
+
+/**
  * A poll updating `livePicks` never touches `overrides` — they're separate
  * state slices, merged only here at read time. That's what makes the
  * precedence rule airtight: there's no code path where a poll write and a
@@ -104,7 +136,7 @@ export function computeEffectivePicks(state: DraftBoardState): Pick[] {
       slot: override.slot ?? existing?.slot ?? 0,
       teamId: override.teamId ?? existing?.teamId ?? '',
       playerId: override.playerId,
-      providerPlayerId: override.playerId ?? existing?.providerPlayerId ?? '',
+      providerPlayerId: override.providerPlayerId ?? override.playerId ?? existing?.providerPlayerId ?? '',
       providerPlayerName: override.providerPlayerName ?? existing?.providerPlayerName,
     });
   }

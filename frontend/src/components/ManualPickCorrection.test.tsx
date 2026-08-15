@@ -137,13 +137,17 @@ describe('ManualPickCorrection behavior', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('requires team + round + draft slot for add-manual and submits a manual-entry override', async () => {
+  it('auto-fills round/slot/team for add-manual from the caller and only requires picking a player', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(
       <ManualPickCorrection
         mode="add-manual"
         overall={12}
+        round={2}
+        slot={3}
+        teamId="owner-7"
+        teamName="Team 3"
         rankedPlayers={BOARD}
         unavailablePlayerIds={new Set()}
         onSubmit={onSubmit}
@@ -152,14 +156,13 @@ describe('ManualPickCorrection behavior', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /Tight One/ }));
+    expect(screen.getByText(/Round 2, pick 3/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Team')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Round')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Draft slot')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save pick' })).toBeDisabled();
 
-    await user.type(screen.getByLabelText('Team'), 'owner-7');
-    await user.clear(screen.getByLabelText('Round'));
-    await user.type(screen.getByLabelText('Round'), '2');
-    await user.clear(screen.getByLabelText('Draft slot'));
-    await user.type(screen.getByLabelText('Draft slot'), '3');
+    await user.click(screen.getByRole('button', { name: /Tight One/ }));
     await user.click(screen.getByRole('button', { name: 'Save pick' }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({

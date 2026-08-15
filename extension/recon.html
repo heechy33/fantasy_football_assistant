@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FFA ESPN Draft Recon</title>
+    <style>body{max-width:960px;margin:2rem auto;padding:0 1rem;font:16px/1.45 system-ui,sans-serif;color:#172033}button{margin-right:.5rem;padding:.55rem .8rem}pre{overflow:auto;padding:1rem;background:#f2f5fa;border-radius:.5rem;white-space:pre-wrap}.warning{color:#7a3d00}.meta{color:#536176}</style>
+  </head>
+  <body>
+    <h1>ESPN Draft Recon</h1>
+    <p>This page shows only the latest normalized snapshot. It never exports cookies, request headers, token-like URLs, chat, or raw WebSocket/fetch/XHR frames.</p>
+    <p class="warning">Use a practice draft first. Confirm the event source, player IDs, D/ST identity, settings, order/slot mapping, and whether the real league uses the same transport before Phase 3.</p>
+    <button id="refresh" type="button">Refresh</button><button id="export" type="button">Download sanitized JSON</button><button id="clear" type="button">Clear local snapshot</button>
+    <p id="status" class="meta"></p><pre id="output">Loading…</pre>
+    <script src="src/normalize.js"></script><script src="recon.js"></script>
+  </body>
+</html>

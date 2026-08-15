@@ -76,7 +76,7 @@ interface RawDraft {
  * linear defaults for the three built-in mock formats. Custom mocks cannot
  * be scored faithfully from the public draft payload and remain unsupported.
  */
-const DEFAULT_MOCK_SCORING: Record<'ppr' | 'half-ppr' | 'standard', ScoringMap> = {
+export const DEFAULT_MOCK_SCORING: Record<'ppr' | 'half-ppr' | 'standard', ScoringMap> = {
   ppr: { pass_yd: 0.04, pass_td: 4, pass_int: -1, pass_2pt: 2, rush_yd: 0.1, rush_td: 6, rush_2pt: 2, rec: 1, rec_yd: 0.1, rec_td: 6, rec_2pt: 2, fum_lost: -2, fgm: 3, xpm: 1, sack: 1, int: 2, fum_rec: 2, def_td: 6, def_kr_td: 6 },
   'half-ppr': { pass_yd: 0.04, pass_td: 4, pass_int: -1, pass_2pt: 2, rush_yd: 0.1, rush_td: 6, rush_2pt: 2, rec: 0.5, rec_yd: 0.1, rec_td: 6, rec_2pt: 2, fum_lost: -2, fgm: 3, xpm: 1, sack: 1, int: 2, fum_rec: 2, def_td: 6, def_kr_td: 6 },
   standard: { pass_yd: 0.04, pass_td: 4, pass_int: -1, pass_2pt: 2, rush_yd: 0.1, rush_td: 6, rush_2pt: 2, rec: 0, rec_yd: 0.1, rec_td: 6, rec_2pt: 2, fum_lost: -2, fgm: 3, xpm: 1, sack: 1, int: 2, fum_rec: 2, def_td: 6, def_kr_td: 6 },

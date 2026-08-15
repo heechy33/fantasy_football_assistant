@@ -17,6 +17,13 @@ Edge Validation Gate in `PLAN.md` passes, or the user explicitly changes priorit
 and scaffolding (`infra/main.bicep`, the `ProviderAdapter` contract, the credential types below) are
 kept in the repo deliberately — they're future work, not dead code to delete.
 
+> **Authorized exception — August 14, 2026.** The narrow ESPN draft-day project defined in
+> `espn_provider_chrome_extension_2026-08-14.plan.md` (manual takeover, ESPN reconnaissance Chrome
+> extension, draft-only `DraftProviderAdapter`, draft-day packaging) is explicitly authorized ahead
+> of the Edge Validation Gate for the August 15, 2026 private league draft. It is strictly additive
+> to the Sleeper path, limited to draft-day scope, and does not open the in-season ESPN feature
+> track, store ESPN cookies/raw traffic, or change the gate itself. See PLAN.md "Expansion rule".
+
 ## Tech stack
 
 - **Frontend**: React + Vite + TypeScript, deployed as Azure Static Web Apps (Free plan)

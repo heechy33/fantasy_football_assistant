@@ -4,6 +4,7 @@ import {
   applyOverride,
   computeEffectivePicks,
   createDraftBoardState,
+  freezeLivePicksToOverrides,
   setLivePicks,
   setMode,
   undoOverride,
@@ -154,5 +155,73 @@ describe('manual mode', () => {
         providerPlayerName: 'Player Q',
       },
     ]);
+  });
+});
+
+describe('freezeLivePicksToOverrides — atomic manual takeover', () => {
+  it('converts every effective live pick into a complete manual-entry override retaining both ids', () => {
+    const livePicks: Pick[] = [
+      { overall: 1, round: 1, slot: 1, teamId: 'team-1', playerId: 'player-A', providerPlayerId: 'espn-1', providerPlayerName: 'Player A' },
+      { overall: 2, round: 1, slot: 2, teamId: 'team-2', playerId: 'player-B', providerPlayerId: 'espn-2', providerPlayerName: 'Player B' },
+    ];
+    const frozen = freezeLivePicksToOverrides(setLivePicks(createDraftBoardState(), livePicks));
+
+    expect(frozen.mode).toBe('manual');
+    expect(frozen.livePicks).toEqual([]);
+    expect(frozen.overrides.size).toBe(2);
+    expect(computeEffectivePicks(frozen)).toEqual(livePicks);
+    for (const override of frozen.overrides.values()) {
+      expect(override.source).toBe('manual-entry');
+      expect(override.round).toBe(1);
+      expect(override.teamId).toBeDefined();
+      expect(override.providerPlayerId).toBeDefined();
+    }
+  });
+
+  it('freezes an existing correction as an override too, while keeping the corrected player', () => {
+    let state = setLivePicks(createDraftBoardState(), [pick(1, 'A'), pick(2, 'B')]);
+    state = applyOverride(state, {
+      overall: 2,
+      playerId: 'player-C',
+      source: 'manual-correction',
+      correctedAt: 1,
+    });
+
+    const frozen = freezeLivePicksToOverrides(state);
+    expect(frozen.mode).toBe('manual');
+    expect(frozen.overrides.get(2)?.source).toBe('manual-entry');
+    expect(frozen.overrides.get(2)?.playerId).toBe('player-C');
+    expect(computeEffectivePicks(frozen).map((p) => p.playerId)).toEqual(['A', 'player-C']);
+  });
+
+  it('is idempotent when already in manual mode', () => {
+    let state = createDraftBoardState('manual');
+    state = applyOverride(state, {
+      overall: 1,
+      round: 1,
+      slot: 1,
+      teamId: 'team-1',
+      playerId: 'player-A',
+      providerPlayerName: 'Player A',
+      source: 'manual-entry',
+      correctedAt: 1,
+    });
+
+    const frozen = freezeLivePicksToOverrides(state);
+    expect(frozen.mode).toBe('manual');
+    expect(frozen.overrides.size).toBe(1);
+    expect(frozen.overrides.get(1)).toMatchObject({
+      overall: 1,
+      playerId: 'player-A',
+      providerPlayerId: 'player-A',
+      providerPlayerName: 'Player A',
+    });
+  });
+
+  it('freezing an empty board yields an empty manual state', () => {
+    const frozen = freezeLivePicksToOverrides(createDraftBoardState());
+    expect(frozen.mode).toBe('manual');
+    expect(frozen.livePicks).toEqual([]);
+    expect(frozen.overrides.size).toBe(0);
   });
 });

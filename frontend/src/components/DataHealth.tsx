@@ -14,6 +14,8 @@ export interface DataHealthProps {
   /** Ref-backed live health avoids re-rendering the full workspace on no-op polls. */
   pollHealthRef?: RefObject<PollHealth> | null;
   adpFormat: AdpFormat;
+  /** Draft-day honesty: unmodeled custom-scoring categories, rendered as banner items. */
+  scoringDiagnostics?: string[];
 }
 
 function findDuplicatePlayerIds(picks: Pick[]): string[] {
@@ -43,6 +45,7 @@ export function DataHealth({
   lastError,
   pollHealthRef = null,
   adpFormat,
+  scoringDiagnostics,
 }: DataHealthProps) {
   const [, tick] = useState(0);
   useEffect(() => {
@@ -86,6 +89,9 @@ export function DataHealth({
         {duplicates.length > 0 && (
           <li>{duplicates.length} player(s) appear drafted more than once: {duplicates.join(', ')}.</li>
         )}
+        {scoringDiagnostics?.map((diagnostic) => (
+          <li key={diagnostic}>{diagnostic}</li>
+        ))}
       </ul>
     </div>
   );

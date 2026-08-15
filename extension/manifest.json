@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "FFA ESPN Draft Recon",
+  "version": "0.1.0",
+  "description": "Read-only ESPN draft reconnaissance for Fantasy Football Assistant.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {"matches":["https://fantasy.espn.com/football/draft*"],"js":["src/espn-main.js"],"run_at":"document_start","world":"MAIN"},
+    {"matches":["https://fantasy.espn.com/football/draft*"],"js":["src/normalize.js","src/espn-content.js"],"run_at":"document_start","world":"ISOLATED"},
+    {"matches":["http://localhost/*","https://happy-grass-0bcd9d60f.7.azurestaticapps.net/*"],"js":["src/app-content.js"],"run_at":"document_start","world":"ISOLATED"}
+  ]
+}
