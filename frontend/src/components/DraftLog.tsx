@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
 import type { DraftInit, OnTheClock, Pick, PlayerId, PlayerMeta, Position } from '../../../shared/types';
-import { roundForOverall, slotForOverall } from '../adapters/draftOrder';
+import { picksMade, roundForOverall, slotForOverall } from '../adapters/draftOrder';
 import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 import { PositionBadge } from './PositionBadge';
 
@@ -22,6 +22,9 @@ export interface DraftLogProps {
   userNextOverall: number | null;
   /** Picks remaining until that turn; `0` means the user is on the clock right now. */
   picksUntilUserTurn: number | null;
+  /** `round.pick` hero label (e.g. `6.09`) for the clock banner below the list — `null` hides the
+   * banner (no draft connected yet). */
+  roundPick: string | null;
 }
 
 interface DraftLogRowProps {
@@ -150,6 +153,17 @@ function isRowOutOfView(row: HTMLElement, list: HTMLElement): boolean {
   return rowRect.bottom < listRect.top || rowRect.top > listRect.bottom;
 }
 
+/** Centers `row` within `list` by scrolling `list` alone (`Element.scrollBy`, not
+ * `scrollIntoView`). `scrollIntoView` walks every scrollable ancestor — including the sticky
+ * `.draft-log` panel's own containing block — so it was recentering the whole page around the row
+ * instead of just the log. This keeps the jump local to the log's own scroll container. */
+function centerRowInList(list: HTMLElement, row: HTMLElement, behavior: ScrollBehavior) {
+  const listRect = list.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const delta = (rowRect.top + rowRect.height / 2) - (listRect.top + listRect.height / 2);
+  list.scrollBy({ top: delta, behavior });
+}
+
 /**
  * Left rail of the three-column workspace. DraftSharks-style card list: each pick is a discrete
  * card showing the overall pick number (`#97`), the player name, the team nickname, and a colored
@@ -165,6 +179,7 @@ export const DraftLog = memo(function DraftLog({
   onCorrect,
   userNextOverall,
   picksUntilUserTurn,
+  roundPick,
 }: DraftLogProps) {
   const currentRowRef = useRef<HTMLLIElement | null>(null);
   const logListRef = useRef<HTMLOListElement | null>(null);
@@ -187,7 +202,7 @@ export const DraftLog = memo(function DraftLog({
 
   const pickedByOverall = useMemo(() => new Map(effectivePicks.map((p) => [p.overall, p])), [effectivePicks]);
   const totalPicks = draftInit ? draftInit.teams * draftInit.rounds : 0;
-  const draftComplete = totalPicks > 0 && effectivePicks.length >= totalPicks;
+  const draftComplete = totalPicks > 0 && picksMade(effectivePicks) >= totalPicks;
   // On the clock while drafting; once the board is full, land on the final overall so
   // "Go to current pick" still has a destination (computeOnTheClock returns null when complete).
   const scrollTargetOverall = onTheClock?.overall ?? (draftComplete ? totalPicks : null);
@@ -225,7 +240,9 @@ export const DraftLog = memo(function DraftLog({
 
   function scrollToCurrent() {
     userScrolledAwayRef.current = false;
-    currentRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const list = logListRef.current;
+    const row = currentRowRef.current;
+    if (list && row) centerRowInList(list, row, 'smooth');
   }
 
   // A manual scroll that takes the current row fully out of view is a "scrolled away" gesture.
@@ -247,14 +264,19 @@ export const DraftLog = memo(function DraftLog({
   useEffect(() => {
     const wasAway = userScrolledAwayRef.current;
     userScrolledAwayRef.current = false;
-    if (wasAway) currentRowRef.current?.scrollIntoView({ block: 'center' });
+    const list = logListRef.current;
+    const row = currentRowRef.current;
+    if (wasAway && list && row) centerRowInList(list, row, 'auto');
   }, [draftInit]);
 
   // Auto-follow on connect / clock advance / draft completion — but never once the user has
-  // manually scrolled away from the current row (they are reading elsewhere in the log).
+  // manually scrolled away from the current row (they are reading elsewhere in the log). Smooth
+  // so each clock advance eases the log down instead of snapping.
   useEffect(() => {
     if (userScrolledAwayRef.current) return;
-    currentRowRef.current?.scrollIntoView({ block: 'center' });
+    const list = logListRef.current;
+    const row = currentRowRef.current;
+    if (list && row) centerRowInList(list, row, 'smooth');
   }, [scrollTargetOverall]);
 
   // Layout effects happen before the browser paints, so call this a post-commit frame instead of
@@ -292,13 +314,13 @@ export const DraftLog = memo(function DraftLog({
     return <section className="draft-log"><p>No draft connected yet.</p></section>;
   }
 
+  const showCountdown = picksUntilUserTurn != null && picksUntilUserTurn > 0;
+  const onClockNow = picksUntilUserTurn === 0;
+
   return (
     <section className="draft-log" aria-label="Draft log">
       <div className="section-heading">
         <h2 className="section-title-accent">Draft log</h2>
-        <button className="quiet-button draft-log-jump" type="button" onClick={scrollToCurrent} aria-label="Go to current pick">
-          Go to Current Pick
-        </button>
       </div>
       <ol ref={logListRef} className="draft-log-list">
         {entries.map((entry) => {
@@ -333,6 +355,25 @@ export const DraftLog = memo(function DraftLog({
           );
         })}
       </ol>
+      {roundPick != null && (
+        <button
+          type="button"
+          className="draft-log-clock-banner"
+          data-onclock={onClockNow || undefined}
+          onClick={scrollToCurrent}
+          aria-label="Go to current pick"
+        >
+          <span className="draft-log-clock-banner-label">Round</span>
+          <strong className="draft-log-clock-banner-pick">{roundPick}</strong>
+          {onClockNow && (
+            <span className="draft-log-clock-banner-status" data-onclock="true">On the clock</span>
+          )}
+          {showCountdown && (
+            <span className="draft-log-clock-banner-status">{picksUntilUserTurn} until your turn</span>
+          )}
+          <span className="draft-log-clock-banner-jump" aria-hidden="true">Jump to pick ↓</span>
+        </button>
+      )}
     </section>
   );
 });

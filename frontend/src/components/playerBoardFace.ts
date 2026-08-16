@@ -11,14 +11,33 @@ export interface PlayerBoardFaceProps {
   rank: number;
   adp?: number | null;
   adpBoard?: readonly AdpEntry[];
+  /** Which upstream produced the ADP shown on the face (`AdpEntry.adpSource`), for
+   * the honest per-player label. The ESPN session board is a mixed source (native
+   * ESPN head + Sleeper-tail splice), so this must come from the player's own board
+   * entry — never a board-wide "ESPN" badge. */
+  adpSource?: AdpEntry['adpSource'] | null;
   fantasyPros?: FantasyProsStars;
   usage?: PlayerUsage;
   depthRole?: TeamDepthRole | null;
   avgPointsPerGame?: number | null;
+  /** Off-clock/market fallback when `recommendation` is null (see boardFaceValues) — an engine
+   * recommendation's own `projectedPoints` always wins when present. */
+  projectedPoints?: number | null;
+  /** Off-clock/market fallback when `recommendation` is null — an engine recommendation's own
+   * `availableNextPickProbability` always wins when present. */
+  availableNextPickProbability?: number | null;
 }
 
 export function formatBoardStat(value: number | null | undefined): string {
   return value == null ? '\u2014' : value.toFixed(1);
+}
+
+/** Short display name for an ADP provenance (`adpSource`), or null when unknown. */
+export function adpSourceLabel(source: AdpEntry['adpSource'] | null | undefined): string | null {
+  if (source === 'espn') return 'ESPN';
+  if (source === 'sleeper') return 'Sleeper';
+  if (source === 'ffc') return 'FFC';
+  return null;
 }
 
 export function boardUsageStat(position: string | null | undefined, usage: PlayerUsage | undefined): { label: string; value: string } | null {
@@ -29,12 +48,17 @@ export function boardUsageStat(position: string | null | undefined, usage: Playe
   return null;
 }
 
-export function boardFaceValues({ playerId, recommendation, player, adp, adpBoard, fantasyPros, usage, depthRole, avgPointsPerGame }: PlayerBoardFaceProps) {
+export function boardFaceValues({
+  playerId, recommendation, player, adp, adpBoard, adpSource, fantasyPros, usage, depthRole, avgPointsPerGame,
+  projectedPoints, availableNextPickProbability,
+}: PlayerBoardFaceProps) {
   const isRoleless = player?.position === 'K' || player?.position === 'DEF';
   return {
     name: player?.name ?? playerId,
-    projectionValue: recommendation?.projectedPoints ?? null,
+    projectionValue: recommendation?.projectedPoints ?? projectedPoints ?? null,
     adpValue: recommendation?.availabilityAdp ?? adp ?? null,
+    adpSourceLabel: adpSourceLabel(adpSource),
+    availabilityValue: recommendation?.availableNextPickProbability ?? availableNextPickProbability ?? null,
     positionalRank: displayPositionalRank(fantasyPros?.positionRank, adpPositionalRank(playerId, player?.position, adpBoard)),
     usageStat: boardUsageStat(player?.position, usage),
     statusTag: player ? playerStatusTag(player, usage) : null,

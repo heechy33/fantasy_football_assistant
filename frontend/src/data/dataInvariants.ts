@@ -581,14 +581,14 @@ export function validateAdpRanges(entries: AdpEntry[]): ValidationIssue[] {
   return issues;
 }
 
-/** `high`/`low`/`timesDrafted` are `null`, not a real 0, when a source (Sleeper's lobby ADP) doesn't
+/** `high`/`low`/`timesDrafted` are `null`, not a real 0, when a source (Sleeper's lobby ADP, or ESPN's leaguedefaults feed) doesn't
  * expose them at all — see AdpEntry's doc. Checks the provenance tags are one of the declared
  * values and that each source's nullability contract holds: FFC always carries observed population
- * fields; Sleeper always carries fitted stdev with null population fields. */
+ * fields; Sleeper and ESPN always carry fitted stdev with null population fields. */
 export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const entry of entries) {
-    if (entry.adpSource !== 'sleeper' && entry.adpSource !== 'ffc') {
+    if (entry.adpSource !== 'sleeper' && entry.adpSource !== 'ffc' && entry.adpSource !== 'espn') {
       issues.push({ check: 'adp-source-valid', detail: `${entry.name} has invalid adpSource ${String(entry.adpSource)}` });
     }
     if (entry.stdevSource !== 'observed' && entry.stdevSource !== 'fitted') {
@@ -613,17 +613,17 @@ export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
         });
       }
     }
-    if (entry.adpSource === 'sleeper') {
+    if (entry.adpSource === 'sleeper' || entry.adpSource === 'espn') {
       if (entry.stdevSource !== 'fitted') {
         issues.push({
-          check: 'adp-sleeper-stdev-fitted',
-          detail: `${entry.name} is adpSource 'sleeper' but stdevSource is ${entry.stdevSource}`,
+          check: entry.adpSource === 'espn' ? 'adp-espn-stdev-fitted' : 'adp-sleeper-stdev-fitted',
+          detail: `${entry.name} is adpSource '${entry.adpSource}' but stdevSource is ${entry.stdevSource}`,
         });
       }
       if (entry.high != null || entry.low != null || entry.timesDrafted != null) {
         issues.push({
-          check: 'adp-sleeper-population-absent',
-          detail: `${entry.name} is adpSource 'sleeper' but has high/low/timesDrafted set`,
+          check: entry.adpSource === 'espn' ? 'adp-espn-population-absent' : 'adp-sleeper-population-absent',
+          detail: `${entry.name} is adpSource '${entry.adpSource}' but has high/low/timesDrafted set`,
         });
       }
     }

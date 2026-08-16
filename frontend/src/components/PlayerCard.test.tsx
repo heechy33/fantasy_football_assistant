@@ -55,6 +55,27 @@ describe('PlayerCard with a recommendation', () => {
     expect(screen.getByText('20.0')).toBeInTheDocument();
   });
 
+  it('labels the ADP face value with the player\'s own board source when known', () => {
+    render(
+      <PlayerCard
+        playerId="rb2"
+        recommendation={baseRecommendation()}
+        player={player}
+        rank={2}
+        adpSource="espn"
+        onViewDetails={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('20.0')).toBeInTheDocument();
+    expect(screen.getByText('ESPN')).toBeInTheDocument();
+  });
+
+  it('omits the ADP source label when provenance is unknown', () => {
+    render(<PlayerCard playerId="rb2" recommendation={baseRecommendation()} player={player} rank={2} onViewDetails={vi.fn()} />);
+    expect(screen.queryByText('ESPN')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sleeper')).not.toBeInTheDocument();
+  });
+
   it('prefers FantasyPros positional rank and falls back to ADP rank', () => {
     const { rerender } = render(
       <PlayerCard
@@ -287,15 +308,39 @@ describe('PlayerCard with a recommendation', () => {
 });
 
 describe('PlayerCard with recommendation: null (market-only row)', () => {
-  it('renders a null-safe "no projection" data state instead of score/action/meter', () => {
+  it('renders a null-safe data state instead of score/action/meter, with no "No projection" text', () => {
     render(<PlayerCard playerId="rb2" recommendation={null} player={player} rank={4} onViewDetails={vi.fn()} />);
     expect(screen.getByText('#4')).toBeInTheDocument();
     expect(screen.getByText('Two')).toBeInTheDocument();
     expect(screen.getAllByText('\u2014')).toHaveLength(3);
-    expect(screen.getByText('No projection \u2014 ADP only.')).toBeInTheDocument();
+    expect(screen.queryByText(/No projection/)).not.toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /Value:/ })).not.toBeInTheDocument();
     expect(screen.queryByText('Take now')).not.toBeInTheDocument();
     expect(screen.queryByRole('meter')).not.toBeInTheDocument();
+  });
+
+  it('shows the projected points fallback for a market-only row with a known projection', () => {
+    render(
+      <PlayerCard playerId="rb2" recommendation={null} player={player} rank={4} adp={45.2} projectedPoints={88.5} onViewDetails={vi.fn()} />,
+    );
+    expect(screen.getByText('88.5')).toBeInTheDocument();
+    expect(screen.queryByText(/No projection/)).not.toBeInTheDocument();
+  });
+
+  it('renders the next-pick availability meter from the fallback prop when recommendation is null', () => {
+    render(
+      <PlayerCard
+        playerId="rb2"
+        recommendation={null}
+        player={player}
+        rank={4}
+        adp={45.2}
+        availableNextPickProbability={0.42}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    const meter = screen.getByRole('meter');
+    expect(meter).toHaveAttribute('aria-valuenow', '42');
   });
 
   it('still opens details when a market-only card is clicked', async () => {

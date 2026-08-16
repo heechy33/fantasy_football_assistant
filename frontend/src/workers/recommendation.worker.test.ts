@@ -130,6 +130,14 @@ const s2Of = (requestId: number) => (m: RecommendationWorkerResponse): boolean =
 const stageCOf = (requestId: number) => (m: RecommendationWorkerResponse): boolean =>
   m.type === 'result' && m.phase === 'stageC' && m.requestId === requestId;
 
+// `new Response(string)` defaults to `Content-Type: text/plain` — real static hosts (Vite's dev
+// server, SWA's configured `.json` mime type) set `application/json` for these files, which
+// adpBoard.ts's isJsonResponse now relies on to distinguish a real board from an HTML SPA
+// fallback. Explicit here so the mock matches actual server behavior.
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });
+}
+
 let scope: WorkerScope;
 
 beforeEach(() => {
@@ -143,7 +151,7 @@ beforeEach(() => {
     else if (url.endsWith('/data/projections-season.json')) payload = projections;
     else if (url.endsWith('/data/adp-ppr.json')) payload = adp;
     else throw new Error(`Unexpected fetch: ${url}`);
-    return new Response(JSON.stringify(payload), { status: 200 });
+    return jsonResponse(payload);
   }));
 });
 
@@ -154,7 +162,7 @@ afterEach(() => {
 async function initWorker(): Promise<void> {
   await import('../workers/recommendation.worker');
   expect(scope.onmessage).not.toBeNull();
-  scope.onmessage?.({ data: { type: 'init', staticVersion: 1, adpFormat: 'ppr' } });
+  scope.onmessage?.({ data: { type: 'init', staticVersion: 1, adpBoardKey: 'ppr', adpFormat: 'ppr' } });
   await waitFor(() => scope.posts.some((m) => m.type === 'ready'));
 }
 
@@ -194,6 +202,66 @@ describe('recommendation.worker cooperative cancellation', () => {
 
     await waitFor(() => scope.posts.some(stageCOf(1)));
     expect(scope.posts.filter(stageCOf(1))).toHaveLength(1);
+  });
+});
+
+describe('recommendation.worker ESPN ADP board selection', () => {
+  it('fetches adp-espn-ppr.json when init carries adpBoardKey espn-ppr', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+      const url = String(input);
+      let payload: unknown;
+      if (url.endsWith('/data/players.json')) payload = players;
+      else if (url.endsWith('/data/projections-season.json')) payload = projections;
+      else if (url.endsWith('/data/adp-espn-ppr.json')) payload = adp;
+      else throw new Error(`Unexpected fetch: ${url}`);
+      return jsonResponse(payload);
+    }));
+
+    await import('../workers/recommendation.worker');
+    scope.onmessage?.({ data: { type: 'init', staticVersion: 1, adpBoardKey: 'espn-ppr', adpFormat: 'ppr' } });
+    await waitFor(() => scope.posts.some((m) => m.type === 'ready'));
+    expect(scope.posts).toContainEqual(expect.objectContaining({ type: 'ready', staticVersion: 1 }));
+  });
+
+  it('falls back to adp-ppr.json when the espn board 404s (fail-open)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+      const url = String(input);
+      let payload: unknown;
+      if (url.endsWith('/data/players.json')) payload = players;
+      else if (url.endsWith('/data/projections-season.json')) payload = projections;
+      else if (url.endsWith('/data/adp-ppr.json')) payload = adp;
+      else if (url.endsWith('/data/adp-espn-ppr.json')) return new Response('nope', { status: 404 });
+      else throw new Error(`Unexpected fetch: ${url}`);
+      return jsonResponse(payload);
+    }));
+
+    await import('../workers/recommendation.worker');
+    scope.onmessage?.({ data: { type: 'init', staticVersion: 1, adpBoardKey: 'espn-ppr', adpFormat: 'ppr' } });
+    await waitFor(() => scope.posts.some((m) => m.type === 'ready'));
+    expect(scope.posts).toContainEqual(expect.objectContaining({ type: 'ready', staticVersion: 1 }));
+  });
+
+  // Regression: a missing /data/adp-espn-ppr.json 200s with the SPA-fallback HTML page on Vite's
+  // dev server (and any host without SWA's /data/* navigationFallback exclusion) instead of
+  // 404ing — see adpBoard.ts's isJsonResponse doc. Before that fix this HTML response.json() throw
+  // escaped fetchStaticData entirely and the worker never posted 'ready'.
+  it('falls back to adp-ppr.json when the espn board 200s with the SPA-fallback HTML page instead of 404ing', async () => {
+    const htmlFallback = new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+      const url = String(input);
+      let payload: unknown;
+      if (url.endsWith('/data/players.json')) payload = players;
+      else if (url.endsWith('/data/projections-season.json')) payload = projections;
+      else if (url.endsWith('/data/adp-ppr.json')) payload = adp;
+      else if (url.endsWith('/data/adp-espn-ppr.json')) return htmlFallback;
+      else throw new Error(`Unexpected fetch: ${url}`);
+      return jsonResponse(payload);
+    }));
+
+    await import('../workers/recommendation.worker');
+    scope.onmessage?.({ data: { type: 'init', staticVersion: 1, adpBoardKey: 'espn-ppr', adpFormat: 'ppr' } });
+    await waitFor(() => scope.posts.some((m) => m.type === 'ready'));
+    expect(scope.posts).toContainEqual(expect.objectContaining({ type: 'ready', staticVersion: 1 }));
   });
 });
 

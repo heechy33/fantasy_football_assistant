@@ -27,10 +27,11 @@ from match import MatchKey, match_named_row, normalize_position, normalize_team
 
 FANTASYPROS_STARS_SCHEMA_VERSION = 1
 
-# Exact header the supplied CSV uses, including the trailing spaces on
-# "UPSIDE " and "BUST " — verified locally (see phase plan's "Evidence
-# collected before implementation"). A renamed/reordered header is schema
-# drift, not something to silently tolerate.
+# Exact header the current (2026) FantasyPros export uses, including the
+# trailing spaces on "UPSIDE " and "BUST " and the renamed "SOS SEASON" /
+# "ECR VS. ADP" columns (the 2025-era export used "SOS" and "ECR VS ADP").
+# Verified against the 41628-byte 2026-08-15 export. A renamed/reordered
+# header is schema drift, not something to silently tolerate.
 _REQUIRED_HEADERS = (
     "RK",
     "TIERS",
@@ -39,8 +40,8 @@ _REQUIRED_HEADERS = (
     "POS",
     "UPSIDE ",
     "BUST ",
-    "SOS",
-    "ECR VS ADP",
+    "SOS SEASON",
+    "ECR VS. ADP",
 )
 
 _STAR_WORDS = {
@@ -157,8 +158,8 @@ def parse_rankings_csv(text: str) -> tuple[list[FantasyProsRow], dict[str, Any]]
                 position_rank=position_rank,
                 upside=parse_star(raw.get("UPSIDE ")),
                 bust=parse_star(raw.get("BUST ")),
-                sos=parse_star(raw.get("SOS"), allow_zero=True),
-                ecr_vs_adp=parse_signed_int(raw.get("ECR VS ADP")),
+                sos=parse_star(raw.get("SOS SEASON"), allow_zero=True),
+                ecr_vs_adp=parse_signed_int(raw.get("ECR VS. ADP")),
             )
         )
 

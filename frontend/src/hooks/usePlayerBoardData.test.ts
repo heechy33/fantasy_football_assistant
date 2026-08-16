@@ -43,7 +43,7 @@ const VALID_ADP = {
 };
 
 function jsonOk(body: unknown) {
-  return { ok: true, json: () => Promise.resolve(body) };
+  return { ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: () => Promise.resolve(body) };
 }
 
 beforeEach(() => {
@@ -70,7 +70,7 @@ describe('usePlayerBoardData FantasyPros effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.players).toEqual(PLAYERS));
     await waitFor(() => expect(result.current.fantasyProsStatus).toBe('unavailable'));
     expect(result.current.fantasyProsArtifact).toBeNull();
@@ -91,7 +91,7 @@ describe('usePlayerBoardData FantasyPros effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.fantasyProsStatus).toBe('unavailable'));
     expect(result.current.fantasyProsArtifact).toBeNull();
   });
@@ -108,7 +108,7 @@ describe('usePlayerBoardData FantasyPros effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.fantasyProsStatus).toBe('ready'));
     expect(result.current.fantasyProsArtifact?.source.file).toBe('FantasyPros_2026_Draft_ALL_Rankings.csv');
     expect(result.current.players).toEqual(PLAYERS);
@@ -128,7 +128,7 @@ describe('usePlayerBoardData provider-projections effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.providerProjectionsStatus).toBe('unavailable'));
     expect(result.current.providerProjectionsArtifact).toBeNull();
     expect(result.current.players).toEqual(PLAYERS);
@@ -155,7 +155,7 @@ describe('usePlayerBoardData provider-projections effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.providerProjectionsStatus).toBe('ready'));
     expect(result.current.providerProjectionsArtifact?.players['1001']?.sleeper?.rush_yd).toBe(100);
     expect(result.current.players).toEqual(PLAYERS);
@@ -175,7 +175,7 @@ describe('usePlayerBoardData per-site ADP effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.adpProvidersStatus).toBe('unavailable'));
     expect(result.current.adpProvidersArtifact).toBeNull();
     expect(result.current.players).toEqual(PLAYERS);
@@ -194,10 +194,81 @@ describe('usePlayerBoardData per-site ADP effect', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => usePlayerBoardData('ppr'));
+    const { result } = renderHook(() => usePlayerBoardData('ppr', 'ppr'));
     await waitFor(() => expect(result.current.adpProvidersStatus).toBe('ready'));
     expect(result.current.adpProvidersArtifact?.source.emptyColumns).toEqual(['NFL']);
     expect(result.current.adpProvidersArtifact?.players['1001']?.adp?.espn).toBe(14.5);
     expect(result.current.players).toEqual(PLAYERS);
   });
 });
+
+describe('usePlayerBoardData ESPN board selection', () => {
+  it('fetches adp-espn-ppr.json for an espn-ppr board key and reports the resolved key', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/data/players.json') return jsonOk(PLAYERS);
+      if (url === '/data/projections-season.json') return jsonOk([]);
+      if (url === '/data/adp-espn-ppr.json') return jsonOk([]);
+      if (url === '/data/player-usage.json') return jsonOk({});
+      if (url === '/data/fantasypros-stars.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      if (url === '/data/fantasypros-adp.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      if (url === '/data/projections-providers.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      return { ok: false, status: 404, json: () => Promise.resolve(null) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => usePlayerBoardData('espn-ppr', 'ppr'));
+    await waitFor(() => expect(result.current.players).toEqual(PLAYERS));
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-espn-ppr.json');
+    expect(result.current.resolvedAdpKey).toBe('espn-ppr');
+    expect(result.current.loadError).toBeNull();
+  });
+
+  it('falls back to adp-ppr.json and reports the format key when the espn board is missing (fail-open)', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/data/players.json') return jsonOk(PLAYERS);
+      if (url === '/data/projections-season.json') return jsonOk([]);
+      if (url === '/data/adp-espn-ppr.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      if (url === '/data/adp-ppr.json') return jsonOk([]);
+      if (url === '/data/player-usage.json') return jsonOk({});
+      if (url === '/data/fantasypros-stars.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      if (url === '/data/fantasypros-adp.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      if (url === '/data/projections-providers.json') return { ok: false, status: 404, json: () => Promise.resolve(null) };
+      return { ok: false, status: 404, json: () => Promise.resolve(null) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => usePlayerBoardData('espn-ppr', 'ppr'));
+    await waitFor(() => expect(result.current.players).toEqual(PLAYERS));
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-espn-ppr.json');
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-ppr.json');
+    expect(result.current.resolvedAdpKey).toBe('ppr');
+    expect(result.current.loadError).toBeNull();
+  });
+
+  // Regression: Vite's dev server (and any static host without SWA's `/data/*`
+  // navigationFallback exclusion) 200s a missing /data/*.json with index.html's body instead of
+  // 404ing — before adpBoard.ts's isJsonResponse check, that HTML response.json() throw escaped
+  // the whole Promise.all and permanently showed "Projection board is unavailable" for the entire
+  // draft, never just falling back to the format board. Caught during the 2026-08-15 mock draft.
+  it('falls back to adp-ppr.json when the espn board 200s with the SPA-fallback HTML page instead of 404ing', async () => {
+    const htmlFallback = { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/html' }), json: () => Promise.reject(new SyntaxError('Unexpected token <')) };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/data/players.json') return jsonOk(PLAYERS);
+      if (url === '/data/projections-season.json') return jsonOk([]);
+      if (url === '/data/adp-espn-ppr.json') return htmlFallback;
+      if (url === '/data/adp-ppr.json') return jsonOk([]);
+      if (url === '/data/player-usage.json') return jsonOk({});
+      return htmlFallback;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => usePlayerBoardData('espn-ppr', 'ppr'));
+    await waitFor(() => expect(result.current.players).toEqual(PLAYERS));
+    expect(result.current.resolvedAdpKey).toBe('ppr');
+    expect(result.current.loadError).toBeNull();
+  });
+});
+

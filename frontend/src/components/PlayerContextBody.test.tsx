@@ -77,6 +77,23 @@ describe('PlayerContextBody', () => {
     expect(screen.queryByText(/recorded.*Fantasy Football Calculator mock drafts/)).not.toBeInTheDocument();
   });
 
+  it('discloses ESPN as the source for an ESPN default-PPR board', () => {
+    render(
+      <PlayerContextBody
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        recommendation={baseRecommendation()}
+        adpDisclosure={{ source: 'espn', format: 'ppr' }}
+      />,
+    );
+    expect(screen.getByText('Availability model (ESPN default-PPR ADP)')).toBeInTheDocument();
+    expect(screen.getByText(/ESPN's own default-PPR average draft position/)).toBeInTheDocument();
+    expect(screen.getByText(/truncated at the detected censoring point/)).toBeInTheDocument();
+    expect(screen.queryByText(/Sourced from Sleeper's own draft-lobby ADP/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/recorded.*Fantasy Football Calculator mock drafts/)).not.toBeInTheDocument();
+  });
+
   it('renders the team-depth-role provenance sentence when a labeled role is supplied', () => {
     const depthRole: TeamDepthRole = {
       playerId: 'rb1', label: 'RB1', headline: 'RB1 · BUF RB',

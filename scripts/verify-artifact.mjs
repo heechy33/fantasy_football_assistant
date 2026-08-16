@@ -1,7 +1,7 @@
 // Fails the build if the production frontend artifact is missing files the
 // deployed app needs, or if it contains data it must never ship. Run after
 // `npm run build`, before deploying.
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const distDir = join(process.cwd(), 'frontend', 'dist');
@@ -31,7 +31,19 @@ const required = [
 // it silently keeps working.
 const mustNotExist = [join('data', 'history')];
 
-const missing = required.filter((rel) => !existsSync(join(distDir, rel)));
+// The ESPN default-PPR board (`data/adp-espn-ppr.json`) is additive and
+// fail-open: the pipeline commits it only when the ESPN fetch+parse
+// succeeded, and records a manifest `espn_adp_ppr` entry with status 'ok'
+// exactly in that case (any failure writes an error entry instead and leaves
+// `adp-ppr.json` untouched). Requiring the file unconditionally would break
+// the build on any ESPN fetch failure, defeating fail-open — so the
+// requirement is gated on the committed manifest's status instead.
+const espnManifest = readJson(join('data', 'manifest.json'));
+const espnAdpOk = espnManifest?.sources?.['espn_adp_ppr']?.status === 'ok';
+const espnAdpRequired = espnAdpOk ? [join('data', 'adp-espn-ppr.json')] : [];
+
+const missing = required.filter((rel) => !existsSync(join(distDir, rel)))
+  .concat(espnAdpRequired.filter((rel) => !existsSync(join(distDir, rel))));
 const forbidden = mustNotExist.filter((rel) => existsSync(join(distDir, rel)));
 
 if (missing.length > 0 || forbidden.length > 0) {
@@ -42,3 +54,20 @@ if (missing.length > 0 || forbidden.length > 0) {
 }
 
 console.log(`Artifact verification passed: all ${required.length} required files present in ${distDir}, and data/history/ correctly excluded`);
+if (espnAdpOk) {
+  console.log(`Artifact verification: manifest reports espn_adp_ppr ok — data/adp-espn-ppr.json present in ${distDir}`);
+} else {
+  console.log('Artifact verification: manifest reports espn_adp_ppr error/absent — ESPN ADP board not required (fail-open)');
+}
+
+/** Read and parse a JSON file from dist, or null when missing/unparseable. */
+function readJson(rel) {
+  const path = join(distDir, rel);
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+

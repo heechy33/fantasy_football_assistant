@@ -12,7 +12,7 @@ from pathlib import Path
 
 import build_data
 
-_HEADER = "RK,TIERS,PLAYER NAME,TEAM,POS,UPSIDE ,BUST ,SOS,ECR VS ADP"
+_HEADER = "RK,TIERS,PLAYER NAME,TEAM,POS,UPSIDE ,BUST ,SOS SEASON,ECR VS. ADP"
 
 _SLEEPER_PLAYERS = {
     "1": {"full_name": "Ja'Marr Chase", "position": "WR", "team": "CIN"},
@@ -46,8 +46,11 @@ def test_unset_dir_leaves_existing_local_artifact_alone(tmp_path, capsys):
     assert "[skip]" in capsys.readouterr().out
 
 
-def test_missing_directory_warns_and_suppresses_stale_artifact(tmp_path, capsys):
-    stale = {"schemaVersion": 1}
+def test_missing_directory_warns_and_keeps_stale_artifact(tmp_path, capsys):
+    # Fail-open: an unreadable/absent source must warn but never delete the
+    # developer's last good local decoration (regression: a missing stars CSV
+    # used to wipe data/fantasypros-stars.json entirely).
+    stale = {"schemaVersion": 1, "keep": True}
     (tmp_path / "fantasypros-stars.json").write_text(json.dumps(stale), encoding="utf-8")
     missing_dir = tmp_path / "does-not-exist"
 
@@ -55,24 +58,24 @@ def test_missing_directory_warns_and_suppresses_stale_artifact(tmp_path, capsys)
         str(missing_dir), "2026", _SLEEPER_PLAYERS, tmp_path, "2026-08-12T00:00:00Z",
     )
 
-    assert not (tmp_path / "fantasypros-stars.json").exists()
+    assert json.loads((tmp_path / "fantasypros-stars.json").read_text(encoding="utf-8")) == stale
     out = capsys.readouterr().out
     assert "[warn]" in out
     assert str(missing_dir.resolve()) not in out
     assert "[fantasypros-dir]" in out
 
 
-def test_missing_file_in_existing_directory_warns_and_suppresses_stale(tmp_path, capsys):
+def test_missing_file_in_existing_directory_warns_and_keeps_stale(tmp_path, capsys):
     fp_dir = tmp_path / "fp"
     fp_dir.mkdir()
-    stale = {"schemaVersion": 1}
+    stale = {"schemaVersion": 1, "keep": True}
     (tmp_path / "fantasypros-stars.json").write_text(json.dumps(stale), encoding="utf-8")
 
     build_data._run_optional_fantasypros_stars(
         str(fp_dir), "2026", _SLEEPER_PLAYERS, tmp_path, "2026-08-12T00:00:00Z",
     )
 
-    assert not (tmp_path / "fantasypros-stars.json").exists()
+    assert json.loads((tmp_path / "fantasypros-stars.json").read_text(encoding="utf-8")) == stale
     out = capsys.readouterr().out
     assert "[warn]" in out
     assert str(fp_dir.resolve()) not in out

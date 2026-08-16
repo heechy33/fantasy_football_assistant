@@ -156,6 +156,17 @@ export interface DraftPicks {
   onTheClock: OnTheClock | null;
   /** Server timestamp (ms). Drives the stale-data banner. */
   fetchedAt: number;
+  /**
+   * ESPN bridge only: a human-readable desync signal — "the tab was opened after the draft
+   * started" (unreliable order) or "N picks were missed" (DOM pick numbers run past the stream
+   * count). Flags only: picks are never renumbered or dropped. Null/absent for providers with a
+   * full-history GET (Sleeper), where this failure mode cannot occur.
+   */
+  desyncReason?: string | null;
+  /** ESPN bridge only (Step 6): count of `picks` with `unattributed: true` — the stream's
+   * absolute-pick offset was not confirmed for this normalization pass. `0`/absent once attribution
+   * resolves. Drives a dedicated SessionAlerts entry distinct from `desyncReason`. */
+  unattributedCount?: number;
 }
 
 /**
@@ -164,21 +175,84 @@ export interface DraftPicks {
  * comes from the plaintext JOINED/TOKEN frames; `leagueId` from TOKEN (or the socket URL).
  */
 export interface EspnLivePick {
+  /** 1-based arrival index — the extension's own counter from when the socket was hooked, equal to
+   * the draft overall only when the tab was open from pick 1. */
   overall: number;
+  /** ESPN league team id from the SELECTED frame's first token. NOT a draft position — recon
+   * (2026-08-15) proved the draft order is a random permutation of team ids, and the adapter
+   * derives the position via espnDraftOrder. */
   slot: number;
   /** ESPN player id from the SELECTED frame (negative synthetics for D/ST — never canonical). */
   playerId: string;
+  /** Raw third token from the SELECTED frame (observed 2, 4, 5 in recon). Position-shaped but its
+   * enum is UNVERIFIED — never hard-decoded. The adapter self-calibrates a posToken -> position
+   * mapping from picks that already resolved via ids.espn, then applies it to unresolved picks. */
+  posToken?: number | null;
   /** Trailing {GUID} marks the user's own pick; retained for recon, unused by the app. */
   guid?: string | null;
   source?: string;
 }
 
+/** One [data-pick-number] row captured from the ESPN draft DOM, merged into the live snapshot by
+ * pickNumber (Step B). Strictly better than the static D/ST id map: it resolves D/ST and the
+ * non-ids.espn tail through the adapter's name/position/team tiers. */
+export interface EspnDomPick {
+  /** Absolute pick number shown by the row (the ESPN draft overall, not an arrival index). */
+  pickNumber: number;
+  /** Collapsed textContent of the row container, e.g.
+   * "140Jake BatesDETKKoston's Top-Notch Team141141.2undo". */
+  text: string;
+  /** Direct-child text segments of the row container, captured now so a future run can drop the
+   * text regex. */
+  segments: string[];
+  /** Opportunistic bonus join key for the Step 6 offset derivation. Recon (2026-08-15) confirmed
+   * real pick rows carry NO `data-player-id` (only the Queue-button suggestions do), so this is
+   * expected to be null on every real row — nothing in the offset derivation depends on it. */
+  playerId?: string | null;
+}
+
 export interface EspnLiveSnapshot {
   schemaVersion: number;
+  /** Monotonic draft-generation counter: the extension increments it on every league-change reset,
+   * so the app can distinguish a clean switch (closed old mock, opened new mock) from a dirty
+   * two-tab merge without inferring it from stream length. Absent on pre-reset snapshots; app code
+   * must read it as `0` when undefined. As of Step 7, a schema-version reset (an incompatible prior
+   * snapshot shape) ALSO bumps epoch — see `resetReason`. */
+  epoch?: number;
+  /** Why the extension last reset this snapshot to empty: `'new'` (no prior snapshot existed),
+   * `'league-change'` (a different league's TOKEN/SELECTED arrived), or `'schema-change'` (the
+   * stored shape didn't match `LIVE_SCHEMA_VERSION`). Absent on pre-Step-7 snapshots. Lets the app
+   * distinguish a genuine new draft from a silent mid-draft restart instead of re-deriving pick 1
+   * from wherever the stream happens to resume. */
+  resetReason?: 'new' | 'league-change' | 'schema-change';
   streamPicks: EspnLivePick[];
   mySlot: number | null;
   leagueId: string | null;
   lastHeartbeatAt: number | null;
+  /** DOM pick rows merged by pickNumber (Step B). Absent on pre-v2 snapshots. */
+  domPicks?: EspnDomPick[];
+  /** Running max of every DOM `pickNumber` ever merged into `domPicks` this snapshot's life —
+   * secondary board-depth signal for `espnOffset.ts` when `currentPickNumber` isn't available yet. */
+  domMaxSeen?: number;
+  /** `domMaxSeen` (or the on-the-clock reading minus one) at the instant the FIRST stream pick
+   * landed — the primary absolute-offset estimate for a mid-draft attach. `0` only when
+   * `domSampledBeforeStream` is also true (a confirmed-empty board); otherwise `null`, meaning no
+   * estimate exists yet. See PLAN "espnOffset.ts" / Finding B (current-pick testid). */
+  domMaxAtStreamStart?: number | null;
+  /** True once the DOM has been reconciled at least once while `streamPicks` was still empty.
+   * Distinguishes "the board was confirmed empty" from "we have not looked yet" — both would
+   * otherwise read as `domMaxAtStreamStart === 0` and risk a false offset-0 confirmation on a
+   * mid-draft attach (the 400ms DOM-reconcile debounce can lose the race against the first SELECTED
+   * frame). */
+  domSampledBeforeStream?: boolean;
+  /** The DOM's own on-the-clock absolute pick number, from `[data-testid="current-pick"]` (e.g.
+   * "On the Clock: Pick 146Team 3"). Present on the very first DOM reconcile, unlike `domMaxSeen`
+   * which only accumulates from the (at most 4-row) pick-number ticker — the fastest offset signal
+   * available. */
+  currentPickNumber?: number | null;
+  /** The ESPN team id named in the on-the-clock reading, when the league still uses ESPN's default
+   * "Team N" names. A bonus cross-check only; null whenever the league has custom team names. */
+  currentPickTeam?: number | null;
 }
 
 export interface Pick {
@@ -199,6 +273,16 @@ export interface Pick {
   providerPlayerId: string;
   /** Raw name from the provider. Lets the UI show something useful when playerId is null. */
   providerPlayerName?: string;
+  /** ESPN bridge only: the raw ESPN league team id that made this pick (SELECTED first token).
+   * The normalized `teamId`/`slot` are draft positions; this preserves the team id for display. */
+  providerTeamId?: string;
+  /** ESPN bridge only (Step 6): true when the stream's absolute-pick offset was not confirmed at
+   * normalization time, so `slot`/`teamId` could not be derived and are zeroed (`0`/`''`) rather
+   * than laundered from the raw ESPN team id. `overall` is a best-effort arrival-order ordinal in
+   * this case, not a confirmed absolute pick number. The player is still resolved where possible and
+   * the pick still appears — never silently dropped (CLAUDE.md) — but callers that key off
+   * `slot`/`teamId` (rosters, pick-boundary math) must skip these until attribution resolves. */
+  unattributed?: true;
   /** Auction leagues only. */
   amount?: number;
 }
@@ -592,7 +676,9 @@ export interface AdpEntry {
    *
    * When `stdevSource` is `'fitted'` this is a synthesized estimate, not an
    * observed one (see `stdevSource`) â€” Sleeper's draft-lobby ADP carries no
-   * dispersion field at all, unlike FFC's.
+   * dispersion field at all, unlike FFC's. The ESPN board's stdev is fitted the
+   * same way: ESPN's public leaguedefaults feed publishes no draft-position
+   * distribution either.
    */
   stdev: number;
   /** Null when the source has no population-shape data (Sleeper's lobby ADP) rather than genuinely
@@ -605,12 +691,16 @@ export interface AdpEntry {
   /** Which upstream produced this entry's adp value. 'sleeper' is Sleeper's own draft-lobby ADP
    * (the population this product actually drafts against); 'ffc' is Fantasy Football Calculator's
    * self-selected mock lobby, kept as the calibration input for `stdevSource: 'fitted'` and as the
-   * automatic fallback when Sleeper's (undocumented) ADP endpoint is unavailable or too sparse. */
-  adpSource: 'sleeper' | 'ffc';
+   * automatic fallback when Sleeper's (undocumented) ADP endpoint is unavailable or too sparse.
+   * 'espn' is ESPN's public default-league average draft position (the `adp-espn-ppr.json` board,
+   * selected only for ESPN sessions) â€” same honesty caveat as Sleeper: no published range or sample
+   * size, so its stdev is also a fitted estimate. */
+  adpSource: 'sleeper' | 'ffc' | 'espn';
   /** 'observed' when `stdev` came directly from the source (FFC). 'fitted' when it was synthesized
    * from FFC's coefficient-of-variation curve applied to a non-FFC adp mean (Sleeper has no
-   * dispersion field) â€” see `pipeline/transform.py`'s `fitted_stdev`. Not a measurement of Sleeper's
-   * actual draft-position spread; treat as experimental until calibrated against captured history. */
+   * dispersion field; ESPN's leaguedefaults feed publishes no draft-position distribution either) â€”
+   * see `pipeline/transform.py`'s `fitted_stdev`. Not a measurement of the source's actual
+   * draft-position spread; treat as experimental until calibrated against captured history. */
   stdevSource: 'observed' | 'fitted';
 }
 
@@ -648,8 +738,9 @@ export interface DataManifest {
        * committed `adp-<format>.json` for this pipeline run. 'ffc-fallback' means Sleeper's ADP
        * endpoint was unavailable or returned too few usable rows, so the UI must disclose the FFC
        * board is active rather than silently keeping a stale "Sleeper" label (see CLAUDE.md's
-       * "never switch sources silently" rule). */
-      activeAdpSource?: 'sleeper' | 'ffc-fallback';
+       * "never switch sources silently" rule). 'espn' is only ever produced on the additive
+       * `adp_active_espn_ppr` entry â€” the ESPN default-PPR board never replaces `adp-ppr.json`. */
+      activeAdpSource?: 'sleeper' | 'ffc-fallback' | 'espn';
       /** Bumped when this source's manifest entry shape changes. */
       schemaVersion: number;
       /**

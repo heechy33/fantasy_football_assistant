@@ -101,11 +101,11 @@ def test_sleeper_fetch_error_carries_previous_provider_rows_as_stale(tmp_path):
     )
     (tmp_path / 'projections-providers.json').write_text(json.dumps(previous), encoding='utf-8')
 
-    with mock.patch('espn_projections.fetch_espn_projections', side_effect=RuntimeError('offline')), \
-            mock.patch('cbs_projections.fetch_cbs_position_page', side_effect=RuntimeError('offline')):
+    with mock.patch('cbs_projections.fetch_cbs_position_page', side_effect=RuntimeError('offline')):
         artifact, _, summary = build_data._run_provider_projections(
             [], {'1'}, season='2026', out_dir=tmp_path, fetched_at='2026-08-13T00:00:00Z',
             sleeper_index={}, espn_id_to_player_id={}, sleeper_error='Sleeper unavailable',
+            espn_payload_error='RuntimeError: offline',
         )
 
     sleeper = next(block for block in artifact['providers'] if block['key'] == 'sleeper')
@@ -121,11 +121,11 @@ def test_malformed_previous_provider_artifact_does_not_break_step(tmp_path):
     (tmp_path / 'projections-providers.json').write_text(
         json.dumps({'providers': 'not-a-list', 'players': []}), encoding='utf-8',
     )
-    with mock.patch('espn_projections.fetch_espn_projections', side_effect=RuntimeError('offline')), \
-            mock.patch('cbs_projections.fetch_cbs_position_page', side_effect=RuntimeError('offline')):
+    with mock.patch('cbs_projections.fetch_cbs_position_page', side_effect=RuntimeError('offline')):
         artifact, _, _ = build_data._run_provider_projections(
             [], set(), season='2026', out_dir=tmp_path, fetched_at='2026-08-13T00:00:00Z',
             sleeper_index={}, espn_id_to_player_id={}, sleeper_error='Sleeper unavailable',
+            espn_payload_error='RuntimeError: offline',
         )
 
     assert {block['key'] for block in artifact['providers']} == {'sleeper', 'espn', 'cbs'}
@@ -139,16 +139,15 @@ def test_provider_projections_step_is_isolated_from_canonical_artifact(tmp_path)
     from unittest import mock
 
     import build_data
-    import espn_projections
 
     canonical = tmp_path / "projections-season.json"
     canonical.write_bytes(b'["unchanged"]')
 
-    with mock.patch.object(espn_projections, "fetch_espn_projections", side_effect=RuntimeError("offline")), \
-            mock.patch("cbs_projections.fetch_cbs_position_page", side_effect=RuntimeError("offline")):
+    with mock.patch("cbs_projections.fetch_cbs_position_page", side_effect=RuntimeError("offline")):
         artifact, source_entries, summary = build_data._run_provider_projections(
             [], set(), season="2026", out_dir=tmp_path, fetched_at="2026-08-13T00:00:00Z",
             sleeper_index={}, espn_id_to_player_id={},
+            espn_payload_error="RuntimeError: offline",
         )
 
     # The canonical FFToday artifact is byte-identical; only the provider file was written.
@@ -202,11 +201,11 @@ def test_cbs_provider_step_writes_block_and_merges_stats(tmp_path):
         return f'<div id="TableBase"><div><table class="TableBase-table"><thead>{header}</thead><tbody>{body}</tbody></table></div></div>'
 
     sleeper_index = {("qb 0", "QB"): "qb0"}
-    with mock.patch('espn_projections.fetch_espn_projections', side_effect=RuntimeError('offline')), \
-            mock.patch('cbs_projections.fetch_cbs_position_page', return_value=_cbs_qb_page()):
+    with mock.patch('cbs_projections.fetch_cbs_position_page', return_value=_cbs_qb_page()):
         artifact, source_entries, summary = build_data._run_provider_projections(
             [], {'qb0'}, season='2026', out_dir=tmp_path, fetched_at='2026-08-13T00:00:00Z',
             sleeper_index=sleeper_index, espn_id_to_player_id={},
+            espn_payload_error='RuntimeError: offline',
         )
 
     cbs_block = next(block for block in artifact['providers'] if block['key'] == 'cbs')
@@ -216,4 +215,210 @@ def test_cbs_provider_step_writes_block_and_merges_stats(tmp_path):
     assert artifact['players']['qb0']['cbs']['pass_yd'] == 3000.0
     assert summary['providers']['cbs']['status'] == 'ok'
     assert source_entries['cbs_projections']['rows'] == 1
+
+
+def _espn_kona_row(full_name, default_position_id, pro_team_id, espn_id, adp):
+    return {
+        "player": {
+            "fullName": full_name,
+            "defaultPositionId": default_position_id,
+            "proTeamId": pro_team_id,
+            "id": espn_id,
+            # No stats[]: ADP lives on ownership, independent of projections.
+            "ownership": {"averageDraftPosition": adp},
+        }
+    }
+
+
+def _espn_kona_payload(head_rows=130):
+    players = [
+        _espn_kona_row(f"Player {i}", 2, 2, str(5000 + i), float(i + 1))
+        for i in range(head_rows)
+    ]
+    # Censored sentinel tail (dense cluster past the honest region).
+    players.extend(
+        _espn_kona_row(f"Sentinel {i}", 2, 2, str(9000 + i), 168.0 + (i % 4) * 0.3)
+        for i in range(400)
+    )
+    return {"players": players}
+
+
+def _mock_main_sources(monkeypatch, tmp_path, fetch_espn):
+    """Minimal main() harness: every upstream except the ESPN fetch (injected)
+    is patched so main() completes and writes artifacts into tmp_path."""
+    from types import SimpleNamespace
+
+    import espn_projections
+    import nflverse_source
+    import sources
+
+    sleeper = {
+        "1": {"full_name": "Test Player", "position": "RB", "fantasy_positions": ["RB"], "team": "BUF", "years_exp": 3},
+        **{
+            str(1000 + i): {
+                "full_name": f"Player {i}", "position": "RB", "fantasy_positions": ["RB"],
+                "team": "BUF", "years_exp": 3, "espn_id": str(5000 + i),
+            }
+            for i in range(130)
+        },
+    }
+    ffc_player = {
+        "name": "Test Player", "position": "RB", "team": "BUF", "adp": 1.0,
+        "stdev": 1.0, "high": 1, "low": 2, "times_drafted": 10, "bye": 7,
+    }
+    monkeypatch.setattr(sources, "fetch_sleeper_players", lambda: sleeper)
+    monkeypatch.setattr(sources, "fetch_dynastyprocess_crosswalk", lambda: [])
+    monkeypatch.setattr(sources, "fetch_ffc_adp_payload", lambda *a, **k: {
+        "players": [ffc_player],
+        "meta": {"total_drafts": 10, "start_date": "2026-08-02", "end_date": "2026-08-09"},
+    })
+    monkeypatch.setattr(sources, "fetch_sleeper_adp", lambda _season: [])
+    monkeypatch.setattr(sources, "fetch_sleeper_weekly_stats", lambda _season, week: {})
+    monkeypatch.setattr(espn_projections, "fetch_espn_projections", fetch_espn)
+
+    class ProjectionProvider:
+        def __init__(self, _):
+            pass
+
+        def load(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                projections=[], source_url="projection-source", fetched_at="now",
+                upstream_updated_at="today", position_rows={}, diagnostics={}, bye_weeks={},
+            )
+
+    monkeypatch.setattr(build_data, "FFTodayProjectionProvider", ProjectionProvider)
+    monkeypatch.setattr(nflverse_source, "loaders", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(nflverse_source, "optional_loaders", lambda: {})
+    monkeypatch.setattr("sys.argv", [
+        "build_data.py", "--out-dir", str(tmp_path), "--coverage-threshold", "0",
+    ])
+
+
+def test_build_espn_adp_board_returns_entries_for_kona_payload(tmp_path):
+    import transform
+
+    entries, diag = build_data._build_espn_adp_board(
+        _espn_kona_payload(), None,
+        cv_bands=transform.fit_adp_cv_bands([]),
+        espn_id_to_player_id={str(5000 + i): str(1000 + i) for i in range(130)},
+        sleeper_index={},
+        valid_player_ids={str(1000 + i) for i in range(130)} | {"1"},
+        fallback_entries=[transform.AdpEntry("1", "Test Player", "RB", "BUF", 1.0, 1.0, 1, 2, 10, 7)],
+    )
+    assert entries is not None
+    assert diag == {"censorCutoff": 165.0, "espnRows": 130, "tailRows": 1}
+    assert len(entries) == 131
+
+
+def test_build_espn_adp_board_fails_open_below_min_rows(tmp_path):
+    import transform
+
+    payload = {"players": [
+        _espn_kona_row("Player 0", 2, 2, "5000", 5.0),
+        _espn_kona_row("Player 1", 2, 2, "5001", 10.0),
+    ]}
+    entries, diag = build_data._build_espn_adp_board(
+        payload, None,
+        cv_bands=transform.fit_adp_cv_bands([]),
+        espn_id_to_player_id={"5000": "1000", "5001": "1001"},
+        sleeper_index={},
+        valid_player_ids={"1000", "1001"},
+        fallback_entries=[],
+    )
+    assert entries is None
+    assert "espnRows 2 < ESPN_ADP_MIN_ROWS 120" in diag["diagnostic"]
+
+
+def test_build_espn_adp_board_fetch_error_and_schema_drift_fail_open(tmp_path):
+    import transform
+
+    entries, diag = build_data._build_espn_adp_board(
+        None, "RuntimeError: offline",
+        cv_bands=transform.fit_adp_cv_bands([]),
+        espn_id_to_player_id={}, sleeper_index={}, valid_player_ids=set(), fallback_entries=[],
+    )
+    assert entries is None
+    assert diag["diagnostic"] == "RuntimeError: offline"
+
+    entries, diag = build_data._build_espn_adp_board(
+        {"players": "nope"}, None,
+        cv_bands=transform.fit_adp_cv_bands([]),
+        espn_id_to_player_id={}, sleeper_index={}, valid_player_ids=set(), fallback_entries=[],
+    )
+    assert entries is None
+    assert "no players array" in diag["diagnostic"]
+
+
+def test_build_espn_adp_board_swallows_degenerate_cutoff(tmp_path):
+    import transform
+
+    players = []
+    for pick in range(1, 101):
+        for _ in range(5):
+            players.append(_espn_kona_row(f"P{pick}", 2, 2, f"id{pick}", float(pick)))
+    for _ in range(500):
+        players.append(_espn_kona_row("Spike", 2, 2, "spike", 41.0))
+    entries, diag = build_data._build_espn_adp_board(
+        {"players": players}, None,
+        cv_bands=transform.fit_adp_cv_bands([]),
+        espn_id_to_player_id={}, sleeper_index={}, valid_player_ids=set(), fallback_entries=[],
+    )
+    assert entries is None
+    assert "censor" in diag["diagnostic"].lower()
+
+
+def test_main_single_kona_fetch_yields_espn_board_and_provider_block(monkeypatch, tmp_path):
+    from unittest import mock
+
+    fetch_espn = mock.Mock(return_value=_espn_kona_payload())
+    _mock_main_sources(monkeypatch, tmp_path, fetch_espn)
+    assert build_data.main() == 0
+
+    # One GET serves both the ADP board and the provider-projections block.
+    assert fetch_espn.call_count == 1
+
+    board = json.loads((tmp_path / "adp-espn-ppr.json").read_text(encoding="utf-8"))
+    assert len(board) == 131  # 130 ESPN head rows + the single FFC tail row
+    assert board[0]["adpSource"] == "espn"
+    assert board[0]["stdevSource"] == "fitted"
+    adps = [entry["adp"] for entry in board]
+    assert adps == sorted(adps)
+    # The censored-region FFC fallback row is clamped to the cutoff (165) and
+    # keeps its own source label — the artifact is honestly mixed.
+    assert board[-1]["adp"] == 165.0
+    assert board[-1]["adpSource"] == "ffc"
+
+    providers = json.loads((tmp_path / "projections-providers.json").read_text(encoding="utf-8"))
+    espn_block = next(block for block in providers["providers"] if block["key"] == "espn")
+    assert espn_block["status"] == "ok"
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["sources"]["espn_adp_ppr"]["status"] == "ok"
+    assert manifest["sources"]["espn_adp_ppr"]["espnRows"] == 130
+    assert manifest["sources"]["espn_adp_ppr"]["tailRows"] == 1
+    assert manifest["sources"]["espn_adp_ppr"]["censorCutoff"] == 165.0
+    assert manifest["sources"]["adp_active_espn_ppr"]["activeAdpSource"] == "espn"
+
+
+def test_main_espn_fetch_failure_leaves_adp_ppr_byte_identical(monkeypatch, tmp_path):
+    from unittest import mock
+
+    import espn_projections
+
+    _mock_main_sources(monkeypatch, tmp_path, mock.Mock(return_value=_espn_kona_payload()))
+    assert build_data.main() == 0
+    baseline = (tmp_path / "adp-ppr.json").read_bytes()
+    assert (tmp_path / "adp-espn-ppr.json").exists()
+
+    # Second run: the ESPN fetch fails -> the Sleeper board is byte-identical
+    # and the stale ESPN board is removed, not left looking current.
+    monkeypatch.setattr(espn_projections, "fetch_espn_projections", mock.Mock(side_effect=RuntimeError("offline")))
+    assert build_data.main() == 0
+    assert (tmp_path / "adp-ppr.json").read_bytes() == baseline
+    assert not (tmp_path / "adp-espn-ppr.json").exists()
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["sources"]["espn_adp_ppr"]["status"] == "error"
+    assert "RuntimeError" in manifest["sources"]["espn_adp_ppr"]["diagnostic"]
+
+
 

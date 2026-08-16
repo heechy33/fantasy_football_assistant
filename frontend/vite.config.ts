@@ -5,6 +5,14 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Pinned so the dev origin never drifts (Vite silently auto-increments past a busy port
+    // otherwise). The ESPN extension's content-script match pattern (`http://localhost/*` in
+    // extension/manifest.json) ignores the port, but the app's session persistence
+    // (state/persistence.ts) is origin-scoped `localStorage` — a drifted port is a different
+    // origin with an empty store, which read as "the bridge stopped syncing" on 2026-08-15.
+    // strictPort fails loudly on a busy 5173 instead of silently moving.
+    port: 5173,
+    strictPort: true,
     proxy: {
       // Local dev: Azure Functions Core Tools serves the API on :7071.
       // `swa start` (used for full local emulation, incl. /.auth/*) proxies

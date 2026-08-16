@@ -28,4 +28,11 @@ describe('ProviderBadge', () => {
     const { container } = render(<ProviderBadge brandKey="sleeper" size="sm" />);
     expect(container.querySelector('.provider-badge')).toHaveAttribute('data-size', 'sm');
   });
+
+  it('renders the committed PNG logo for a brand that only has one', () => {
+    render(<ProviderBadge brandKey="sleeper" />);
+    const img = screen.getByRole('img', { name: 'Sleeper' });
+    expect(img.tagName).toBe('IMG');
+    expect(img.closest('.provider-badge-png')).not.toBeNull();
+  });
 });

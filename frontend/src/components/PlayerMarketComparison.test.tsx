@@ -104,6 +104,8 @@ describe('PlayerMarketComparison', () => {
     expect(values).toEqual(['13.8', '14', '14.1', '14.2', '14.5', '15.2']);
     // CBS is one of the plain provider tiles.
     expect(tiles[0]?.querySelector('.market-tile-name')?.textContent).toBe('CBS');
+    // The FantasyPros snapshot is explicitly disambiguated from the engine board.
+    expect(screen.getByText(/Per-site ADP from FantasyPros/)).toBeInTheDocument();
   });
 
   it('shows the engine ADP and current pick as plain numbers, with no steal/reach badge', () => {
@@ -119,7 +121,7 @@ describe('PlayerMarketComparison', () => {
         fftoday={null}
       />,
     );
-    expect(screen.getByText(/Engine ADP 24 · current pick 18/)).toBeInTheDocument();
+    expect(screen.getByText(/Engine ADP 24 · Sleeper · current pick 18/)).toBeInTheDocument();
     // The five-stage tag ("Mad steal" / "Steal" / "Fair" / "Reach" / "Mad reach")
     // and the "N picks early/past ADP" prose are gone — just the numbers.
     expect(screen.queryByText('Mad steal')).not.toBeInTheDocument();
@@ -167,8 +169,8 @@ describe('PlayerMarketComparison', () => {
         fftoday={null}
       />,
     );
-    expect(screen.getByRole('heading', { name: 'Market ADP' })).toBeInTheDocument();
-    expect(screen.getByText(/Engine ADP 24 · current pick 18/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Market ADP (FantasyPros)' })).toBeInTheDocument();
+    expect(screen.getByText(/Engine ADP 24 · Sleeper · current pick 18/)).toBeInTheDocument();
     expect(screen.queryByText(/Engine · Sleeper/)).not.toBeInTheDocument();
   });
 

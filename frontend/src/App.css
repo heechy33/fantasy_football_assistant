@@ -25,89 +25,91 @@ input { width: 100%; border: 1px solid var(--border-3); border-radius: 7px; padd
 label { display: grid; gap: .4rem; }
 section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); border-radius: 14px; background: var(--surface-1); }
 .app-shell { width: min(1680px, calc(100% - 1.5rem)); margin: 0 auto; padding: 1.5rem 0 3rem; }
-/* Full-bleed navy shell header (TopNav) â€” one seamless strip: hero round.pick, brand + nav,
-   status subline, and session actions. The page content stays centered under it via `.app-shell`;
-   the side padding below mirrors that shell's max-width so the bar's contents line up with the
-   columns. Sticky so the bar stays put while the board scrolls. */
+/* Full-bleed navy shell header (TopNav) â€” a two-tier cockpit. The identity row (brand +
+   Home/Draft Room/Teams tabs) is always present; the status row (league/ADP/pick-count pill, top
+   right) only renders while TopNav is given draft state, which `App` only does on the Draft Room
+   â€” see TopNav's `showStatus`. That's what keeps Home free of draft chrome without a `page` prop
+   inside TopNav itself. The round.pick clock lives in the draft log's own banner now, and the
+   session `â‹¯` menu sits next to the board's card/row toggle â€” both scoped to where the draft
+   content already is, instead of duplicating that state in the header. The page content stays
+   centered under it via `.app-shell`; the side padding below mirrors that shell's max-width so the
+   bar's contents line up with the columns. Sticky so the bar stays put while the board scrolls. */
 .top-nav {
   position: sticky;
   top: 0;
   z-index: 8;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: .35rem 1.25rem;
-  margin-bottom: var(--space-8);
-  padding: .5rem max(.75rem, calc((100vw - 1680px) / 2));
-  border: 0;
+  flex-direction: column;
   border-bottom: 1px solid var(--chrome-border);
-  border-radius: 0;
   background: var(--chrome);
   color: var(--chrome-ink);
 }
-.top-nav-hero {
+.top-nav-identity {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding-right: 1.1rem;
-  border-right: 1px solid var(--chrome-border);
-  line-height: 1.08;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1.5rem;
+  padding: .65rem max(.75rem, calc((100vw - 1680px) / 2));
 }
-.top-nav-hero-label { font-size: .58rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .72; }
-.top-nav-hero-pick { font-family: var(--font-display); font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-.top-nav-countdown {
-  margin-top: .15rem;
-  padding: .05rem .4rem;
-  border: 1px solid var(--chrome-border);
-  border-radius: 999px;
-  color: var(--chrome-ink);
-  font-size: .56rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.top-nav-cluster { display: flex; flex-direction: column; align-items: flex-start; gap: .12rem; min-width: 0; }
-.top-nav-bar-row { display: flex; align-items: center; gap: .5rem 1rem; flex-wrap: wrap; min-width: 0; }
 .top-nav .brand { margin: 0; }
 .top-nav .brand-button {
-  padding: .28rem .55rem;
+  padding: .2rem .3rem;
   border-radius: var(--radius-md);
   color: var(--chrome-ink);
   background: transparent;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: .02em;
+  font-size: 1.35rem;
+  letter-spacing: .01em;
   text-transform: none;
   white-space: nowrap;
 }
 .top-nav .brand-button:hover, .top-nav .brand-button:focus-visible { background: var(--chrome-2); }
-.top-nav nav { display: flex; flex-wrap: wrap; gap: .25rem; }
+.top-nav nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
 .nav-link {
-  padding: .42rem .75rem;
-  border-radius: var(--radius-md);
+  padding: .45rem .6rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   color: var(--chrome-ink);
   background: transparent;
-  font-size: .85rem;
+  font-family: var(--font-display);
+  font-size: .95rem;
   font-weight: 700;
-  opacity: .85;
+  letter-spacing: .02em;
+  opacity: .7;
 }
-.nav-link:hover, .nav-link:focus-visible { color: var(--chrome-ink); background: var(--chrome-2); opacity: 1; }
-.nav-link[aria-current='page'] { color: var(--chrome-ink); background: var(--chrome-2); opacity: 1; }
-.top-nav-status {
+.nav-link:hover, .nav-link:focus-visible { opacity: 1; }
+.nav-link[aria-current='page'] { opacity: 1; border-bottom-color: var(--accent-cool); }
+/* Status row — now just the league/ADP/pick-count pill, pinned to the top-right corner. The
+   round.pick clock and session `â‹¯` menu that used to share this row live in the draft log's
+   banner and next to the board's card/row toggle, respectively (see the comment above `.top-nav`). */
+.top-nav-live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem 1.25rem;
+  padding: .5rem max(.75rem, calc((100vw - 1680px) / 2));
+  border-top: 1px solid var(--chrome-border);
+}
+.session-pill {
   display: flex;
   align-items: center;
   gap: .4rem;
   margin: 0;
+  min-width: 0;
   color: var(--chrome-ink);
-  opacity: .8;
+  opacity: .85;
   font-size: .74rem;
   font-weight: 600;
   white-space: nowrap;
 }
+/* Long league text (e.g. "ESPN draft — LeAgUe · ADP ppr · 0 picks") truncates instead of forcing the
+   bar to overflow once the window gets tight. */
+.session-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-nav-status-dot { width: .5rem; height: .5rem; flex-shrink: 0; border-radius: 50%; background: var(--success-text); box-shadow: 0 0 0 1px rgb(0 0 0 / .45); }
 .top-nav-status-dot[data-stale="true"] { background: var(--warn-text); }
-.top-nav-actions { margin-left: auto; }
 .chrome-outline-button {
   padding: .4rem .8rem;
   border: 1px solid var(--chrome-border);
@@ -120,12 +122,143 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 }
 .chrome-outline-button:hover, .chrome-outline-button:focus-visible { background: var(--chrome-2); border-color: var(--chrome-ink); }
 
-/* Landing + draft-room empty states â€” shell destinations that aren't the live draft yet. */
-.landing-intro h2 { margin-bottom: .5rem; }
-.landing-intro p { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
-.resume-draft p,
+/* Session `â‹¯` menu (rendered next to the board's card/row toggle, see `.board-toolbar-right`) â€”
+   every session-management control (log a pick, edit setup, switch provider/mode, reconnect,
+   choose another draft) lives in this one anchored popover, instead of a second always-on chrome
+   slab under the bar. Reuses `.chrome-outline-button` for the trigger's visual language even
+   though it no longer sits in the navy top bar â€” that ghost-button style already appears on
+   content surfaces elsewhere (`.primary-button`, the active board-presentation-toggle state). */
+.session-menu-wrap { position: relative; }
+.session-menu-trigger { padding: .4rem .7rem; font-size: 1rem; line-height: 1; }
+.session-menu {
+  position: absolute;
+  z-index: 9;
+  top: calc(100% + .4rem);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  width: max-content;
+  min-width: 11rem;
+  padding: .4rem;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-modal);
+}
+.session-menu-item {
+  padding: .5rem .6rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+  background: transparent;
+  font-size: .85rem;
+  font-weight: 600;
+  text-align: left;
+}
+.session-menu-item:hover, .session-menu-item:focus-visible { background: var(--surface-3); }
+
+/* Session alert strip â€” replaces the old "ESPN bridge" chrome slab as the home for honest-failure
+   signals (extension/tab not detected, stale heartbeat, seat mismatch, stream desync). Renders
+   nothing when healthy; the status pill above covers that case. */
+.session-alerts { display: grid; gap: .5rem; margin: 0 0 1rem; }
+.session-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  padding: .7rem .9rem;
+  border-radius: var(--radius-md);
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  font-size: .88rem;
+  font-weight: 600;
+}
+.session-alert[data-severity="danger"] { color: var(--danger-text); background: var(--danger-bg); }
+.session-alert button { flex-shrink: 0; }
+
+/* Landing â€” two provider paths side by side instead of one Sleeper form with ESPN buried behind a
+   "skip connecting" link. Each `.provider-card` is a plain `section`, so it already carries the
+   base border/padding/background; these rules only add the heading row and CTA. */
+/* Landing hero — eyebrow + display-font headline (accent word) + tight subcopy. The two provider
+   cards below ARE the primary actions, so the hero stays compact and hands off quickly. */
+.landing-hero h2 {
+  max-width: 20ch;
+  margin-bottom: .75rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4.2vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -.015em;
+  line-height: 1.04;
+  text-transform: none;
+}
+.landing-hero-accent { color: var(--accent-cool); }
+.landing-hero-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
 .draft-room-empty p,
 .teams-page .teams-empty-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
+/* Three "why" cards — Sleeper-style feature strip mapping to existing product truth. No new logic,
+   just the pitch. */
+.landing-features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin: 1.75rem 0 2rem; }
+.feature-card {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.feature-card h3 { margin: 0; font-size: .95rem; font-weight: 800; }
+.feature-card p { margin: 0; color: var(--text-2); font-size: .85rem; line-height: 1.45; }
+.landing-paths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; }
+.provider-card-heading { display: flex; align-items: center; gap: .55rem; margin-bottom: .6rem; }
+.provider-card-heading h3 { margin: 0; font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; letter-spacing: .01em; }
+.provider-card { transition: transform 160ms ease, border-color 160ms ease; }
+.provider-card:hover, .provider-card:focus-within { transform: translateY(-2px); border-color: var(--border-3); }
+@media (max-width: 700px) {
+  .landing-features { grid-template-columns: 1fr; }
+}
+.provider-card-copy { color: var(--text-2); }
+.provider-card-warning { color: var(--warn-text); }
+.provider-card-note { margin-top: .75rem; font-size: .85rem; }
+/* ESPN card's "Start draft" / "Extension setup" sub-tabs — same tab-strip motif as .position-tabs,
+   but on plain surface vars since this sits on the landing page, not the board chrome. */
+.provider-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .15rem;
+  margin: 0 0 .75rem;
+  padding: .2rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+}
+.provider-subtabs button {
+  padding: .25rem .7rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: transparent;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  opacity: .85;
+}
+.provider-subtabs button:hover,
+.provider-subtabs button:focus-visible,
+.provider-subtabs button.active {
+  color: var(--text-1);
+  background: var(--surface-2);
+  opacity: 1;
+}
+.provider-subtab-panel { display: grid; gap: .5rem; }
+.provider-card-steps { margin: 0; padding-left: 1.2rem; color: var(--text-2); font-size: .88rem; line-height: 1.5; display: grid; gap: .4rem; }
+.provider-card-steps code { padding: .05rem .35rem; border-radius: 5px; background: var(--surface-3); font-size: .85em; }
+.connect-sleeper { display: grid; gap: .9rem; }
+.connect-sleeper > div { display: grid; gap: .9rem; }
+.primary-button { border: 1px solid var(--chrome-border); background: var(--chrome-2); color: var(--chrome-ink); }
+.primary-button:hover, .primary-button:focus-visible { background: var(--chrome); }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .top-nav .brand,
@@ -139,10 +272,6 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .section-title-accent { color: var(--accent-cool); }
 .quiet-button { color: var(--text-2); background: var(--surface-quiet); }
 .section-heading, .pick-dialog header, .player-board-heading, .dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.draft-actions { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; margin-bottom: .75rem; }
-.manual-takeover-bar .section-heading { align-items: flex-start; }
-.manual-takeover-bar .muted { margin-top: .4rem; }
-.manual-takeover-bar .draft-actions { margin-bottom: 0; }
 .manual-picks { display: grid; gap: .45rem; padding: 0; list-style: none; }
 .manual-picks li { display: grid; grid-template-columns: 4rem minmax(7rem, .6fr) minmax(12rem, 2fr) auto; gap: .7rem; align-items: center; padding: .7rem; border-radius: 8px; background: var(--surface-3); }
 .dialog-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--scrim); }
@@ -171,9 +300,11 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .player-name { font-weight: 800; }
 .player-meta { color: var(--text-2); }
 .dialog-actions { margin-top: 1rem; justify-content: flex-start; }
+@media (max-width: 820px) {
+  .landing-paths { grid-template-columns: 1fr; }
+}
 @media (max-width: 620px) {
   .app-shell { width: min(100% - 1rem, 1080px); padding-top: 1rem; }
-  .top-nav { flex-wrap: wrap; }
   section { padding: 1rem; }
   .section-heading, .pick-dialog header, .player-board-heading { align-items: flex-start; flex-direction: column; }
   .manual-picks li { grid-template-columns: 3.5rem 1fr auto; }
@@ -218,7 +349,6 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .workspace-column-center { min-width: 0; }
 
 .draft-log { position: sticky; top: 1rem; display: flex; flex-direction: column; max-height: calc(100vh - 2rem); }
-.draft-log-jump { padding: .28rem .5rem; font-size: .68rem; }
 .draft-log-list {
   flex: 1;
   margin: .35rem 0 0;
@@ -232,6 +362,37 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
   -ms-overflow-style: none;
 }
 .draft-log-list::-webkit-scrollbar { display: none; width: 0; height: 0; }
+/* Interactive clock banner — the "Round 6.09 · On the clock" info that used to sit under the
+   Fantasy Bob title now lives here instead, pinned under the log's own scroll container (not the
+   whole page) and doubling as the "go to current pick" trigger. */
+.draft-log-clock-banner {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: baseline;
+  gap: .3rem .6rem;
+  margin-top: .5rem;
+  padding: .55rem .7rem;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  color: var(--text-1);
+  background: var(--surface-2);
+  text-align: left;
+}
+.draft-log-clock-banner:hover, .draft-log-clock-banner:focus-visible { background: var(--surface-3); }
+.draft-log-clock-banner[data-onclock="true"] { border-color: var(--accent); }
+.draft-log-clock-banner-label { font-size: .58rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .72; }
+.draft-log-clock-banner-pick { font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1; }
+.draft-log-clock-banner-status {
+  padding: .12rem .55rem;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  font-size: .6rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.draft-log-clock-banner-status[data-onclock="true"] { border-color: var(--accent); color: var(--accent-strong); }
+.draft-log-clock-banner-jump { margin-left: auto; color: var(--text-3); font-size: .64rem; font-weight: 700; white-space: nowrap; }
 .draft-log-round-header { margin-top: .35rem; padding: .35rem 0 .15rem; color: var(--text-4); font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--border-divider); }
 .draft-log-row {
   position: relative;
@@ -543,6 +704,21 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Honest per-player ADP provenance on the card face ("ESPN"/"Sleeper"/"FFC") —
+   the ESPN board is a mixed native-ESPN + Sleeper-tail splice, so the badge is
+   read off the player's own board entry, never a board-wide source. */
+.player-card-adp-source {
+  margin-left: .35rem;
+  padding: .06rem .34rem;
+  border: 1px solid var(--border-1);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
 /* Team-depth Role tile (PlayerCard): alphabetic label, so tabular-nums and the numeric 1.05rem
    size are dropped. cross-team/depth-chart get a dashed underline in --text-2 â€” the card-face
    honesty affordance distinguishing measured volume from depth-chart-only without a second line. */
@@ -565,8 +741,62 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
 .player-card-stars .star-rating { flex-direction: column; align-items: flex-start; gap: .12rem; }
 .player-card-stars .star-rating-name { font-size: .58rem; }
 .player-card-stars .star-icon { width: 11px; height: 11px; }
-.player-card-reason { flex: 1; margin: 0; color: var(--text-2); font-size: .78rem; }
-.player-card-no-projection { color: var(--text-3); font-style: italic; }
+.survival-meter { display: grid; gap: .28rem; }
+.survival-meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.survival-meter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  color: var(--text-3);
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.survival-meter-percent { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.survival-meter-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  min-height: 1.85rem;
+  padding-bottom: .4rem;
+}
+.survival-meter-band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: .22rem .08rem;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: .55rem;
+  font-weight: 700;
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: ellipsis;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+.survival-meter-band[data-active="true"] { color: var(--text-1); background: color-mix(in srgb, var(--accent) 28%, var(--surface-3)); }
+.survival-meter-track:hover .survival-meter-band[data-active="true"],
+.survival-meter-track:focus-visible .survival-meter-band[data-active="true"] {
+  color: var(--surface-0);
+  background: var(--accent);
+}
+.survival-meter-band:hover { transform: translateY(-1px); }
+.survival-meter-marker {
+  position: absolute;
+  bottom: 0;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 6px solid var(--accent);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
 
 .info-tooltip { position: relative; display: inline-flex; }
 .info-tooltip-trigger {
@@ -857,6 +1087,9 @@ button.my-team-row:hover, button.my-team-row:focus-visible { background: var(--s
 .adp-summary-header { display: flex; align-items: baseline; gap: var(--space-3); }
 .adp-summary-header h4 { margin: 0; }
 .adp-headline { margin: 0; color: var(--text-2); font-size: .84rem; }
+/* Disambiguation note under the FantasyPros per-site ADP tiles: those numbers are
+   FantasyPros' snapshot, not the engine board the app actually tracks. */
+.market-adp-note { margin: 0; font-size: .78rem; }
 .market-tile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
@@ -909,8 +1142,10 @@ button.my-team-row:hover, button.my-team-row:focus-visible { background: var(--s
   flex-shrink: 0;
 }
 .provider-badge-svg { border-radius: var(--radius-sm); }
+.provider-badge-png { border-radius: var(--radius-sm); }
 .provider-badge-monogram { border-radius: 999px; }
 .provider-badge svg { display: block; width: 100%; height: 100%; }
+.provider-badge-png img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .provider-badge-monogram {
   color: var(--surface-0);
   font-size: .62rem;
@@ -934,6 +1169,9 @@ button.my-team-row:hover, button.my-team-row:focus-visible { background: var(--s
 .body-map { margin: 1rem 0; }
 .body-map h4 { margin-bottom: .5rem; }
 .body-map-unavailable { min-height: 4.5rem; display: flex; flex-direction: column; justify-content: center; padding: .8rem; border: 1px dashed var(--border-3); border-radius: var(--radius-md); background: var(--surface-3); }
+.coming-soon { min-height: 4.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: .3rem; margin: 1rem 0; padding: 1.4rem .8rem; border: 1px dashed var(--border-3); border-radius: var(--radius-md); background: var(--surface-3); }
+.coming-soon h4 { margin: 0; }
+.coming-soon p { margin: 0; }
 .body-map-figure-wrap { position: relative; max-width: 220px; margin: 0 auto; overflow: hidden; border-radius: var(--radius-lg); background: var(--surface-3); }
 .body-map-figure { display: block; width: 100%; height: auto; }
 .body-map-region { fill: var(--body-base); stroke: var(--body-stroke); stroke-width: 1; transition: fill 120ms ease; }
@@ -963,6 +1201,7 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
   .body-map-holo::after { animation: none !important; }
   .board-filmstrip-inner { transition: none; }
   .player-card::after { animation: none !important; }
+  .survival-meter-band { transform: none; transition: none; }
 }
 @keyframes body-map-holo-sweep {
   from { background-position: 0 0, -40% 0; }
@@ -1149,6 +1388,9 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
   justify-content: space-between;
   gap: var(--space-3);
 }
+/* Card/row toggle + session `â‹¯` menu share one right-aligned cluster — the menu used to live in
+   the top bar, but session controls belong next to the board they act on. */
+.board-toolbar-right { display: flex; flex-shrink: 0; align-items: center; gap: .5rem; }
 
 /* Engine/ADP folder tabs â€” sit on the panel's top edge; the active tab is --chrome-2 and covers
    the hairline below it, reading as the front folder tab (DraftSharks treatment). */
@@ -1300,7 +1542,7 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 .board-rows-list { display: grid; gap: .6rem; }
 .board-rows-header, .player-board-row {
   display: grid;
-  grid-template-columns: 2.35rem minmax(0, 2.4fr) minmax(3.2rem, .8fr) repeat(3, minmax(2.75rem, .62fr));
+  grid-template-columns: 2.35rem minmax(0, 2.4fr) minmax(3.2rem, .8fr) repeat(4, minmax(2.75rem, .62fr));
   align-items: center;
   column-gap: .65rem;
 }
@@ -1343,5 +1585,6 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 .player-board-row-meta { display: flex; align-items: center; gap: .3rem; min-width: 0; overflow: hidden; color: var(--text-3); font-size: .7rem; white-space: nowrap; }
 .player-board-row-meta > span { overflow: hidden; text-overflow: ellipsis; }
 .player-board-row-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }
+.player-board-row-adp-source { margin-left: .3rem; color: var(--text-3); font-size: .62rem; font-weight: 700; letter-spacing: .03em; }
 @media (max-width: 600px) {
 }

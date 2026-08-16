@@ -13,6 +13,6 @@
     const url = URL.createObjectURL(new Blob([JSON.stringify(FfaEspnNormalize.redact(snapshot), null, 2)], { type: 'application/json' }));
     const link = document.createElement('a'); link.href = url; link.download = `ffa-espn-recon-${new Date().toISOString().replace(/[:.]/g, '-')}.json`; link.click(); URL.revokeObjectURL(url);
   });
-  document.querySelector('#clear').addEventListener('click', async () => { await chrome.storage.local.remove(FfaEspnNormalize.STORAGE_KEY); await refresh(); });
+  document.querySelector('#clear').addEventListener('click', async () => { await chrome.storage.local.remove([FfaEspnNormalize.STORAGE_KEY, FfaEspnNormalize.LIVE_STORAGE_KEY]); await refresh(); });
   refresh();
 })();

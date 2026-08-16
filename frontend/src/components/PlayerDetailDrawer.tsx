@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import type { FantasyProsAdpArtifact, LeagueSettings, PlayerMeta, PlayerUsage, ProviderProjectionsArtifact } from '../../../shared/types';
+import type { AdpEntry, FantasyProsAdpArtifact, LeagueSettings, PlayerMeta, PlayerUsage, ProviderProjectionsArtifact } from '../../../shared/types';
 import { playerBioItems } from '../data/playerBio';
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { resolvePointsPerGame } from '../data/pprProduction';
@@ -7,8 +7,6 @@ import { buildGameLogRows, buildSparklinePoints } from '../data/weeklyGameLog';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import type { Recommendation } from '../engine/recommend';
 import type { WeeklyStatsState } from '../hooks/useWeeklyStats';
-import { PlayerBodyMap } from './PlayerBodyMap';
-import type { AdpDisclosure, PlayerContextFeedStatus } from './PlayerContextBody';
 import { PlayerMarketComparison } from './PlayerMarketComparison';
 import { PlayerRolePanel } from './PlayerRolePanel';
 import { TeamDepthRoleRow } from './TeamDepthRoleRow';
@@ -18,7 +16,16 @@ import { WeeklyStatGrid } from './WeeklyStatGrid';
 import { WeeklyViewToggle, type WeeklyView } from './WeeklyViewToggle';
 import { Drawer } from './Drawer';
 
-export type { AdpDisclosure, PlayerContextFeedStatus };
+export type PlayerContextFeedStatus = 'loading' | 'ready' | 'unavailable';
+
+/** Which upstream actually produced the active `adp-<format>.json`, read off
+ * `DataManifest.sources['adp_active_' + format]`. Sleeper's draft-lobby ADP is canonical; the
+ * FFC-derived board only appears when Sleeper's endpoint was unavailable or too sparse; the ESPN
+ * variant appears only on ESPN PPR sessions whose `adp-espn-ppr.json` board actually loaded. */
+export type AdpDisclosure =
+  | { source: 'sleeper'; format: string }
+  | { source: 'ffc-fallback'; mockDrafts: number | null; teams: number; format: string }
+  | { source: 'espn'; format: string };
 
 const IDLE_WEEKLY_STATS: WeeklyStatsState = { artifact: null, status: 'idle' };
 
@@ -42,6 +49,12 @@ export interface PlayerDetailDrawerProps {
    * `PlayerMarketComparison`'s `currentPick` prop doc. */
   currentPick?: number | null;
   weeklyStats?: WeeklyStatsState;
+  /** The active ADP board (the same `adp` array the board/cards render from). Lets the drawer
+   * label the engine ADP with the *player's* provenance — the ESPN board is a mixed source
+   * (native ESPN head + Sleeper-tail splice), so a board-wide "ESPN" label would be wrong for
+   * tail players — and keeps the engine anchor visible even off-clock in market mode when
+   * `recommendation` is null. */
+  adpBoard?: readonly AdpEntry[];
   /** Optional local-only per-site ADP decoration; null in production deploys. */
   adpProvidersArtifact?: FantasyProsAdpArtifact | null;
   /** Committed multi-provider projections decoration (display-only). */
@@ -62,6 +75,7 @@ export function PlayerDetailDrawer({
   adpDisclosure,
   currentPick,
   weeklyStats,
+  adpBoard,
   adpProvidersArtifact,
   providerProjectionsArtifact,
   settings,
@@ -88,14 +102,29 @@ export function PlayerDetailDrawer({
   const bioItems = playerBioItems(player);
   const statusTag = playerStatusTag(player, usage);
   // The anchor marker for the ADP-by-provider section: which number the engine
-  // actually used (recommendation.availabilityAdp) and which upstream produced
-  // it (adpDisclosure). Null when there is no engine recommendation.
-  const boardAdp = recommendation != null && recommendation.availabilityAdp != null
+  // actually used (recommendation.availabilityAdp, or the board entry's adp in
+  // off-clock market mode when no recommendation exists) and which upstream
+  // produced *this player's* value (adpEntry.adpSource — the ESPN board is a
+  // mixed native-ESPN + Sleeper-tail splice, so the row-level source wins over
+  // the board-wide adpDisclosure). Null only when the player has no board entry
+  // and no recommendation.
+  const adpEntry = adpBoard?.find((entry) => entry.playerId === player.playerId) ?? null;
+  const boardAdp = adpEntry != null
     ? {
-        adp: recommendation.availabilityAdp,
-        source: adpDisclosure?.source === 'ffc-fallback' ? 'FFC fallback' : 'Sleeper',
+        adp: recommendation?.availabilityAdp ?? adpEntry.adp,
+        source: adpEntry.adpSource === 'espn' ? 'ESPN'
+          : adpEntry.adpSource === 'sleeper' && adpDisclosure?.source === 'espn' ? 'Sleeper (ESPN board tail)'
+          : adpEntry.adpSource === 'sleeper' ? 'Sleeper'
+          : 'FFC fallback',
       }
-    : null;
+    : recommendation != null && recommendation.availabilityAdp != null
+      ? {
+          adp: recommendation.availabilityAdp,
+          source: adpDisclosure?.source === 'ffc-fallback' ? 'FFC fallback'
+            : adpDisclosure?.source === 'espn' ? 'ESPN'
+            : 'Sleeper',
+        }
+      : null;
 
   useEffect(() => {
     setTab('overview');
@@ -115,7 +144,7 @@ export function PlayerDetailDrawer({
     <Drawer
       open
       size="wide"
-      label={`${player.name} context`}
+      label={player.name}
       onClose={onClose}
     >
       <div
@@ -223,11 +252,10 @@ export function PlayerDetailDrawer({
 
       {tab === 'injury' && (
         <div className="player-detail-panel" role="tabpanel" aria-labelledby="player-detail-tab-injury">
-          <PlayerBodyMap
-            injuryHistory={usage?.injuryHistory}
-            feedStatus={feedStatus}
-            playerName={player.name}
-          />
+          <div className="coming-soon">
+            <h4>Injury history</h4>
+            <p className="muted">Coming soon.</p>
+          </div>
         </div>
       )}
     </Drawer>

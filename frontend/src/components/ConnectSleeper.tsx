@@ -4,13 +4,14 @@ import { listSleeperDrafts, resolveUser, sleeperAdapter, type SleeperDraftRef } 
 
 export interface ConnectSleeperProps {
   onConnect: (cred: SleeperCred, draftId: string) => void;
-  onManualMode: () => void;
 }
 
 const CURRENT_SEASON = '2026';
 
-/** Connection and draft-selection flow. Sleeper lists mock drafts separately from leagues. */
-export function ConnectSleeper({ onConnect, onManualMode }: ConnectSleeperProps) {
+/** Connection and draft-selection flow, embedded in the Sleeper landing card. Sleeper lists mock
+ * drafts separately from leagues. The manual/ESPN path lives on the ESPN card now — this component
+ * no longer offers a skip-connecting escape hatch. */
+export function ConnectSleeper({ onConnect }: ConnectSleeperProps) {
   const [usernameInput, setUsernameInput] = useState('');
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -71,8 +72,7 @@ export function ConnectSleeper({ onConnect, onManualMode }: ConnectSleeperProps)
   }
 
   return (
-    <section>
-      <h2>Connect to Sleeper</h2>
+    <div className="connect-sleeper">
       {!cred ? (
         <form onSubmit={handleResolve}>
           <label>
@@ -120,8 +120,6 @@ export function ConnectSleeper({ onConnect, onManualMode }: ConnectSleeperProps)
           </form>
         </div>
       )}
-      <hr />
-      <button className="quiet-button" type="button" onClick={onManualMode}>Skip connecting — track this draft manually</button>
-    </section>
+    </div>
   );
 }

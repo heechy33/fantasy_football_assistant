@@ -29,6 +29,7 @@ function baseProps() {
     onTheClock: null,
     userNextOverall: null as number | null,
     picksUntilUserTurn: null as number | null,
+    roundPick: null as string | null,
   };
 }
 
@@ -197,28 +198,52 @@ describe('DraftLog', () => {
     expect(onViewPlayerSecond).toHaveBeenCalledWith('p1');
   });
 
-  it('go-to-current-pick scrolls the on-the-clock row into view', async () => {
-    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+  it('renders the round.pick clock banner and jumps to the on-the-clock row when clicked', async () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {});
     const user = userEvent.setup();
     render(
       <DraftLog
         {...baseProps()}
+        roundPick="1.01"
         effectivePicks={[]}
         onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+        picksUntilUserTurn={0}
       />,
     );
+    expect(screen.getByText('Round')).toBeInTheDocument();
+    expect(screen.getByText('1.01')).toBeInTheDocument();
+    expect(screen.getByText('On the clock')).toBeInTheDocument();
     scrollSpy.mockClear();
     await user.click(screen.getByRole('button', { name: 'Go to current pick' }));
     expect(scrollSpy).toHaveBeenCalled();
-    const scrolled = scrollSpy.mock.instances[0] as HTMLElement;
-    expect(scrolled).toHaveAttribute('data-scroll-target', 'true');
+    expect(scrollSpy.mock.instances[0]).toBe(document.querySelector('.draft-log-list'));
+    const scrolled = document.querySelector('[data-scroll-target]') as HTMLElement;
     expect(scrolled).toHaveAttribute('data-on-clock', 'true');
     expect(scrolled.textContent).toContain('#1');
     scrollSpy.mockRestore();
   });
 
-  it('go-to-current-pick scrolls the final pick when the draft is complete', async () => {
-    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+  it("shows the countdown, not 'On the clock', when it isn't the banner's turn yet", () => {
+    render(
+      <DraftLog
+        {...baseProps()}
+        roundPick="1.03"
+        picksUntilUserTurn={2}
+        onTheClock={{ teamId: 'them', slot: 2, round: 1, overall: 3 }}
+      />,
+    );
+    expect(screen.getByText('2 until your turn')).toBeInTheDocument();
+    expect(screen.queryByText('On the clock')).not.toBeInTheDocument();
+  });
+
+  it('does not render the clock banner when no round.pick is available', () => {
+    render(<DraftLog {...baseProps()} />);
+    expect(screen.queryByText('Round')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Go to current pick' })).not.toBeInTheDocument();
+  });
+
+  it('go-to-current-pick scrolls to the final pick when the draft is complete', async () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {});
     const user = userEvent.setup();
     const completePicks = [
       pick(1, 'me', 'p1', 'Known Player'),
@@ -229,6 +254,7 @@ describe('DraftLog', () => {
     render(
       <DraftLog
         {...baseProps()}
+        roundPick="2.02"
         effectivePicks={completePicks}
         onTheClock={null}
       />,
@@ -236,15 +262,15 @@ describe('DraftLog', () => {
     scrollSpy.mockClear();
     await user.click(screen.getByRole('button', { name: 'Go to current pick' }));
     expect(scrollSpy).toHaveBeenCalled();
-    const scrolled = scrollSpy.mock.instances[0] as HTMLElement;
-    expect(scrolled).toHaveAttribute('data-scroll-target', 'true');
+    expect(scrollSpy.mock.instances[0]).toBe(document.querySelector('.draft-log-list'));
+    const scrolled = document.querySelector('[data-scroll-target]') as HTMLElement;
     expect(scrolled).not.toHaveAttribute('data-on-clock');
     expect(scrolled.textContent).toContain('#4');
     scrollSpy.mockRestore();
   });
 
   it('stops auto-following once the user scrolls the current row out of view', () => {
-    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {});
     const { rerender } = render(
       <DraftLog
         {...baseProps()}
@@ -273,11 +299,12 @@ describe('DraftLog', () => {
   });
 
   it('re-engages auto-follow when the user clicks Go to current pick after scrolling away', async () => {
-    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {});
     const user = userEvent.setup();
     const { rerender } = render(
       <DraftLog
         {...baseProps()}
+        roundPick="1.01"
         onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
       />,
     );
@@ -304,7 +331,7 @@ describe('DraftLog', () => {
   });
 
   it('re-engages auto-follow when a new draft connects after the user scrolled away', () => {
-    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {});
     const newDraft: DraftInit = { ...draftInit, draftId: 'd2' };
     const { rerender } = render(
       <DraftLog

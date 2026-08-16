@@ -1,27 +1,42 @@
 import type { DraftInit } from '../../../shared/types';
-import type { DraftBoardState, PickOverride } from './draftBoardState';
+import type { PickOverride } from './draftBoardState';
 
-const STORAGE_KEY = 'ffa.draftSession.v1';
+// Bumped from v1: the persisted shape changed (mode gained 'espn', and ESPN bridge picks are no
+// longer written as manual-entry overrides — see the ESPN sync-restoration plan, 2026-08-15). A v1
+// record under the old key is not readable as a v2 one — replaying its `mode: 'manual'` value (the
+// only value that build could write for a bridge session) restores a disarmed manual session while
+// `activeProvider` still paints the ESPN pill, and its overrides can mask a live stream that no
+// longer produces them. Bumping the key drops the old record wholesale instead of half-restoring it.
+const STORAGE_KEY = 'ffa.draftSession.v2';
+
+/**
+ * Session mode as persisted. This is a superset of `DraftBoardState['mode']` ('live' | 'manual'):
+ * an ESPN bridge session runs the board in 'live' mode (picks flow through `livePicks`, not
+ * overrides — see `App.tsx`'s bridge wiring), but on reload the app must know to reconstruct an
+ * ESPN `{ kind: 'bridge' }` session rather than a plain Sleeper 'connected' one. 'espn' captures
+ * that distinction; the board-mode value derived from it is always 'live'.
+ */
+export type PersistedSessionMode = 'live' | 'manual' | 'espn';
 
 /**
  * Sleeper has no auth, so a stored userId is not a secret — persisting it
  * (plus draftId and manual corrections) is what lets a browser refresh
  * reconstruct the full board instead of losing corrections. `frozenInit`
- * carries the latest DraftInit captured by a manual takeover, so a refresh
- * restores the recommendation workspace and clock math, not just the picks.
+ * carries the latest DraftInit captured by a manual takeover (or the ESPN bridge's manual-form
+ * base), so a refresh restores the recommendation workspace and clock math, not just the picks.
  */
 export interface PersistedSession {
   userId: string | null;
   draftId: string | null;
-  mode: DraftBoardState['mode'];
+  mode: PersistedSessionMode;
   overrides: PickOverride[];
   frozenInit: DraftInit | null;
 }
 
 /**
  * Minimal shape guard so a stale or corrupted `frozenInit` field degrades to `null` (no frozen
- * workspace) instead of crashing on mount. Full runtime validation of the persisted session
- * record lands with the versioned `ffa.draftSession.v2` key in Phase 3.
+ * workspace) instead of crashing on mount. Not full runtime validation of the persisted session
+ * record — that remains a possible future hardening pass.
  */
 function isDraftInitLike(value: unknown): value is DraftInit {
   if (typeof value !== 'object' || value === null) return false;
@@ -57,7 +72,7 @@ export function loadPersistedSession(): PersistedSession | null {
     return {
       userId: typeof parsed.userId === 'string' ? parsed.userId : null,
       draftId: typeof parsed.draftId === 'string' ? parsed.draftId : null,
-      mode: parsed.mode === 'manual' ? 'manual' : 'live',
+      mode: parsed.mode === 'manual' || parsed.mode === 'espn' ? parsed.mode : 'live',
       overrides: Array.isArray(parsed.overrides) ? parsed.overrides as PickOverride[] : [],
       frozenInit: isDraftInitLike(parsed.frozenInit) ? parsed.frozenInit : null,
     };

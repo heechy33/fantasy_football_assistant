@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { PlayerMeta, PlayerWeeklyStatsArtifact } from '../../../shared/types';
+import type { AdpEntry, PlayerMeta, PlayerWeeklyStatsArtifact } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import type { Recommendation } from '../engine/recommend';
 import { PlayerDetailDrawer } from './PlayerDetailDrawer';
@@ -30,6 +30,14 @@ function baseRecommendation(overrides: Partial<Recommendation> = {}): Recommenda
   };
 }
 
+function baseAdpEntry(): AdpEntry {
+  return {
+    playerId: 'rb1', name: 'Rush One', position: 'RB', team: 'BUF', adp: 73,
+    stdev: 8, high: null, low: null, timesDrafted: null, byeWeek: 7,
+    adpSource: 'sleeper', stdevSource: 'fitted',
+  };
+}
+
 function Harness() {
   const [open, setOpen] = useState(false);
   return (
@@ -50,7 +58,7 @@ describe('PlayerDetailDrawer accessibility', () => {
     openButton.focus();
 
     await user.click(openButton);
-    expect(screen.getByRole('dialog', { name: 'Rush One context' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Rush One' })).toBeInTheDocument();
     expect(document.activeElement).not.toBe(openButton);
     expect(document.activeElement?.closest('[role="dialog"]')).toBeTruthy();
 
@@ -316,7 +324,7 @@ describe('PlayerDetailDrawer content', () => {
     expect(screen.getByRole('table')).toBeInTheDocument();
   });
 
-  it('renders the injury body map and passes usage/feedStatus through to it', () => {
+  it('shows a coming-soon placeholder on the Injury tab', () => {
     render(
       <PlayerDetailDrawer
         player={player}
@@ -332,6 +340,49 @@ describe('PlayerDetailDrawer content', () => {
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Injury' }));
     expect(screen.getByText('Injury history')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Left Knee/ })).toBeInTheDocument();
+    expect(screen.getByText('Coming soon.')).toBeInTheDocument();
+  });
+
+  it('labels the engine ADP with the player\'s own board source (native ESPN head)', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        recommendation={baseRecommendation()}
+        adpDisclosure={{ source: 'espn', format: 'ppr' }}
+        adpBoard={[{ ...baseAdpEntry(), adpSource: 'espn' }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Engine ADP 5 · ESPN/)).toBeInTheDocument();
+  });
+
+  it('labels a spliced Sleeper-tail player honestly instead of a board-wide ESPN', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        recommendation={baseRecommendation()}
+        adpDisclosure={{ source: 'espn', format: 'ppr' }}
+        adpBoard={[{ ...baseAdpEntry(), adpSource: 'sleeper', adp: 699.6 }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Engine ADP 5 · Sleeper \(ESPN board tail\)/)).toBeInTheDocument();
+  });
+
+  it('keeps the engine ADP anchor visible in market mode from the board entry', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        adpBoard={[{ ...baseAdpEntry(), adp: 73, adpSource: 'sleeper' }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Engine ADP 73 · Sleeper/)).toBeInTheDocument();
   });
 });

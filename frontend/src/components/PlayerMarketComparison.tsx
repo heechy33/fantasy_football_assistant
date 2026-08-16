@@ -94,10 +94,10 @@ export function PlayerMarketComparison({
     <section className="market-comparison" aria-label="Market comparison">
       {hasAdp && (
         <div className="adp-summary">
-          <h3>Market ADP</h3>
+          <h3>Market ADP{adpRows.length > 0 ? ' (FantasyPros)' : ''}</h3>
           {boardAdp != null && (
             <p className="adp-headline">
-              Engine ADP {formatAdp(boardAdp.adp)}
+              Engine ADP {formatAdp(boardAdp.adp)} · {boardAdp.source}
               {currentPick != null ? <> · current pick {currentPick}</> : <> · current pick n/a</>}
             </p>
           )}
@@ -113,6 +113,12 @@ export function PlayerMarketComparison({
                 </div>
               ))}
             </dl>
+          )}
+          {adpRows.length > 0 && (
+            <p className="muted market-adp-note">
+              Per-site ADP from FantasyPros' overall rankings — a separate snapshot from the engine
+              board (different source/method), not the live ADP the app tracks.
+            </p>
           )}
         </div>
       )}

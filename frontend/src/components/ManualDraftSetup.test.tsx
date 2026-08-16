@@ -49,7 +49,7 @@ describe('ManualDraftSetup', () => {
     const submit = screen.getByRole('button', { name: 'Start draft' });
     expect(submit).toBeDisabled(); // mySlot is required and unknown until the order reveal.
 
-    await user.type(screen.getByLabelText(/My draft slot/), '2');
+    await user.type(screen.getByLabelText(/Your draft position/), '2');
     expect(submit).toBeEnabled();
 
     await user.click(submit);
@@ -66,11 +66,11 @@ describe('ManualDraftSetup', () => {
     const initial = buildManualDraftInit({ leagueName: 'Existing', teams: 10, rounds: 14, mySlot: 5 });
     render(<ManualDraftSetup initial={initial} onSubmit={onSubmit} onCancel={vi.fn()} />);
 
-    expect(screen.getByLabelText(/My draft slot/)).toHaveValue(5);
+    expect(screen.getByLabelText(/Your draft position/)).toHaveValue(5);
 
     const submit = screen.getByRole('button', { name: 'Save setup' });
-    await user.clear(screen.getByLabelText(/My draft slot/));
-    await user.type(screen.getByLabelText(/My draft slot/), '7');
+    await user.clear(screen.getByLabelText(/Your draft position/));
+    await user.type(screen.getByLabelText(/Your draft position/), '7');
     await user.click(submit);
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -86,7 +86,7 @@ describe('ManualDraftSetup', () => {
     render(<ManualDraftSetup onSubmit={onSubmit} onCancel={vi.fn()} />);
 
     const submit = screen.getByRole('button', { name: 'Start draft' });
-    await user.type(screen.getByLabelText(/My draft slot/), '11'); // 10-team league
+    await user.type(screen.getByLabelText(/Your draft position/), '11'); // 10-team league
     expect(submit).toBeDisabled();
   });
 });

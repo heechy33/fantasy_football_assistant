@@ -6,6 +6,7 @@ import {
   deriveDraftStatus,
   nextPickForTeam,
   pickLabel,
+  picksMade,
   roundForOverall,
   slotForOverall,
   userPickBoundaries,
@@ -151,6 +152,26 @@ describe('deriveDraftStatus', () => {
     // from the init-cached rawStatus rather than from a second /draft/{id} refresh.
     expect(deriveDraftStatus('complete', 15, TEAMS, ROUNDS)).toBe('complete');
   });
+describe('picksMade', () => {
+  it('is 0 for an empty board', () => {
+    expect(picksMade([])).toBe(0);
+  });
+
+  it('equals the pick count for contiguous overalls (the Sleeper/manual regime)', () => {
+    const picks: Pick[] = [1, 2, 3].map((overall) => ({
+      overall, round: 1, slot: 1, teamId: 'team-1', playerId: `p${overall}`, providerPlayerId: `p${overall}`,
+    }));
+    expect(picksMade(picks)).toBe(3);
+  });
+
+  it('uses the max overall, not the array length, for gapped absolute picks (confirmed ESPN late attach)', () => {
+    const picks: Pick[] = [138, 139, 140].map((overall) => ({
+      overall, round: 12, slot: 1, teamId: 'team-1', playerId: `p${overall}`, providerPlayerId: `p${overall}`,
+    }));
+    expect(picksMade(picks)).toBe(140);
+  });
+});
+
 });
 describe('nextPickForTeam', () => {
   it('finds the following personal turn when the user is currently on the clock', () => {

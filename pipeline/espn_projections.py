@@ -46,13 +46,13 @@ _ROW_PLAYER_KEY = "player"
 # this leaguedefaults payload: 1=QB (Josh Allen), 2=RB (Saquon), 3=WR (Amon-Ra),
 # 4=TE (Kelce), 5=K (Aubrey), 16=D/ST — a different encoding than the espn-api
 # library's generic POSITION_MAP.
-_POSITION_BY_DEFAULT_ID = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"}
+POSITION_BY_DEFAULT_ID = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"}
 
 # ESPN proTeamId -> Sleeper-style abbreviation (the espn-api library's verified
 # map; WAS is 28, SF is 25). Used for DEF rows, which must NOT use ids.espn
 # (ESPN DEF ids are negative synthetics — players.json DEF rows carry empty
 # ids{}), and as the name/team/position fallback for everyone else.
-_PRO_TEAM_ABBR = {
+PRO_TEAM_ABBR = {
     1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN",
     8: "DET", 9: "GB", 10: "TEN", 11: "IND", 12: "KC", 13: "LV", 14: "LAR",
     15: "MIA", 16: "MIN", 17: "NE", 18: "NO", 19: "NYG", 20: "NYJ", 21: "PHI",
@@ -181,11 +181,11 @@ def parse_espn_payload(payload: dict[str, Any], season: int) -> list[ParsedEspnR
         entry = _select_projection_entry(player, season)
         if not entry:
             continue
-        position = _POSITION_BY_DEFAULT_ID.get(player.get("defaultPositionId"))
+        position = POSITION_BY_DEFAULT_ID.get(player.get("defaultPositionId"))
         if position is None:
             continue
         pro_team_id = player.get("proTeamId")
-        team = _PRO_TEAM_ABBR.get(pro_team_id) if isinstance(pro_team_id, int) else None
+        team = PRO_TEAM_ABBR.get(pro_team_id) if isinstance(pro_team_id, int) else None
         raw_stats = {str(k): float(v) for k, v in (entry.get("stats") or {}).items()}
         if any(not math.isfinite(value) for value in raw_stats.values()):
             raise ValueError('ESPN projection contains a non-finite stat')

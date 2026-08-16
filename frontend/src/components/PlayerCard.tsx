@@ -5,10 +5,11 @@ import { adpPositionalRank, displayPositionalRank } from '../data/positionalRank
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { teamLogoUrl } from '../data/playerPortrait';
 import type { Recommendation } from '../engine/recommend';
+import { NextPickSurvivalMeter } from './NextPickSurvivalMeter';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
 import { StarRating } from './StarRating';
-import { boardUsageStat, formatBoardStat } from './playerBoardFace';
+import { boardFaceValues, boardUsageStat, formatBoardStat } from './playerBoardFace';
 
 export interface PlayerCardProps {
   playerId: PlayerId;
@@ -21,6 +22,8 @@ export interface PlayerCardProps {
   adp?: number | null;
   /** Full ADP board for the positional-rank fallback when FantasyPros is absent. */
   adpBoard?: readonly AdpEntry[];
+  /** Per-player ADP provenance for the honest face label (see boardFaceValues). */
+  adpSource?: AdpEntry['adpSource'] | null;
   /** Display-only FantasyPros decoration; omitted when the optional artifact is absent. */
   fantasyPros?: FantasyProsStars;
   /** Prior-season usage for the single role-volume cell; omitted when missing. */
@@ -32,6 +35,10 @@ export interface PlayerCardProps {
    * `usage.production` can't stand in here â€” it's built from `pprFromReceptions`/`pprFromRushes`
    * only, so it's always ~0 for a kicker or defense. */
   avgPointsPerGame?: number | null;
+  /** Off-clock/market fallback when `recommendation` is null (see boardFaceValues). */
+  projectedPoints?: number | null;
+  /** Off-clock/market fallback when `recommendation` is null (see boardFaceValues). */
+  availableNextPickProbability?: number | null;
 
   onViewDetails: () => void;
 }
@@ -59,13 +66,14 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 }
 
 /** Compact card face: labeled 2Ã—2 stats, small headshot beside the name, contained team logo watermark. */
-export function PlayerCard({
-  playerId, recommendation, player, rank, adp, adpBoard, fantasyPros, usage, depthRole, avgPointsPerGame, onViewDetails,
-}: PlayerCardProps) {
+export function PlayerCard(props: PlayerCardProps) {
+  const {
+    playerId, recommendation, player, rank, adpBoard, fantasyPros, usage, depthRole, avgPointsPerGame, onViewDetails,
+  } = props;
+  const values = boardFaceValues(props);
   const name = player?.name ?? playerId;
   const { first, last } = splitName(name);
-  const projectionValue = recommendation?.projectedPoints ?? null;
-  const adpValue = recommendation?.availabilityAdp ?? adp ?? null;
+  const { projectionValue, adpValue, availabilityValue, adpSourceLabel: adpSource } = values;
   const positionalRank = displayPositionalRank(
     fantasyPros?.positionRank,
     adpPositionalRank(playerId, player?.position, adpBoard),
@@ -123,18 +131,21 @@ export function PlayerCard({
           <div data-role-basis={depthRole?.basis ?? 'unknown'}><dt>Role</dt><dd title={depthRole?.headline ?? 'Team role unavailable'}>{depthRole?.label ?? '\u2014'}</dd></div>
         )}
         <div><dt>Proj</dt><dd>{formatStat(projectionValue)}</dd></div>
-        <div title="Average Draft Position \u2014 the pick where this player is typically taken. Lower is earlier.">
+        <div
+          title={adpSource
+            ? `Average Draft Position (${adpSource}) — the pick where this player is typically taken in ${adpSource}'s draft population. Lower is earlier.`
+            : 'Average Draft Position \u2014 the pick where this player is typically taken. Lower is earlier.'}
+        >
           <dt>ADP</dt>
-          <dd>{formatStat(adpValue)}</dd>
+          <dd>
+            {formatStat(adpValue)}
+            {adpSource && <span className="player-card-adp-source">{adpSource}</span>}
+          </dd>
         </div>
         {usageStat && <div><dt>{usageStat.label}</dt><dd>{usageStat.value}</dd></div>}
       </dl>
 
-      {!recommendation && (
-        <p className="player-card-reason player-card-no-projection">
-          {'No projection \u2014 ADP only.'}
-        </p>
-      )}
+      <NextPickSurvivalMeter probability={availabilityValue} />
 
       {fantasyPros && (
         <div className="context-stars player-card-stars">

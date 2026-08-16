@@ -109,8 +109,8 @@ export function ManualDraftSetup({ initial, onSubmit, onCancel }: ManualDraftSet
         </header>
         <p className="muted setup-intro">
           Build the draft the app will track. Settings are prefilled for the ESPN league — fill in your
-          draft slot once the order is revealed (~6:00 PM), then start logging picks. Your slot can be
-          corrected later without losing picks.
+          draft position once the order is revealed (~6:00 PM), then start logging picks. Your position
+          can be corrected later without losing picks.
         </p>
         <form className="setup-form" onSubmit={handleSubmit}>
           <label className="setup-field-wide">
@@ -126,7 +126,7 @@ export function ManualDraftSetup({ initial, onSubmit, onCancel }: ManualDraftSet
             <input type="number" min={1} value={roundsInput} onChange={(e) => setRoundsInput(e.target.value)} required />
           </label>
           <label>
-            My draft slot
+            Your draft position (1–N)
             <input
               type="number"
               min={1}
@@ -137,6 +137,10 @@ export function ManualDraftSetup({ initial, onSubmit, onCancel }: ManualDraftSet
               required
             />
           </label>
+          <p className="setup-field-wide setup-hint">
+            On ESPN this is your position in the snake order — not your team number. The app
+            cross-checks it against the live order and warns on a mismatch.
+          </p>
           <p className="setup-field-wide setup-hint">
             Snake · 9 starters: QB · RB · RB · WR · WR · TE · FLEX · DEF · K · PPR scoring · 5 bench + 1 IR.
           </p>

@@ -123,6 +123,18 @@ export function userPickBoundaries(
 }
 
 /**
+ * Number of picks made = the maximum `overall` in the list, NOT the array length. The two are
+ * identical for Sleeper/manual drafts (overalls are contiguous 1..N), but a Step-6 confirmed ESPN
+ * late-attach normalizes picks at their ABSOLUTE positions (e.g. 138..147), so `picks.length`
+ * undercounts and would compute a wrong clock/completion state. Correct in both regimes; 0 when
+ * empty. Every caller that feeds `computeOnTheClock` / `deriveDraftStatus` / `userPickBoundaries`
+ * / the draft log's completion check must use this, never `picks.length`.
+ */
+export function picksMade(picks: readonly Pick[]): number {
+  return picks.reduce((max, p) => Math.max(max, p.overall), 0);
+}
+
+/**
  * Canonical, order-independent signature of the full pick list — the RNG seed input (via
  * `rng.ts`'s `hashStateSeed`), not a UI memo key. Must include `teamId` and `slot`: B3's
  * opponent-need modeling depends on which team owns each pick, so two draft states that differ only

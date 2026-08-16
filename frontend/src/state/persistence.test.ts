@@ -74,24 +74,41 @@ describe('persistence', () => {
     });
   });
 
-  it('treats a legacy v1 record (no frozenInit field) as frozenInit: null', () => {
+  it('round-trips an ESPN bridge session (mode espn, board runs live)', () => {
+    savePersistedSession({
+      userId: null,
+      draftId: null,
+      mode: 'espn',
+      overrides: [OVERRIDE],
+      frozenInit: FROZEN_INIT,
+    });
+
+    expect(loadPersistedSession()).toEqual({
+      userId: null,
+      draftId: null,
+      mode: 'espn',
+      overrides: [OVERRIDE],
+      frozenInit: FROZEN_INIT,
+    });
+  });
+
+  // The persisted shape changed under v2 (mode gained 'espn'; ESPN bridge picks no longer arrive
+  // as overrides — see the ESPN sync-restoration plan, 2026-08-15). A v1 record must be ignored
+  // wholesale, not half-restored: replaying its `mode: 'manual'` (the only value the old build could
+  // write for a bridge session) would silently disarm the bridge on reload while the UI still shows
+  // an ESPN session as active.
+  it('ignores a legacy v1 record entirely (migration gap fix, not a partial restore)', () => {
     localStorage.setItem('ffa.draftSession.v1', JSON.stringify({
       userId: 'u-3',
       draftId: 'd-1',
       mode: 'manual',
       overrides: [],
     }));
-    expect(loadPersistedSession()).toEqual({
-      userId: 'u-3',
-      draftId: 'd-1',
-      mode: 'manual',
-      overrides: [],
-      frozenInit: null,
-    });
+    expect(loadPersistedSession()).toBeNull();
   });
 
   it('coerces a malformed frozenInit to null instead of crashing on mount', () => {
-    localStorage.setItem('ffa.draftSession.v1', JSON.stringify({
+    localStorage.setItem('ffa.draftSession.v2', JSON.stringify({
       userId: null,
       draftId: null,
       mode: 'manual',
@@ -106,7 +123,7 @@ describe('persistence', () => {
   });
 
   it('returns null for corrupted stored JSON rather than throwing', () => {
-    localStorage.setItem('ffa.draftSession.v1', '{not valid json');
+    localStorage.setItem('ffa.draftSession.v2', '{not valid json');
     expect(loadPersistedSession()).toBeNull();
   });
 

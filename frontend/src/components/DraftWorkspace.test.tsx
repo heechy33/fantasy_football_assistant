@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/types';
 import type { Recommendation, RecommendationDiagnostics } from '../engine/recommend';
 import { canonicalPicksSignature, computeOnTheClock, userPickBoundaries } from '../adapters/draftOrder';
+import { estimateAvailability } from '../engine/availability';
 import { DraftWorkspace } from './DraftWorkspace';
 
 // DraftWorkspace's own job is orchestration â€” banners, tabs, cards, drawers â€” not engine math,
@@ -139,6 +140,7 @@ let mockAdp: AdpEntry[] = [];
 vi.mock('../hooks/usePlayerBoardData', () => ({
   usePlayerBoardData: () => ({
     players: mockPlayers, playersById: mockPlayersById, projections: mockProjections, adp: mockAdp, usage: mockUsage, usageLoadStatus: mockUsageLoadStatus, loadError: null,
+    resolvedAdpKey: 'ppr' as const,
   }),
 }));
 
@@ -196,6 +198,7 @@ function defaultProps(overrides: Partial<Parameters<typeof DraftWorkspace>[0]> =
     effectivePicks: [] as Pick[],
     manifest,
     adpFormat: 'ppr' as const,
+    activeProvider: 'sleeper' as const,
     ...overrides,
   };
   // Clock memos are owned by App in production and passed in â€” reproduce them here so every test's
@@ -344,8 +347,8 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     expect(screen.getByText('Kick')).toBeInTheDocument();
     expect(screen.queryByText('K/DEF are held back until your core starting slots are filled.')).not.toBeInTheDocument();
     await user.click(screen.getByText('Kick'));
-    const dialog = screen.getByRole('dialog', { name: 'Kick One context' });
-    expect(within(dialog).getByText('Kick One')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', { name: 'Kick One' });
+    expect(within(dialog).getByRole('heading', { name: 'Kick One' })).toBeInTheDocument();
     expect(within(dialog).getByText(/Engine ADP/)).toBeInTheDocument();
   });
 
@@ -356,10 +359,10 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
 
     await user.click(screen.getByText('One'));
 
-    const dialog = screen.getByRole('dialog', { name: 'Rush One context' });
+    const dialog = screen.getByRole('dialog', { name: 'Rush One' });
     expect(dialog).toHaveAttribute('data-size', 'wide');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    expect(within(dialog).getByText('Rush One')).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Rush One' })).toBeInTheDocument();
     expect(within(dialog).getByText(/Engine ADP/)).toBeInTheDocument();
     expect(within(dialog).getByText(/current pick 1/)).toBeInTheDocument();
   });
@@ -486,11 +489,11 @@ describe('DraftWorkspace draft-log clock wiring', () => {
 
     render(<DraftWorkspace {...defaultProps({ effectivePicks: afterMyFirstPick })} />);
 
+    // "All" excludes K/D-ST — Kick only shows up once the K tab is selected (below).
     const cards = screen.getAllByRole('article');
-    expect(cards).toHaveLength(3);
+    expect(cards).toHaveLength(2);
     expect(within(cards[0]!).getByText('Two')).toBeInTheDocument();
     expect(within(cards[1]!).getByText('Three')).toBeInTheDocument();
-    expect(within(cards[2]!).getByText('Kick')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Engine' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'ADP' })).not.toBeInTheDocument();
 
@@ -499,6 +502,27 @@ describe('DraftWorkspace draft-log clock wiring', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1);
     expect(screen.getByText('Kick')).toBeInTheDocument();
     expect(buildRecommendationBoard).not.toHaveBeenCalled();
+  });
+
+  it('shows real Proj and next-pick Avail numbers off-clock, not the removed banner', () => {
+    // rb2 gets real stats (not the file-level fixture's empty {}) so Proj is a distinctive,
+    // non-zero number rather than a coincidental 0.0 that would look like a missing value.
+    mockProjections = [{ playerId: 'rb2', source: 'fftoday', stats: { rec: 50, rush_yd: 200 } }];
+    mockAdp = [{
+      playerId: 'rb2', name: 'Rush Two', position: 'RB', team: null, adp: 3.5, stdev: 2,
+      high: null, low: null, timesDrafted: null, byeWeek: null,
+      adpSource: 'ffc' as const, stdevSource: 'observed' as const,
+    }];
+    render(<DraftWorkspace {...defaultProps({ effectivePicks: afterMyFirstPick })} />);
+
+    // 1 pick made: currentOverall=2 (them on the clock), isMyTurn=false, decisionPick=4 â€” the
+    // off-clock rule from App.tsx's boundaries doc ("the very next turn").
+    const expected = estimateAvailability(mockAdp[0]!, { currentPick: 2, nextPick: 4 });
+    const card = screen.getByText('Two').closest('.player-card') as HTMLElement;
+    expect(within(card).getByText('70.0')).toBeInTheDocument();
+    expect(within(card).queryByText(/No projection/)).not.toBeInTheDocument();
+    const meter = within(card).getByRole('meter');
+    expect(meter).toHaveAttribute('aria-valuenow', String(Math.round(expected!.probability * 100)));
   });
 
   it('passes decisionPick through to DraftLog without recomputing in the log', () => {
@@ -561,8 +585,8 @@ describe('DraftWorkspace mobile drawers', () => {
 
     await user.click(screen.getByText('One'));
     expect(screen.queryByRole('dialog', { name: 'Draft log' })).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'Rush One context' })).toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'Rush One context' })).toHaveAttribute('data-size', 'wide');
+    expect(screen.getByRole('dialog', { name: 'Rush One' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Rush One' })).toHaveAttribute('data-size', 'wide');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
 
@@ -574,7 +598,7 @@ describe('DraftWorkspace mobile drawers', () => {
 
     await user.click(screen.getByText('One'));
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    expect(screen.getByRole('dialog', { name: 'Rush One context' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Rush One' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -699,7 +723,7 @@ describe('DraftWorkspace board mode and pagination', () => {
     expect(screen.getAllByRole('article')).toHaveLength(6);
   });
 
-  it('switches to ADP mode: card numbers become market-board rank, and a projection-less player renders a No-projection card', async () => {
+  it('switches to ADP mode: card numbers become market-board rank, and a projection-less player never shows the removed No-projection banner', async () => {
     buildRecommendationBoard.mockReturnValue({
       recommendations: [makeRecommendation({ playerId: 'rb1', rank: 1 })],
       diagnostics: baseDiagnostics,
@@ -721,7 +745,36 @@ describe('DraftWorkspace board mode and pagination', () => {
     const adpCards = screen.getAllByRole('article');
     expect(within(adpCards[0]!).getByText('#3')).toBeInTheDocument();
     expect(within(adpCards[1]!).getByText('#4')).toBeInTheDocument();
-    expect(screen.getByText('No projection \u2014 ADP only.')).toBeInTheDocument();
+    // rb2 has no engine recommendation, but still gets the main-thread projected-points fallback
+    // (its mocked SeasonProjection carries empty stats, so it scores to 0 rather than being
+    // absent) \u2014 the banner explaining an absent Proj number is gone entirely, not re-gated.
+    expect(screen.queryByText(/No projection/)).not.toBeInTheDocument();
+  });
+
+  it('uses followUpPick (not decisionPick) for the ADP-mode availability meter while on the clock', async () => {
+    // On the clock at pick 1 with no picks made: decisionPick === currentPick === 1. If the
+    // fallback wrongly used decisionPick here, estimateAvailability's nextPick<=currentPick guard
+    // would trivially return 100% for every player \u2014 the followUpPick branch (pick 4 in this
+    // 2-team/3-round snake fixture) is what makes the number mean anything.
+    mockProjections = [{ playerId: 'rb2', source: 'fftoday', stats: { rec: 50, rush_yd: 200 } }];
+    mockAdp = [{
+      playerId: 'rb2', name: 'Rush Two', position: 'RB', team: null, adp: 3.5, stdev: 2,
+      high: null, low: null, timesDrafted: null, byeWeek: null,
+      adpSource: 'ffc' as const, stdevSource: 'observed' as const,
+    }];
+    buildRecommendationBoard.mockReturnValue({
+      recommendations: [], diagnostics: baseDiagnostics, marketRecommendations: [],
+    });
+    const user = userEvent.setup();
+    render(<DraftWorkspace {...defaultProps()} />);
+
+    await user.click(screen.getByRole('tab', { name: 'ADP' }));
+
+    const expected = estimateAvailability(mockAdp[0]!, { currentPick: 1, nextPick: 4 });
+    const card = screen.getByText('Two').closest('.player-card') as HTMLElement;
+    const meter = within(card).getByRole('meter');
+    expect(meter).toHaveAttribute('aria-valuenow', String(Math.round(expected!.probability * 100)));
+    expect(meter).not.toHaveAttribute('aria-valuenow', '100');
   });
 
   it('resets pagination to 6 when switching board mode', async () => {

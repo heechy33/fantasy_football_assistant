@@ -25,3 +25,10 @@ afterEach(() => {
 if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// Same gap for scrollBy — DraftLog's auto-follow scrolls its own list container (via
+// `Element.scrollBy`) instead of `scrollIntoView` walking every scrollable ancestor, so it needs
+// the same stub.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollBy) {
+  Element.prototype.scrollBy = () => {};
+}

@@ -1,6 +1,6 @@
 import type { PlayerId, Position } from '../../../shared/types';
 import { visibleDepthMembers, type TeamDepthRole } from '../data/teamDepthRole';
-import type { PlayerContextFeedStatus } from './PlayerContextBody';
+import type { PlayerContextFeedStatus } from './PlayerDetailDrawer';
 
 export interface TeamDepthRoleRowProps {
   depthRole: TeamDepthRole | null;

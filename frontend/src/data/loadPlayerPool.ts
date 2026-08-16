@@ -1,11 +1,12 @@
 import type { AdpEntry, PlayerId, PlayerMeta } from '../../../shared/types';
+import { fetchAdpBoard, type AdpBoardKey } from './adpBoard';
 
 /**
  * Memoized so the page fetches `/data/players.json` at most once per session,
  * however many callers (adapter unmatched-detection, player board) need it.
  */
 let playerPoolPromise: Promise<PlayerMeta[]> | null = null;
-const rankedPlayerPromises = new Map<AdpFormat, Promise<RankedPlayer[]>>();
+const rankedPlayerPromises = new Map<AdpBoardKey, Promise<RankedPlayer[]>>();
 
 export type AdpFormat = 'standard' | 'half-ppr' | 'ppr' | '2qb';
 
@@ -42,23 +43,24 @@ export async function loadKnownPlayerIds(): Promise<ReadonlySet<PlayerId>> {
 /**
  * Joins the canonical player pool to the selected ADP board. PlayerMeta has no
  * opinionated ranking of its own; ADP is the available, format-specific rank.
+ * The board is selected by `key` (the same `AdpBoardKey` the rest of the app
+ * uses, so an ESPN session's manual board reads `adp-espn-ppr.json` too), with
+ * `fetchAdpBoard`'s fail-open fallback to the plain format board.
  */
-export async function loadRankedPlayers(format: AdpFormat = 'ppr'): Promise<RankedPlayer[]> {
-  let promise = rankedPlayerPromises.get(format);
+export async function loadRankedPlayers(key: AdpBoardKey = 'ppr'): Promise<RankedPlayer[]> {
+  let promise = rankedPlayerPromises.get(key);
   if (!promise) {
+    const format: AdpFormat = key === 'espn-ppr' ? 'ppr' : key;
     promise = Promise.all([
       loadPlayerPool(),
-      fetch(`/data/adp-${format}.json`).then((res) => {
-        if (!res.ok) throw new Error(`/data/adp-${format}.json fetch failed: ${res.status}`);
-        return res.json() as Promise<AdpEntry[]>;
-      }),
+      fetchAdpBoard(key, format).then(({ entries }) => entries),
     ])
       .then(([players, adpEntries]) => rankPlayers(players, adpEntries))
       .catch((err: unknown) => {
-        rankedPlayerPromises.delete(format);
+        rankedPlayerPromises.delete(key);
         throw err;
       });
-    rankedPlayerPromises.set(format, promise);
+    rankedPlayerPromises.set(key, promise);
   }
   return promise;
 }

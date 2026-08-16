@@ -7,6 +7,8 @@ import {
   type RecommendationWorkerRequest,
   type RecommendationWorkerResponse,
 } from '../engine/recommendationWorkerProtocol';
+import { fetchAdpBoard, type AdpBoardKey } from '../data/adpBoard';
+import type { AdpFormat } from '../data/loadPlayerPool';
 import type { AdpEntry, PlayerId, PlayerMeta, SeasonProjection } from '../../../shared/types';
 
 interface WorkerScope {
@@ -68,19 +70,18 @@ function nextTask(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-async function fetchStaticData(adpFormat: string): Promise<RecommendationWorkerStaticData> {
-  const [playersResponse, projectionsResponse, adpResponse] = await Promise.all([
+async function fetchStaticData(adpBoardKey: AdpBoardKey, adpFormat: AdpFormat): Promise<RecommendationWorkerStaticData> {
+  const [playersResponse, projectionsResponse, adpBoard] = await Promise.all([
     fetch('/data/players.json'),
     fetch('/data/projections-season.json'),
-    fetch(`/data/adp-${adpFormat}.json`),
+    fetchAdpBoard(adpBoardKey, adpFormat),
   ]);
   if (!playersResponse.ok) throw new Error(`/data/players.json fetch failed: ${playersResponse.status}`);
   if (!projectionsResponse.ok) throw new Error(`/data/projections-season.json fetch failed: ${projectionsResponse.status}`);
-  if (!adpResponse.ok) throw new Error(`/data/adp-${adpFormat}.json fetch failed: ${adpResponse.status}`);
   return {
     players: await playersResponse.json() as PlayerMeta[],
     projections: await projectionsResponse.json() as SeasonProjection[],
-    adp: await adpResponse.json() as AdpEntry[],
+    adp: adpBoard.entries,
   };
 }
 
@@ -94,7 +95,7 @@ workerScope.onmessage = (event) => {
     clearSimulationCache();
     staticScoreCache = null;
     const version = staticVersion;
-    const promise = fetchStaticData(message.adpFormat).then((data) => {
+    const promise = fetchStaticData(message.adpBoardKey, message.adpFormat).then((data) => {
       if (staticVersion === version) {
         staticData = data;
         workerScope.postMessage({ type: 'ready', staticVersion: version });

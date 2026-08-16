@@ -9,7 +9,7 @@ from fantasypros import (
 )
 from match import build_sleeper_match_index
 
-_HEADER = "RK,TIERS,PLAYER NAME,TEAM,POS,UPSIDE ,BUST ,SOS,ECR VS ADP"
+_HEADER = "RK,TIERS,PLAYER NAME,TEAM,POS,UPSIDE ,BUST ,SOS SEASON,ECR VS. ADP"
 
 
 def _csv(*rows: str) -> str:
@@ -84,6 +84,25 @@ def test_parse_rankings_csv_accepts_trailing_space_headers_after_utf8_sig_decode
     assert diagnostics["rows"] == 1
     assert rows[0].position_rank == "WR1"
     assert rows[0].position == "WR"
+
+
+def test_parse_rankings_csv_accepts_current_export_header_with_bye_week():
+    # The real 2026-08-15 export carries a "BYE WEEK" column between POS and
+    # UPSIDE that the parser tolerates (BYE isn't a required/read column).
+    current_header = "RK,TIERS,PLAYER NAME,TEAM,POS,BYE WEEK,UPSIDE ,BUST ,SOS SEASON,ECR VS. ADP"
+    text = "\n".join((
+        current_header,
+        "1,1,Ja'Marr Chase,CIN,WR1,6,5 out of 5,1 out of 5,4 out of 5 stars,+2",
+        "AD,,Sponsored,,,-,-,-,-,-",
+    )) + "\n"
+    rows, diagnostics = parse_rankings_csv(text)
+    assert len(rows) == 1
+    assert diagnostics["droppedNonRankRows"] == 1
+    assert rows[0].position_rank == "WR1"
+    assert rows[0].upside == 5
+    assert rows[0].bust == 1
+    assert rows[0].sos == 4
+    assert rows[0].ecr_vs_adp == 2
 
 
 def test_parse_rankings_csv_rejects_header_drift():

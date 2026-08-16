@@ -142,10 +142,11 @@ describe('loadRankedPlayers', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/data/players.json') return { ok: true, json: async () => SAMPLE };
-      if (url === '/data/adp-ppr.json') return { ok: true, json: async () => adpPpr };
+      if (url === '/data/adp-ppr.json') return { ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: async () => adpPpr };
       if (url === '/data/adp-half-ppr.json') {
         return {
           ok: true,
+          headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => [
             { ...adpPpr[1], adp: 3.0 },
             { ...adpPpr[0], adp: 7.0 },
@@ -181,7 +182,7 @@ describe('loadRankedPlayers', () => {
       if (url === '/data/adp-ppr.json') {
         adpAttempts += 1;
         if (adpAttempts === 1) return { ok: false, status: 503, json: async () => null };
-        return { ok: true, json: async () => adpPpr };
+        return { ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: async () => adpPpr };
       }
       return { ok: false, status: 404, json: async () => null };
     });
@@ -197,4 +198,24 @@ describe('loadRankedPlayers', () => {
     // players.json stays memoized across the failed ranked join.
     expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/data/players.json')).toHaveLength(1);
   });
+
+  it('routes an espn-ppr board key through fetchAdpBoard with a ppr fallback', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/data/players.json') return { ok: true, json: async () => SAMPLE };
+      if (url === '/data/adp-espn-ppr.json') return { ok: false, status: 404, json: async () => null };
+      if (url === '/data/adp-ppr.json') return { ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: async () => adpPpr };
+      return { ok: false, status: 404, json: async () => null };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const espn = await loadRankedPlayers('espn-ppr');
+    expect(espn).toMatchObject([
+      { playerId: '1001', rank: 1, adp: 2.1 },
+      { playerId: 'SF', rank: 2, adp: 9.2 },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-espn-ppr.json');
+    expect(fetchMock).toHaveBeenCalledWith('/data/adp-ppr.json');
+  });
 });
+

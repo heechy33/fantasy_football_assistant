@@ -15,14 +15,17 @@ import type {
   SeasonProjection,
 } from '../../../shared/types';
 import type { UserPickBoundaries } from '../adapters/draftOrder';
-import type { PlayerContextFeedStatus } from './PlayerContextBody';
+import { picksMade } from '../adapters/draftOrder';
 import { fantasyProsStarsForPlayer } from '../data/fantasyProsStars';
+import type { AdpBoardKey } from '../data/adpBoard';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import { pointsPerGame } from '../data/pprProduction';
 import { buildSparklinePoints } from '../data/weeklyGameLog';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import { buildMarketRecommendations, DEFAULT_SCENARIOS, type MarketRecommendation, type Recommendation } from '../engine/recommend';
 import type { RecommendationWorkerDynamicInput } from '../engine/recommendationWorkerProtocol';
+import { estimateAvailability } from '../engine/availability';
+import { scoreProjection } from '../engine/scoring';
 import { draftMeasureSync } from '../lib/perf';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRecommendationRefinement } from '../hooks/useRecommendationRefinement';
@@ -32,8 +35,8 @@ import { BoardFilmstrip } from './BoardFilmstrip';
 import { BoardRows } from './BoardRows';
 import { PlayerBoardRow } from './PlayerBoardRow';
 import { PlayerCard } from './PlayerCard';
-import { PlayerDetailDrawer } from './PlayerDetailDrawer';
-import type { AdpDisclosure } from './PlayerContextBody';
+import { PlayerDetailDrawer, type AdpDisclosure, type PlayerContextFeedStatus } from './PlayerDetailDrawer';
+import type { SessionAction } from './SessionMenu';
 
 const PAGE_SIZES = [6, 12, 18, 24] as const;
 const MAX_RESULT_ROWS = PAGE_SIZES[PAGE_SIZES.length - 1];
@@ -62,6 +65,13 @@ export interface RecommendationBoardProps {
   onTheClock: OnTheClock | null;
   boundaries: UserPickBoundaries | null;
   adpFormat: AdpFormat;
+  /** The requested ADP board for this session — forwarded to the worker's init so it loads the
+   * same board the main thread does (`'espn-ppr'` only for ESPN PPR sessions). */
+  adpBoardKey: AdpBoardKey;
+  /** Which board actually loaded after `fetchAdpBoard`'s fail-open fallback. Drives the ADP
+   * disclosure: `'espn-ppr'` emits the ESPN variant; a fallback to the format board keeps the
+   * honest Sleeper/FFC label (never-switch-sources-silently). */
+  resolvedAdpKey: AdpBoardKey;
   manifest: DataManifest | null;
   players: PlayerMeta[];
   playersById: ReadonlyMap<PlayerId, PlayerMeta>;
@@ -82,6 +92,8 @@ export interface RecommendationBoardProps {
   onViewDetails: (playerId: PlayerId) => void;
   onClosePlayer: () => void;
   onOpenRailDrawer: (kind: 'log' | 'team') => void;
+  /** Session-management actions, rendered in the board's `⋯` menu next to the card/row toggle. */
+  sessionActions?: ReadonlyArray<SessionAction>;
 }
 
 export function RecommendationBoard({
@@ -91,6 +103,8 @@ export function RecommendationBoard({
   timingPollId = null,
   boundaries,
   adpFormat,
+  adpBoardKey,
+  resolvedAdpKey,
   manifest,
   players,
   playersById,
@@ -111,8 +125,12 @@ export function RecommendationBoard({
   onViewDetails,
   onClosePlayer,
   onOpenRailDrawer,
+  sessionActions = [],
 }: RecommendationBoardProps) {
   const [displayPosition, setDisplayPosition] = useState<Position | null>(null);
+  // "All" excludes K/D-ST — they stay reachable via their own tabs, whose rows (already correctly
+  // scoped by the engine/ADP source) are left untouched by this exclusion.
+  const isSpecialTeamsPosition = (position: Position | null | undefined) => position === 'K' || position === 'DEF';
   const [boardMode, setBoardMode] = useState<BoardMode>('engine');
   const [boardPresentation, setBoardPresentation] = useState<BoardPresentation>('cards');
   const [cardsVisibleCount, setCardsVisibleCount] = useState<number>(PAGE_SIZES[0]);
@@ -133,7 +151,7 @@ export function RecommendationBoard({
       picks: effectivePicks,
       myTeamId: draftInit.myTeamId,
       nextPick: boundaries.followUpPick,
-      currentPick: currentOverall ?? effectivePicks.length + 1,
+      currentPick: currentOverall ?? picksMade(effectivePicks) + 1,
       limit: MAX_RESULT_ROWS,
       rolloutDisplayLimit: ROLLOUT_DISPLAY_LIMIT,
       simulationCandidateLimit: SIMULATION_CANDIDATE_LIMIT,
@@ -173,6 +191,7 @@ export function RecommendationBoard({
   const refinement = useRecommendationRefinement({
     enabled: workerInput != null,
     requestKey: refinementKey,
+    adpBoardKey,
     adpFormat,
     input: workerInput,
     timingPollId,
@@ -181,10 +200,16 @@ export function RecommendationBoard({
   const board = refinement.result;
   const allRecommendations = board?.recommendations ?? [];
   const viewKey = displayPosition ?? 'ALL';
-  const rankedRecommendations = board?.recommendationViews?.[viewKey]
+  const rankedRecommendationsForView = board?.recommendationViews?.[viewKey]
     ?? (displayPosition == null
       ? allRecommendations
       : allRecommendations.filter((row) => playersById.get(row.playerId)?.position === displayPosition));
+  // Applied only to "All" — resolved above from either source (the worker's precomputed `ALL`
+  // view, or the main-thread filter fallback) — so the K/QB/RB/... tabs' own rows pass through
+  // untouched regardless of which one served this render.
+  const rankedRecommendations = displayPosition == null
+    ? rankedRecommendationsForView.filter((row) => !isSpecialTeamsPosition(playersById.get(row.playerId)?.position))
+    : rankedRecommendationsForView;
   const cardRecommendations = rankedRecommendations.slice(0, cardsVisibleCount);
   const diagnostics = board?.diagnostics ?? null;
   const specialTeams = diagnostics?.specialTeamsDraft ?? null;
@@ -206,6 +231,38 @@ export function RecommendationBoard({
     return map;
   }, [boardWeeklyStats, players]);
 
+  // Off-clock (and manually-toggled ADP mode) fallback for Proj: `buildMarketRecommendations`
+  // attaches `recommendation: null` to any player the worker hasn't scored, which is every player
+  // whenever `boardKind !== 'ready'`. Projected points are pick-invariant, so they're cheap to
+  // score directly here — same approach as MyTeamRail.tsx's roster-points memo — rather than
+  // requiring the worker to be running just to show a number that doesn't depend on the clock.
+  const projectedPointsByPlayer = useMemo(() => {
+    const map = new Map<PlayerId, number>();
+    for (const projection of projections) {
+      const player = playersById.get(projection.playerId);
+      map.set(projection.playerId, scoreProjection(projection, draftInit.settings, player?.position).points);
+    }
+    return map;
+  }, [projections, playersById, draftInit.settings]);
+
+  // Off-clock fallback for the next-pick availability meter, same reasoning as above.
+  // `estimateAvailability`'s `nextPick` means different picks depending on whether it's currently
+  // the user's turn (see App.tsx's `boundaries`/`currentOverall` doc): on the clock the relevant
+  // future decision is the *following* turn (followUpPick), because the current turn is already
+  // being decided right now; off the clock it's the very next turn (decisionPick).
+  const marketAvailabilityByPlayer = useMemo(() => {
+    const map = new Map<PlayerId, number>();
+    const nextPick = isMyTurn ? boundaries?.followUpPick : boundaries?.decisionPick;
+    const currentPick = currentOverall ?? picksMade(effectivePicks) + 1;
+    if (nextPick == null) return map;
+    for (const entry of adp) {
+      if (entry.playerId == null) continue;
+      const estimate = estimateAvailability(entry, { currentPick, nextPick });
+      if (estimate != null) map.set(entry.playerId, estimate.probability);
+    }
+    return map;
+  }, [adp, isMyTurn, boundaries, currentOverall, effectivePicks]);
+
   const drafted = useMemo(() => {
     const ids = new Set<PlayerId>();
     for (const pick of effectivePicks) {
@@ -213,6 +270,16 @@ export function RecommendationBoard({
     }
     return ids;
   }, [effectivePicks]);
+  // Per-player ADP provenance for the honest face/drawer label. The ESPN board is
+  // a mixed source (native ESPN head + Sleeper-tail splice), so the source must be
+  // read off each player's own board entry — never a board-wide badge.
+  const adpSourceByPlayer = useMemo(() => {
+    const map = new Map<PlayerId, (typeof adp)[number]['adpSource']>();
+    for (const entry of adp) {
+      if (entry.playerId != null && !map.has(entry.playerId)) map.set(entry.playerId, entry.adpSource);
+    }
+    return map;
+  }, [adp]);
   const scoredIds = useMemo(() => new Set(projections.map((row) => row.playerId)), [projections]);
   const evaluatedById = useMemo(() => {
     const map = new Map<PlayerId, Recommendation>();
@@ -230,16 +297,16 @@ export function RecommendationBoard({
           'main-thread ADP ordering',
           () => buildMarketRecommendations({
             adp,
-            currentPick: currentOverall ?? effectivePicks.length + 1,
+            currentPick: currentOverall ?? picksMade(effectivePicks) + 1,
             drafted,
             evaluatedById,
             scoredIds,
           }),
         );
     return displayPosition == null
-      ? all
+      ? all.filter((row) => !isSpecialTeamsPosition(playersById.get(row.playerId)?.position))
       : all.filter((row) => playersById.get(row.playerId)?.position === displayPosition);
-  }, [adp, board, currentOverall, displayPosition, drafted, effectivePicks.length, evaluatedById, playersById, scoredIds]);
+  }, [adp, board, currentOverall, displayPosition, drafted, picksMade(effectivePicks), evaluatedById, playersById, scoredIds]);
   const visibleMarketRows = marketRows.slice(0, cardsVisibleCount);
   const hasMoreCards = effectiveBoardMode === 'adp'
     ? marketRows.length > cardsVisibleCount
@@ -258,7 +325,7 @@ export function RecommendationBoard({
       ?? undefined
     : undefined;
 
-  const activeAdpSource = manifest?.sources[`adp_active_${adpFormat}`];
+  const activeAdpSource = manifest?.sources[resolvedAdpKey === 'espn-ppr' ? 'adp_active_espn_ppr' : `adp_active_${adpFormat}`];
   const ffcAdpSource = manifest?.sources[`ffc_adp_${adpFormat}`];
   const adpDisclosure: AdpDisclosure | null = activeAdpSource == null
     ? null
@@ -269,7 +336,9 @@ export function RecommendationBoard({
           teams: ffcAdpSource?.population?.teams ?? 12,
           format: ffcAdpSource?.population?.format ?? adpFormat,
         }
-      : { source: 'sleeper', format: adpFormat };
+      : activeAdpSource.activeAdpSource === 'espn'
+        ? { source: 'espn', format: adpFormat }
+        : { source: 'sleeper', format: adpFormat };
 
   const source = manifest?.sources.fftoday_projections;
   const scoringUnavailable = Object.keys(draftInit.settings.scoring).length === 0;
@@ -288,6 +357,7 @@ export function RecommendationBoard({
           boardPresentation={boardPresentation}
           onBoardPresentationChange={setBoardPresentation}
           presentationToggleVisible={!isNarrow}
+          sessionActions={sessionActions}
         />
 
         {isNarrow && (
@@ -305,7 +375,7 @@ export function RecommendationBoard({
           <>
             {isMyTurn && refinement.status !== 'refined' && refinement.status !== 'refinement-error' && (
               <p className="recommendation-refinement-status" role="status">
-                Updating recommendations for pick {currentOverall ?? effectivePicks.length + 1}...
+                Updating recommendations for pick {currentOverall ?? picksMade(effectivePicks) + 1}...
               </p>
             )}
             {isMyTurn && refinement.status === 'refinement-error' && (
@@ -362,9 +432,12 @@ export function RecommendationBoard({
                             player={playersById.get(recommendation.playerId)}
                             rank={recommendation.rank}
                             adpBoard={adp}
+                            adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
                             usage={usage[recommendation.playerId]}
                             depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
+                            projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
+                            availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
                             fantasyPros={fantasyProsFor(recommendation.playerId) ?? undefined}
                             selected={selectedPlayerId === recommendation.playerId}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
@@ -379,9 +452,12 @@ export function RecommendationBoard({
                             rank={row.rank}
                             adp={row.adp}
                             adpBoard={adp}
+                            adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
                             usage={usage[row.playerId]}
                             depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
+                            projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
+                            availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
                             fantasyPros={fantasyProsFor(row.playerId) ?? undefined}
                             selected={selectedPlayerId === row.playerId}
                             onViewDetails={() => onViewDetails(row.playerId)}
@@ -409,9 +485,12 @@ export function RecommendationBoard({
                             player={playersById.get(recommendation.playerId)}
                             rank={recommendation.rank}
                             adpBoard={adp}
+                            adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
                             usage={usage[recommendation.playerId]}
                             depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
+                            projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
+                            availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
                             fantasyPros={fantasyProsFor(recommendation.playerId) ?? undefined}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
                           />
@@ -425,9 +504,12 @@ export function RecommendationBoard({
                             rank={row.rank}
                             adp={row.adp}
                             adpBoard={adp}
+                            adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
                             usage={usage[row.playerId]}
                             depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
+                            projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
+                            availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
                             fantasyPros={fantasyProsFor(row.playerId) ?? undefined}
                             onViewDetails={() => onViewDetails(row.playerId)}
                           />
@@ -449,6 +531,7 @@ export function RecommendationBoard({
           adpDisclosure={adpDisclosure}
           currentPick={currentOverall}
           weeklyStats={weeklyStats}
+          adpBoard={adp}
           adpProvidersArtifact={adpProvidersArtifact}
           providerProjectionsArtifact={providerProjectionsArtifact}
           settings={draftInit.settings}

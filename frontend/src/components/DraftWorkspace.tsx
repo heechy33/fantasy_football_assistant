@@ -1,15 +1,19 @@
 ﻿import { useCallback, useMemo, useState } from 'react';
 import type { DataManifest, DraftInit, OnTheClock, Pick, PlayerId } from '../../../shared/types';
 import type { UserPickBoundaries } from '../adapters/draftOrder';
+import { picksMade, roundPickLabel } from '../adapters/draftOrder';
 import { resolvePlayerContextFeedStatus } from '../data/playerContext';
+import { adpBoardKeyFor } from '../data/adpBoard';
 import { buildTeamDepthRoles } from '../data/teamDepthRole';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import { usePlayerBoardData } from '../hooks/usePlayerBoardData';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { Drawer } from './Drawer';
 import { DraftLog } from './DraftLog';
+import type { LandingActiveProvider } from './LandingPage';
 import { MyTeamRail } from './MyTeamRail';
 import { RecommendationBoard, type RecommendationBoardKind } from './RecommendationBoard';
+import type { SessionAction } from './SessionMenu';
 
 type OpenDrawer =
   | { kind: 'log' }
@@ -22,6 +26,9 @@ export interface DraftWorkspaceProps {
   effectivePicks: Pick[];
   manifest: DataManifest | null;
   adpFormat: AdpFormat;
+  /** Which provider owns the session — selects the ADP board (`'espn-ppr'` only for ESPN PPR
+   * sessions; Sleeper connected and Sleeper-manual sessions stay on the plain format board). */
+  activeProvider: LandingActiveProvider;
   /** Clock memos computed once in `App` â€” never recomputed here (see App's lift comments). The
    * signature is what stops the board rebuild on a no-op poll tick; `onTheClock`/`boundaries` are
    * what the board, pagination-reset, DraftLog you-up chip, and PlayerDetailDrawer all read. */
@@ -32,6 +39,9 @@ export interface DraftWorkspaceProps {
   boundaries: UserPickBoundaries | null;
   /** Row-level "Edit pick" trigger threaded to the draft log (manual correction/takeover). */
   onCorrect?: (overall: number) => void;
+  /** Session-management actions (log a pick, edit setup, switch modes, reconnect, choose another
+   * draft) rendered in the board's `⋯` menu, next to the card/row presentation toggle. */
+  sessionActions?: ReadonlyArray<SessionAction>;
 }
 
 /**
@@ -48,18 +58,21 @@ export function DraftWorkspace({
   effectivePicks,
   manifest,
   adpFormat,
+  activeProvider,
   picksSignature,
   timingPollId = null,
   onTheClock,
   boundaries,
   onCorrect,
+  sessionActions = [],
 }: DraftWorkspaceProps) {
+  const adpBoardKey = useMemo(() => adpBoardKeyFor(activeProvider, adpFormat), [activeProvider, adpFormat]);
   const {
-    players, playersById, projections, adp, usage, usageLoadStatus, loadError,
+    players, playersById, projections, adp, usage, usageLoadStatus, loadError, resolvedAdpKey,
     fantasyProsArtifact = null,
     adpProvidersArtifact = null,
     providerProjectionsArtifact = null,
-  } = usePlayerBoardData(adpFormat);
+  } = usePlayerBoardData(adpBoardKey, adpFormat);
   const availabilityByPlayer = useMemo(() => {
     const map = new Map<PlayerId, number>();
     for (const [playerId, playerUsage] of Object.entries(usage)) {
@@ -79,9 +92,12 @@ export function DraftWorkspace({
   const selectedPlayerId = openDrawer?.kind === 'player' ? openDrawer.playerId : null;
 
   const isMyTurn = draftInit?.myTeamId != null && onTheClock?.teamId === draftInit.myTeamId;
-  const currentOverall = onTheClock?.overall ?? (draftInit ? effectivePicks.length + 1 : null);
+  const currentOverall = onTheClock?.overall ?? (draftInit ? picksMade(effectivePicks) + 1 : null);
   const picksUntilUserTurn = boundaries?.decisionPick != null && currentOverall != null
     ? Math.max(0, boundaries.decisionPick - currentOverall)
+    : null;
+  const roundPick = draftInit && currentOverall != null
+    ? roundPickLabel(draftInit.teams, currentOverall)
     : null;
 
   const boardKind = useMemo<RecommendationBoardKind>(() => {
@@ -90,7 +106,7 @@ export function DraftWorkspace({
     if (!boundaries) return 'loading';
     if (boundaries.decisionPick == null) {
       const totalPicks = draftInit.teams * draftInit.rounds;
-      return effectivePicks.length >= totalPicks && totalPicks > 0 ? 'complete' : 'no-user-picks';
+      return picksMade(effectivePicks) >= totalPicks && totalPicks > 0 ? 'complete' : 'no-user-picks';
     }
     if (!isMyTurn) return 'waiting';
     return 'ready';
@@ -120,6 +136,7 @@ export function DraftWorkspace({
       onCorrect={onCorrect}
       userNextOverall={boundaries?.decisionPick ?? null}
       picksUntilUserTurn={picksUntilUserTurn}
+      roundPick={roundPick}
     />
   );
 
@@ -150,6 +167,8 @@ export function DraftWorkspace({
             onTheClock={onTheClock}
             boundaries={boundaries}
             adpFormat={adpFormat}
+            adpBoardKey={adpBoardKey}
+            resolvedAdpKey={resolvedAdpKey}
             manifest={manifest}
             players={players}
             playersById={playersById}
@@ -170,6 +189,7 @@ export function DraftWorkspace({
             onViewDetails={handleViewDetails}
             onClosePlayer={handleClosePlayer}
             onOpenRailDrawer={handleOpenRailDrawer}
+            sessionActions={sessionActions}
           />
         ) : null}
       </div>

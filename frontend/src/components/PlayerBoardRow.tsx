@@ -51,8 +51,19 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
         {values.isRoleless ? formatBoardStat(values.avgPointsPerGame) : values.roleLabel}
       </span>
       <span className="player-board-row-cell">{formatBoardStat(values.projectionValue)}</span>
-      <span className="player-board-row-cell">{formatBoardStat(values.adpValue)}</span>
+      <span
+        className="player-board-row-cell"
+        title={values.adpSourceLabel
+          ? `ADP (${values.adpSourceLabel}) — average draft position in ${values.adpSourceLabel}'s draft population`
+          : 'Average Draft Position'}
+      >
+        {formatBoardStat(values.adpValue)}
+        {values.adpSourceLabel && <small className="player-board-row-adp-source">{values.adpSourceLabel}</small>}
+      </span>
       <span className="player-board-row-cell">{values.usageStat ? values.usageStat.value : '\u2014'}</span>
+      <span className="player-board-row-cell">
+        {values.availabilityValue == null ? '\u2014' : `${Math.round(values.availabilityValue * 100)}%`}
+      </span>
     </button>
   );
 }

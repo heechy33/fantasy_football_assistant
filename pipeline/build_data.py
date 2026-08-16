@@ -24,6 +24,7 @@ from typing import Any, Callable
 import match
 import context
 import cbs_projections
+import espn_adp
 import espn_projections
 import fantasypros
 import fantasypros_adp
@@ -45,6 +46,12 @@ COVERAGE_GATE_THRESHOLD = 0.97  # verified achievable at 1.00 on the initial sna
 # live; this is a per-format soft fallback, not a build-failing gate — FFC
 # remains the hard-gated safety net (COVERAGE_GATE_THRESHOLD, above).
 SLEEPER_ADP_MIN_ROWS = 250
+
+# ESPN's leaguedefaults ADP saturates at ~171 picks (every undrafted player's
+# averageDraftPosition converges on the ceiling), so the honest head below the
+# detected censor cutoff is ~168 rows. Below this many honest head rows the
+# ESPN board is not shipped and adp-ppr.json stays the only engine input.
+ESPN_ADP_MIN_ROWS = 120
 
 # Bumped whenever a source's manifest entry shape changes (fields added/removed/
 # retyped) so consumers can detect a manifest from an older pipeline version
@@ -315,9 +322,16 @@ def _run_optional_local_csv_artifact(
 ) -> None:
     """Best-effort optional local artifact (gitignored, display-only) from a
     user-supplied CSV. Never affects core data selection, coverage metrics, or
-    manifest source provenance. Any failure removes only the explicit output
-    path so a prior run's artifact can't look current after this run couldn't
-    read or parse the requested source — and never fails the build.
+    manifest source provenance.
+
+    Failure handling splits by what went wrong:
+    - The source file cannot be *read* (missing file, missing directory, or an
+      I/O error): warn and leave any prior artifact untouched — a run that
+      couldn't look at the source must not wipe the developer's last good
+      local decoration.
+    - The source was read but failed to *parse* (malformed CSV, schema drift,
+      bad cells): warn and remove only the explicit output path, so a stale
+      artifact can't look current against a source that is present but unusable.
 
     `build_artifact(csv_text)` does the actual parse+assemble and returns the
     self-describing artifact dict (its `source` block must carry rows/matched/
@@ -360,8 +374,9 @@ def _run_optional_local_csv_artifact(
     try:
         text = csv_path.read_text(encoding="utf-8-sig")
     except OSError as error:
+        # Source unreadable/absent: keep any prior artifact (fail-open) so a
+        # missing CSV never deletes the developer's last good decoration.
         print(f"[warn] {label}: {_diagnostic(error)}")
-        artifact_path.unlink(missing_ok=True)
         return
 
     try:
@@ -462,6 +477,8 @@ def _run_provider_projections(
     sleeper_index: dict[Any, str],
     espn_id_to_player_id: dict[str, str],
     sleeper_error: str | None = None,
+    espn_payload: dict[str, Any] | None = None,
+    espn_payload_error: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any]]:
     """Committed, deployed, display-only multi-provider projections artifact.
     Runs after the coverage gate so a gate failure preserves the previous
@@ -514,24 +531,30 @@ def _run_provider_projections(
             "diagnostic": diagnostic,
         }
 
-    # --- ESPN (one unauthenticated GET; DEF expected in positionsExcluded) ---
+    # --- ESPN (payload fetched once in main(), shared with the ADP board;
+    # DEF expected in positionsExcluded until the tiered scoring is mapped) ---
     espn_url = espn_projections.ESPN_DEFAULTS_URL.format(season=season)
-    try:
-        espn_payload = espn_projections.fetch_espn_projections(season)
-        espn_result = espn_projections.espn_provider_result(
-            espn_payload,
-            season=int(season),
-            sleeper_index=sleeper_index,
-            espn_id_to_player_id=espn_id_to_player_id,
-            valid_player_ids=valid_player_ids,
-            fetched_at=fetched_at,
-        )
+    espn_error = espn_payload_error
+    espn_result = None
+    if espn_error is None:
+        try:
+            espn_result = espn_projections.espn_provider_result(
+                espn_payload,
+                season=int(season),
+                sleeper_index=sleeper_index,
+                espn_id_to_player_id=espn_id_to_player_id,
+                valid_player_ids=valid_player_ids,
+                fetched_at=fetched_at,
+            )
+        except Exception as error:
+            espn_error = _sanitized_diagnostic(error)
+    if espn_result is not None:
         results.append(espn_result)
         source_entries["espn_projections"] = _source_entry(
             espn_url, espn_result.block["rows"], fetched_at,
         )
-    except Exception as error:
-        diagnostic = _sanitized_diagnostic(error)
+    else:
+        diagnostic = espn_error
         print(f"[warn] espn projections: {diagnostic}")
         results.append(
             provider_projections.error_provider_result("espn", "ESPN", diagnostic=diagnostic)
@@ -593,6 +616,46 @@ def _run_provider_projections(
         },
     }
     return artifact, source_entries, summary
+
+
+def _build_espn_adp_board(
+    espn_payload: dict[str, Any] | None,
+    espn_payload_error: str | None,
+    *,
+    cv_bands: tuple[tuple[float, float], ...],
+    espn_id_to_player_id: dict[str, str],
+    sleeper_index: dict[Any, str],
+    valid_player_ids: set[str],
+    fallback_entries: list[transform.AdpEntry],
+) -> tuple[list[transform.AdpEntry] | None, dict[str, Any]]:
+    """Build the ESPN default-PPR ADP board, or fail open with (None, diagnostics).
+
+    Never raises: fetch error, schema drift, a degenerate censor cutoff, or a
+    board with fewer than ESPN_ADP_MIN_ROWS honest head rows all return None so
+    the caller leaves adp-ppr.json untouched and records an error manifest
+    entry. On success returns (entries, diagnostics) where diagnostics carries
+    censorCutoff/espnRows/tailRows for the manifest.
+    """
+    if espn_payload_error is not None:
+        return None, {"diagnostic": espn_payload_error, "censorCutoff": None, "espnRows": 0, "tailRows": 0}
+    try:
+        rows = espn_adp.parse_espn_adp_rows(espn_payload)
+        entries, diagnostics = espn_adp.build_espn_adp_entries(
+            rows,
+            cv_bands=cv_bands,
+            espn_id_to_player_id=espn_id_to_player_id,
+            sleeper_index=sleeper_index,
+            valid_player_ids=valid_player_ids,
+            fallback_entries=fallback_entries,
+        )
+    except ValueError as error:
+        return None, {"diagnostic": f"ValueError: {error}", "censorCutoff": None, "espnRows": 0, "tailRows": 0}
+    if diagnostics["espnRows"] < ESPN_ADP_MIN_ROWS:
+        return None, {
+            **diagnostics,
+            "diagnostic": f"espnRows {diagnostics['espnRows']} < ESPN_ADP_MIN_ROWS {ESPN_ADP_MIN_ROWS}",
+        }
+    return entries, diagnostics
 
 
 def main() -> int:
@@ -682,6 +745,24 @@ def main() -> int:
     # player pool.
     sleeper_index = match.build_sleeper_match_index(sleeper_players)
 
+    # ESPN's kona payload is fetched exactly once and shared by both consumers:
+    # the ESPN ADP board (below) and the provider-projections step (step 8).
+    # Hoisted because espn_payload used to be a local inside
+    # _run_provider_projections and unreachable from here — this keeps one GET
+    # and one mock seam for the whole run. espn_id_to_player_id is needed by
+    # the ADP board before step 8 runs, so it is hoisted alongside.
+    espn_id_to_player_id = {
+        str(meta.ids["espn"]): player_id
+        for player_id, meta in players.items()
+        if "espn" in (meta.ids or {})
+    }
+    try:
+        espn_payload = espn_projections.fetch_espn_projections(args.season)
+        espn_payload_error: str | None = None
+    except Exception as error:
+        espn_payload = None
+        espn_payload_error = _sanitized_diagnostic(error)
+
     # FFC entries are built for every format regardless of whether Sleeper's
     # board ends up canonical: they're the bye-week backfill source (Sleeper's
     # player object and its ADP rows carry no bye week at all), the
@@ -734,6 +815,40 @@ def main() -> int:
             **_source_entry(active_url, len(chosen), fetched_at),
             "activeAdpSource": active_source,
         }
+
+    # ESPN default-PPR board (additive — adp-ppr.json stays the Sleeper path).
+    # Fail-open: fetch error, schema drift, degenerate censor cutoff, or too
+    # few honest head rows all keep adp-ppr.json untouched, record an error
+    # manifest entry, and remove any stale ESPN board so it can't look current.
+    espn_url = espn_projections.ESPN_DEFAULTS_URL.format(season=args.season)
+    espn_entries, espn_adp_diag = _build_espn_adp_board(
+        espn_payload,
+        espn_payload_error,
+        cv_bands=transform.fit_adp_cv_bands(ffc_entries_by_format["ppr"]),
+        espn_id_to_player_id=espn_id_to_player_id,
+        sleeper_index=sleeper_index,
+        valid_player_ids=set(players),
+        fallback_entries=adp_by_format["ppr"],
+    )
+    if espn_entries is not None:
+        adp_by_format["espn-ppr"] = espn_entries
+        manifest_sources["espn_adp_ppr"] = {
+            **_source_entry(espn_url, len(espn_entries), fetched_at),
+            **espn_adp_diag,
+        }
+        manifest_sources["adp_active_espn_ppr"] = {
+            **_source_entry(espn_url, len(espn_entries), fetched_at),
+            "activeAdpSource": "espn",
+        }
+    else:
+        print(f"[warn] espn adp: {espn_adp_diag['diagnostic']}")
+        manifest_sources["espn_adp_ppr"] = {
+            **_source_entry(espn_url, 0, fetched_at, status="error"),
+            **espn_adp_diag,
+        }
+        stale = out_dir / "adp-espn-ppr.json"
+        if stale.exists():
+            stale.unlink()
 
     # Coverage-gate ADP entries double as the projection provider's top-ADP
     # sample, so a rookie/traded player who is highly drafted but silently
@@ -842,15 +957,11 @@ def main() -> int:
     # Committed, deployed, display-only. After the gate so a gate failure
     # (return above) preserves the previous projections-providers.json untouched.
     print("[8/9] Building multi-provider projections (Sleeper, ESPN, CBS)...")
-    espn_id_to_player_id = {
-        str(meta.ids["espn"]): player_id
-        for player_id, meta in players.items()
-        if "espn" in (meta.ids or {})
-    }
     provider_artifact, provider_sources, provider_summary = _run_provider_projections(
         sleeper_adp_rows, set(players), season=args.season, out_dir=out_dir, fetched_at=fetched_at,
         sleeper_index=sleeper_index, espn_id_to_player_id=espn_id_to_player_id,
         sleeper_error=sleeper_adp_error,
+        espn_payload=espn_payload, espn_payload_error=espn_payload_error,
     )
     manifest_sources.update(provider_sources)
 

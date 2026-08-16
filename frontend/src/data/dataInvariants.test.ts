@@ -76,6 +76,26 @@ describe('committed data/*.json invariants', () => {
     ]);
   });
 
+  it('validateAdpProvenance accepts espn under the Sleeper contract (fitted stdev, null population)', () => {
+    const espnGood: AdpEntry = {
+      playerId: '1', name: 'Good', position: 'RB', team: 'BUF', adp: 1, stdev: 1,
+      high: null, low: null, timesDrafted: null, byeWeek: 7, adpSource: 'espn', stdevSource: 'fitted',
+    };
+    const espnObserved: AdpEntry = {
+      playerId: '2', name: 'Bad', position: 'WR', team: 'SF', adp: 2, stdev: 1,
+      high: null, low: null, timesDrafted: null, byeWeek: null, adpSource: 'espn', stdevSource: 'observed',
+    };
+    const espnWithPopulation: AdpEntry = {
+      playerId: '3', name: 'Populated', position: 'TE', team: 'LV', adp: 3, stdev: 1,
+      high: 1, low: 5, timesDrafted: 10, byeWeek: null, adpSource: 'espn', stdevSource: 'fitted',
+    };
+    expect(validateAdpProvenance([espnGood])).toEqual([]);
+    expect(validateAdpProvenance([espnObserved, espnWithPopulation]).map((issue) => issue.check).sort()).toEqual([
+      'adp-espn-population-absent',
+      'adp-espn-stdev-fitted',
+    ]);
+  });
+
   it('adp-ppr.json is currently the live Sleeper lobby board (canonical path)', () => {
     // Not a hard invariant forever (a real Sleeper outage would legitimately
     // push every format to 'ffc-fallback' for a day), but the committed

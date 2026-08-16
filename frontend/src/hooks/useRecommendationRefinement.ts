@@ -8,6 +8,7 @@ import {
   type RecommendationWorkerResponse,
   type RecommendationWorkerTimings,
 } from '../engine/recommendationWorkerProtocol';
+import type { AdpBoardKey } from '../data/adpBoard';
 import type { AdpFormat } from '../data/loadPlayerPool';
 
 export type RecommendationRefinementStatus =
@@ -28,6 +29,9 @@ export interface RecommendationRefinement {
 interface UseRecommendationRefinementInput {
   enabled: boolean;
   requestKey: string;
+  /** Which ADP board the worker should load (the key travels, not the provider string). */
+  adpBoardKey: AdpBoardKey;
+  /** Fallback board selector for the worker's `fetchAdpBoard` (see `RecommendationWorkerRequest.init`). */
   adpFormat: AdpFormat;
   input: RecommendationWorkerDynamicInput | null;
   /** Poll response that produced this request; used only for dev timing correlation. */
@@ -50,6 +54,7 @@ function sameDraftRequest(a: string, b: string): boolean {
 export function useRecommendationRefinement({
   enabled,
   requestKey,
+  adpBoardKey,
   adpFormat,
   input,
   timingPollId = null,
@@ -57,7 +62,7 @@ export function useRecommendationRefinement({
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
   const staticVersionRef = useRef(0);
-  const adpFormatRef = useRef<AdpFormat | null>(null);
+  const adpBoardKeyRef = useRef<AdpBoardKey | null>(null);
   const latestRequestIdRef = useRef(0);
   const latestRequestKeyRef = useRef('');
   const requestPollIdsRef = useRef(new Map<number, number | null>());
@@ -77,7 +82,8 @@ export function useRecommendationRefinement({
   }
 
   // Long-lived worker: created once, terminated only on unmount. It re-fetches its private pool
-  // only for a format change, so the main thread never clones a player/projection payload.
+  // only for a board-key change (Sleeper ↔ ESPN board, or a format switch), so the main thread
+  // never clones a player/projection payload.
   useEffect(() => {
     if (typeof Worker === 'undefined') return;
 
@@ -159,7 +165,7 @@ export function useRecommendationRefinement({
     return () => {
       worker.terminate();
       workerRef.current = null;
-      adpFormatRef.current = null;
+      adpBoardKeyRef.current = null;
     };
   }, []);
 
@@ -168,17 +174,18 @@ export function useRecommendationRefinement({
   useEffect(() => {
     const worker = workerRef.current;
     if (worker == null) return;
-    if (adpFormatRef.current === adpFormat) return;
-    adpFormatRef.current = adpFormat;
+    if (adpBoardKeyRef.current === adpBoardKey) return;
+    adpBoardKeyRef.current = adpBoardKey;
     staticVersionRef.current += 1;
     setWorkerReady(false);
     const initMessage: RecommendationWorkerRequest = {
       type: 'init',
       staticVersion: staticVersionRef.current,
+      adpBoardKey,
       adpFormat,
     };
     worker.postMessage(initMessage);
-  }, [adpFormat]);
+  }, [adpBoardKey, adpFormat]);
 
   // Leaving the clock must stop the in-flight Stage C: there is no newer `compute` to supersede
   // it, so send an explicit cancel and let the worker's next S2/Stage C yield invalidate it.
@@ -192,7 +199,7 @@ export function useRecommendationRefinement({
   useEffect(() => {
     const worker = workerRef.current;
     if (worker == null || !enabled || input == null || !workerReady) return;
-    if (adpFormatRef.current !== adpFormat) return;
+    if (adpBoardKeyRef.current !== adpBoardKey) return;
 
     const previousRequestId = latestRequestIdRef.current;
     const requestId = requestIdRef.current + 1;
@@ -221,7 +228,7 @@ export function useRecommendationRefinement({
       input,
     };
     worker.postMessage(computeMessage);
-  }, [adpFormat, enabled, input, requestKey, timingPollId, workerReady]);
+  }, [adpBoardKey, enabled, input, requestKey, timingPollId, workerReady]);
 
   if (!enabled) return { status: 'idle', result: null, error: null, timings: null, workerReady };
   if (typeof Worker === 'undefined') return { status: 'base-ready', result: null, error: null, timings: null, workerReady: false };

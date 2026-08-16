@@ -1,4 +1,5 @@
 ﻿import type { Position } from '../../../shared/types';
+import { SessionMenu, type SessionAction } from './SessionMenu';
 
 export type BoardMode = 'engine' | 'adp';
 export type BoardPresentation = 'cards' | 'rows';
@@ -18,6 +19,8 @@ export interface BoardFiltersProps {
   onBoardPresentationChange?: (presentation: BoardPresentation) => void;
   presentationToggleVisible?: boolean;
   modeToggleVisible?: boolean;
+  /** Session-management actions, rendered as the `⋯` menu next to the card/row toggle. */
+  sessionActions?: ReadonlyArray<SessionAction>;
 }
 
 /**
@@ -34,6 +37,7 @@ export function BoardFilters({
   onBoardPresentationChange,
   presentationToggleVisible = false,
   modeToggleVisible = true,
+  sessionActions = [],
 }: BoardFiltersProps) {
   return (
     <div className="board-filters">
@@ -76,20 +80,25 @@ export function BoardFilters({
             </button>
           ))}
         </div>
-        {presentationToggleVisible && onBoardPresentationChange && (
-          <div className="board-presentation-toggle" role="radiogroup" aria-label="Board layout">
-            {(['cards', 'rows'] as const).map((presentation) => (
-              <button
-                key={presentation}
-                type="button"
-                role="radio"
-                aria-checked={boardPresentation === presentation}
-                className={boardPresentation === presentation ? 'active' : undefined}
-                onClick={() => onBoardPresentationChange(presentation)}
-              >
-                {presentation === 'cards' ? 'Cards' : 'Rows'}
-              </button>
-            ))}
+        {(presentationToggleVisible || sessionActions.length > 0) && (
+          <div className="board-toolbar-right">
+            {presentationToggleVisible && onBoardPresentationChange && (
+              <div className="board-presentation-toggle" role="radiogroup" aria-label="Board layout">
+                {(['cards', 'rows'] as const).map((presentation) => (
+                  <button
+                    key={presentation}
+                    type="button"
+                    role="radio"
+                    aria-checked={boardPresentation === presentation}
+                    className={boardPresentation === presentation ? 'active' : undefined}
+                    onClick={() => onBoardPresentationChange(presentation)}
+                  >
+                    {presentation === 'cards' ? 'Cards' : 'Rows'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {sessionActions.length > 0 && <SessionMenu actions={sessionActions} />}
           </div>
         )}
       </div>

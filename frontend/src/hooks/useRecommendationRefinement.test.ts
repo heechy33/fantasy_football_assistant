@@ -122,12 +122,12 @@ describe('useRecommendationRefinement', () => {
     const { result } = renderHook(() => useRecommendationRefinement({
       enabled: false,
       requestKey: 'draft|pick-1',
-      adpFormat: 'ppr',
+      adpBoardKey: 'ppr', adpFormat: 'ppr',
       input: null,
     }));
     expect(FakeWorker.instances).toHaveLength(1);
     const worker = FakeWorker.instances[0]!;
-    expect(worker.messages).toContainEqual({ type: 'init', staticVersion: 1, adpFormat: 'ppr' });
+    expect(worker.messages).toContainEqual({ type: 'init', staticVersion: 1, adpBoardKey: 'ppr', adpFormat: 'ppr' });
     expect(worker.messages.some((message) => message.type === 'compute')).toBe(false);
     expect(result.current.status).toBe('idle');
     expect(result.current.workerReady).toBe(false);
@@ -137,7 +137,7 @@ describe('useRecommendationRefinement', () => {
     renderHook(() => useRecommendationRefinement({
       enabled: true,
       requestKey: 'draft|pick-1',
-      adpFormat: 'ppr',
+      adpBoardKey: 'ppr', adpFormat: 'ppr',
       input: dynamicInput,
     }));
     const worker = FakeWorker.instances[0]!;
@@ -151,7 +151,7 @@ describe('useRecommendationRefinement', () => {
       ({ requestKey }) => useRecommendationRefinement({
         enabled: true,
         requestKey,
-        adpFormat: 'ppr',
+        adpBoardKey: 'ppr', adpFormat: 'ppr',
         input: dynamicInput,
       }),
       { initialProps: { requestKey: 'draft|pick-1' } },
@@ -184,20 +184,21 @@ describe('useRecommendationRefinement', () => {
 
   it('drops a result computed against superseded static data', () => {
     const { result: hook, rerender } = renderHook(
-      ({ adpFormat }) => useRecommendationRefinement({
+      ({ adpBoardKey, adpFormat }) => useRecommendationRefinement({
         enabled: true,
         requestKey: 'draft|pick-1',
+        adpBoardKey,
         adpFormat,
         input: dynamicInput,
       }),
-      { initialProps: { adpFormat: 'ppr' as 'ppr' | 'half-ppr' } },
+      { initialProps: { adpBoardKey: 'ppr' as 'ppr' | 'half-ppr', adpFormat: 'ppr' as 'ppr' | 'half-ppr' } },
     );
     const worker = FakeWorker.instances[0]!;
     emitReady(worker, 1);
     const first = latestCompute(worker);
     expect(worker.messages.filter((message) => message.type === 'init')).toHaveLength(1);
 
-    rerender({ adpFormat: 'half-ppr' });
+    rerender({ adpBoardKey: 'half-ppr', adpFormat: 'half-ppr' });
     expect(worker.messages.filter((message) => message.type === 'init')).toHaveLength(2);
     emitReady(worker, 2);
     const current = latestCompute(worker);
@@ -216,7 +217,7 @@ describe('useRecommendationRefinement', () => {
   it('keeps the last completed board visible while the same draft recomputes', () => {
     const { result: hook, rerender } = renderHook(
       ({ requestKey }) => useRecommendationRefinement({
-        enabled: true, requestKey, adpFormat: 'ppr', input: dynamicInput,
+        enabled: true, requestKey, adpBoardKey: 'ppr', adpFormat: 'ppr', input: dynamicInput,
       }),
       { initialProps: { requestKey: 'draft|pick-1' } },
     );
@@ -235,7 +236,7 @@ describe('useRecommendationRefinement', () => {
   it('does not carry a completed board into a different draft', () => {
     const { result: hook, rerender } = renderHook(
       ({ requestKey }) => useRecommendationRefinement({
-        enabled: true, requestKey, adpFormat: 'ppr', input: dynamicInput,
+        enabled: true, requestKey, adpBoardKey: 'ppr', adpFormat: 'ppr', input: dynamicInput,
       }),
       { initialProps: { requestKey: 'draft-a|pick-1' } },
     );
@@ -252,7 +253,7 @@ describe('useRecommendationRefinement', () => {
       ({ enabled }) => useRecommendationRefinement({
         enabled,
         requestKey: 'draft|pick-1',
-        adpFormat: 'ppr',
+        adpBoardKey: 'ppr', adpFormat: 'ppr',
         input: dynamicInput,
       }),
       { initialProps: { enabled: true } },
@@ -273,7 +274,7 @@ describe('useRecommendationRefinement', () => {
       ({ requestKey }) => useRecommendationRefinement({
         enabled: true,
         requestKey,
-        adpFormat: 'ppr',
+        adpBoardKey: 'ppr', adpFormat: 'ppr',
         input: dynamicInput,
       }),
       { initialProps: { requestKey: 'draft|pick-1' } },
@@ -296,7 +297,7 @@ describe('useRecommendationRefinement', () => {
     const { unmount } = renderHook(() => useRecommendationRefinement({
       enabled: true,
       requestKey: 'draft|pick-1',
-      adpFormat: 'ppr',
+      adpBoardKey: 'ppr', adpFormat: 'ppr',
       input: dynamicInput,
     }));
     const worker = FakeWorker.instances[0]!;

@@ -57,3 +57,12 @@ IDs; DOM ID availability; full settings shape; D/ST team identity; draft/league 
 slot mapping; order changes; and whether the actual league uses the same transport. Do not infer an
 event schema or D/ST ID formula. If ESPN uses another practice-draft route, add only that verified,
 exact route—never a wildcard ESPN host permission.
+
+## App sessions vs extension storage
+
+Clearing the React app's localStorage (e.g. "Clear site data" / `localStorage.clear()` on the app
+origin) only drops `ffa.draftSession.v2` — it never touches the ESPN live pick stream, which lives
+separately in the extension's `chrome.storage.local` under `ffa.espn.live.snapshot.v1` (a key that
+is per browser profile and shared across every ESPN draft tab). That key is reset automatically when
+a different league id starts writing (`applyFrameToLive`), and Recon's **Clear** button now removes
+both the recon snapshot and the live stream key.

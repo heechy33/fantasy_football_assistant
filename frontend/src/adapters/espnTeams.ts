@@ -2,7 +2,7 @@
  * ESPN NFL-team identity helpers, ported from the Python pipeline so the draft-day D/ST crosswalk
  * can resolve a DEF pick by team identity instead of using ESPN's negative synthetic DEF ids.
  *
- * Sources: pipeline/espn_projections.py:_PRO_TEAM_ABBR (proTeamId -> raw abbreviation; note the raw
+ * Sources: pipeline/espn_projections.py:PRO_TEAM_ABBR (proTeamId -> raw abbreviation; note the raw
  * map emits "WSH" for id 28) and pipeline/match.py:TEAM_ALIASES / DEF_TEAM_NAMES (the canonical
  * players.json keys, where Washington is "WAS" — the alias layer is what folds one onto the other).
  */
@@ -39,6 +39,15 @@ const DEF_TEAM_NAMES: Record<string, string> = {
   'tennessee titans': 'TEN', 'washington commanders': 'WAS',
 };
 
+/** Every known NFL team abbreviation the DOM pick-row parser must recognize: ESPN's pro-team
+ * abbreviations, legacy/ESPN aliases, and the canonical players.json keys. Derived from the maps
+ * above so it can never drift from them. */
+export const KNOWN_TEAM_ABBREVS: readonly string[] = [...new Set([
+  ...Object.values(PRO_TEAM_ABBR),
+  ...Object.keys(TEAM_ALIASES),
+  ...Object.values(DEF_TEAM_NAMES),
+])].sort();
+
 /** Canonical players.json team key for any abbreviation (alias-folded, e.g. WSH -> WAS). */
 export function canonicalTeam(abbreviation: string | null | undefined): string | null {
   const upper = (abbreviation ?? '').trim().toUpperCase();
@@ -58,6 +67,12 @@ export function teamFromFranchiseName(name: string | null | undefined): string |
   if (!folded) return null;
   const exact = DEF_TEAM_NAMES[folded];
   if (exact) return exact;
-  const match = Object.entries(DEF_TEAM_NAMES).find(([full]) => full.includes(folded));
+  // Whole-WORD match only (e.g. "Bills" inside "buffalo bills", "Commanders" inside "washington
+  // commanders") -- a raw substring match previously let a short abbreviation-shaped input match
+  // embedded inside an unrelated team's name (real recon regression, 2026-08-15: "NE" matched inside
+  // "mi-NE-sota vikings" before "new england patriots" was ever considered, since Object.entries
+  // iterates in declared order and Minnesota comes first). Short abbreviations belong to
+  // canonicalTeam (the caller's next fallback), not here.
+  const match = Object.entries(DEF_TEAM_NAMES).find(([full]) => full.split(' ').includes(folded));
   return match ? match[1] : null;
 }

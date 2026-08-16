@@ -17,12 +17,24 @@ const providerSvg = import.meta.glob('../assets/providers/*.svg', {
   import: 'default',
 }) as Record<string, string>;
 
-/** Brand-colored logo chip that inlines a committed SVG when present and falls
- * back to a monogram otherwise. Used by the ADP/projection provider sections. */
+// Raster fallback for brands whose committed asset is a PNG (e.g. Sleeper's
+// logo) rather than an SVG — same committed-asset trust boundary as the SVG
+// map above, just rendered as an <img> instead of inlined markup.
+const providerPng = import.meta.glob('../assets/providers/*.png', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>;
+
+/** Brand-colored logo chip that inlines a committed SVG when present, falls
+ * back to a committed PNG, and finally to a monogram. Used by the ADP/projection
+ * provider sections. */
 export function ProviderBadge({ brandKey, size = 'default' }: ProviderBadgeProps) {
   const brand = providerBrand(brandKey);
   const svgPath = Object.keys(providerSvg).find((path) => path.endsWith(`/${brandKey}.svg`));
   const svg = svgPath ? providerSvg[svgPath] : null;
+  const pngPath = Object.keys(providerPng).find((path) => path.endsWith(`/${brandKey}-logo.png`));
+  const png = pngPath ? providerPng[pngPath] : null;
 
   const label = brand?.label ?? brandKey;
   if (!brand) {
@@ -46,6 +58,13 @@ export function ProviderBadge({ brandKey, size = 'default' }: ProviderBadgeProps
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: svg }}
       />
+    );
+  }
+  if (png) {
+    return (
+      <span className="provider-badge provider-badge-png" data-size={size} data-brand={brandKey}>
+        <img src={png} alt={label} title={label} />
+      </span>
     );
   }
   return (

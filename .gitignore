@@ -94,6 +94,22 @@ DRAFT_SCORE_WAR_ROOM_REVISED_PLAN.md
 FRONTEND_OVERHAUL_PHASE_1_REVISED_PLAN.md
 *_REVISED_PLAN.md
 *.plan.md
+espn_*.plan.md
+landing_*.plan.md
+live_*.plan.md
+cards_*.plan.md
+draft_*.plan.md
+replace_*.plan.md
+
+# ESPN draft-day local recon captures — not contract fixtures (see fixtures/sleeper/)
+fixtures/espn/
+
+# Append-only ADP history log — capture-only, never deployed; pipeline appends every run
+data/history/
+
+# Cursor / agent session scratch
+.cursor/
+.agent/
 
 # Misc local
 *.local

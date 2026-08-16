@@ -3,6 +3,7 @@ import type { DataManifest, Pick } from '../../../shared/types';
 import { resolveDataMode, type DataMode } from '../data/dataHealth';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
+import type { LandingActiveProvider } from './LandingPage';
 
 export interface DataHealthProps {
   manifest: DataManifest | null;
@@ -14,6 +15,10 @@ export interface DataHealthProps {
   /** Ref-backed live health avoids re-rendering the full workspace on no-op polls. */
   pollHealthRef?: RefObject<PollHealth> | null;
   adpFormat: AdpFormat;
+  /** Which provider owns the session — on an ESPN PPR session whose ESPN board actually shipped
+   * (manifest `adp_active_espn_ppr` healthy), health resolves against that key instead of
+   * `adp_active_ppr`; a fail-open ESPN→Sleeper fallback keeps the plain key. */
+  activeProvider: LandingActiveProvider;
   /** Draft-day honesty: unmodeled custom-scoring categories, rendered as banner items. */
   scoringDiagnostics?: string[];
 }
@@ -45,6 +50,7 @@ export function DataHealth({
   lastError,
   pollHealthRef = null,
   adpFormat,
+  activeProvider,
   scoringDiagnostics,
 }: DataHealthProps) {
   const [, tick] = useState(0);
@@ -60,8 +66,17 @@ export function DataHealth({
     : computeStaleness(liveHealth.lastSuccessfulPollAt, 2000, Date.now());
   const liveFailures = liveHealth?.consecutiveFailures ?? consecutiveFailures;
   const liveError = liveHealth?.lastError ?? lastError;
+  // An ESPN PPR session resolves health against `adp_active_espn_ppr` only when that board actually
+  // shipped (the manifest entry is written exactly when the pipeline committed `adp-espn-ppr.json`,
+  // which is precisely the case `fetchAdpBoard` resolves to 'espn-ppr'). On an ESPN fetch-failure
+  // day the app fell back to the Sleeper board, so health must keep the plain format key — the same
+  // never-switch-sources-silently rule as the disclosure surfaces.
+  const adpSourceKey = activeProvider === 'espn' && adpFormat === 'ppr'
+    && manifest?.sources.adp_active_espn_ppr?.status === 'ok'
+    ? 'adp_active_espn_ppr'
+    : `adp_active_${adpFormat}`;
   const dataMode: DataMode | 'unknown' = manifest
-    ? resolveDataMode(manifest, { adpSourceKey: `adp_active_${adpFormat}` })
+    ? resolveDataMode(manifest, { adpSourceKey })
     : 'unknown';
   const duplicates = findDuplicatePlayerIds(effectivePicks);
   const isHealthy = dataMode === 'full' && !freshness.isStale && liveFailures === 0 && duplicates.length === 0;

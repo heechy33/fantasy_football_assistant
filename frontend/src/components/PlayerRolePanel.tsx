@@ -2,7 +2,7 @@ import type { PlayerMeta, PlayerUsage } from '../../../shared/types';
 import { buildRoleColumns } from '../data/playerRole';
 import { buildSparklinePoints } from '../data/weeklyGameLog';
 import type { WeeklyStatsState } from '../hooks/useWeeklyStats';
-import type { PlayerContextFeedStatus } from './PlayerContextBody';
+import type { PlayerContextFeedStatus } from './PlayerDetailDrawer';
 import { RoleColumnHeader } from './RoleColumnHeader';
 import { StatBar } from './StatBar';
 

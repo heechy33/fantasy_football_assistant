@@ -1,4 +1,5 @@
 import type { PlayerId } from '../../../shared/types';
+import type { AdpBoardKey } from '../data/adpBoard';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import type { Recommendation, RecommendationInput, RecommendationResult } from './recommend';
 import type { SimulationDiagnostics } from './simulate';
@@ -24,6 +25,9 @@ export type RecommendationWorkerRequest =
       type: 'init';
       staticVersion: number;
       /** The worker fetches its own immutable pool; never clone player/projection arrays on UI. */
+      adpBoardKey: AdpBoardKey;
+      /** Fallback board selector for `fetchAdpBoard` — the plain `/data/adp-${adpFormat}.json` file
+       * used when the `adpBoardKey` file is missing (fail-open, same rule as the FFC fallback). */
       adpFormat: AdpFormat;
     }
   | {

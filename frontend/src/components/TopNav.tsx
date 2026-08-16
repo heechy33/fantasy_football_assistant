@@ -1,26 +1,28 @@
 import { useEffect, useState, type RefObject } from 'react';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
+import { ProviderBadge } from './ProviderBadge';
 
-export const APP_NAME = 'Fantasy Assistant Bob';
+export const APP_NAME = 'Fantasy Bob';
 
 export type AppPage = 'home' | 'draft' | 'teams';
 
 export interface TopNavProps {
   active: AppPage;
   onNavigate: (page: AppPage) => void;
-  /** `round.pick` hero label (e.g. `4.09`) — rendered only when a draft is loaded. */
-  roundPick?: string | null;
-  /** Picks remaining until the user's next decision (`0` = on the clock). `null` hides the chip. */
-  picksUntilUserTurn?: number | null;
-  /** Session-level control, owned by `App` (was CommandBar's gate). Omit to hide the button. */
-  onChooseAnotherDraft?: () => void;
-  /** Status subline: league name + active ADP format + a freshness dot. */
+  /** Status subline: league name + active ADP format + a freshness dot. Rendered top-right; the
+   * round/pick clock and the session `⋯` menu live elsewhere now (the draft log's clock banner and
+   * next to the board's card/row toggle, respectively) so this row is status-only. */
   leagueName?: string | null;
   adpFormat?: AdpFormat | null;
   isStale?: boolean;
   dataAgeMs?: number | null;
   pollHealthRef?: RefObject<PollHealth> | null;
+  /** Brand key for the status pill's provider chip ('espn' | 'sleeper'); null/'manual' shows a
+   * plain text pill instead. */
+  statusProvider?: string | null;
+  /** Effective pick count, appended to the status pill (e.g. "· 29 picks"). */
+  pickCount?: number | null;
 }
 
 const NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
@@ -52,78 +54,64 @@ function StaleStatus({ healthRef, fallbackIsStale, fallbackDataAgeMs }: {
 }
 
 /**
- * Persistent top nav + session controls for the app shell — one seamless navy bar (CommandBar
- * folded in) that leads with the live `round.pick` hero and keeps every session control in the
- * same strip. No router — the app is a single screen, so navigation is a lifted `page` state in
- * App and buttons here (plain state switching keeps the zero-dependency, $0/month posture).
+ * Two-tier app shell header. The identity row (brand + Home/Draft Room/Teams tabs) is always
+ * present. The status row (league/ADP/pick-count pill, top-right) renders only when the caller
+ * supplies draft state — `App` only passes `leagueName`/`adpFormat`/etc while `page === 'draft'`,
+ * so Home gets brand+nav and nothing else. No router — the app is a single screen, so navigation
+ * is a lifted `page` state in App and buttons here.
  */
 export function TopNav({
   active,
   onNavigate,
-  roundPick = null,
-  picksUntilUserTurn = null,
-  onChooseAnotherDraft,
   leagueName = null,
   adpFormat = null,
   isStale = false,
   dataAgeMs = null,
   pollHealthRef = null,
+  statusProvider = null,
+  pickCount = null,
 }: TopNavProps) {
-  const showCountdown = picksUntilUserTurn != null && picksUntilUserTurn > 0;
-  const showStatus = roundPick != null && (leagueName != null || adpFormat != null);
+  const showStatus = leagueName != null || adpFormat != null;
+  const providerBadgeKey = statusProvider === 'espn' || statusProvider === 'sleeper' ? statusProvider : null;
 
   return (
     <header className="top-nav">
-      {roundPick != null && (
-        <div className="top-nav-hero">
-          <span className="top-nav-hero-label">Round</span>
-          <strong className="top-nav-hero-pick">{roundPick}</strong>
-          {showCountdown && (
-            <span className="top-nav-countdown">{picksUntilUserTurn} until your turn</span>
-          )}
-        </div>
-      )}
-
-      <div className="top-nav-cluster">
-        <div className="top-nav-bar-row">
-          <h1 className="brand">
+      <div className="top-nav-identity">
+        <h1 className="brand">
+          <button
+            type="button"
+            className="brand-button"
+            onClick={() => onNavigate('home')}
+            aria-label={`${APP_NAME} — go to Home`}
+          >
+            {APP_NAME}
+          </button>
+        </h1>
+        <nav aria-label="Primary">
+          {NAV_ITEMS.map((item) => (
             <button
+              key={item.page}
               type="button"
-              className="brand-button"
-              onClick={() => onNavigate('home')}
-              aria-label={`${APP_NAME} — go to Home`}
+              className="nav-link"
+              aria-current={active === item.page ? 'page' : undefined}
+              onClick={() => onNavigate(item.page)}
             >
-              {APP_NAME}
+              {item.label}
             </button>
-          </h1>
-          <nav aria-label="Primary">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.page}
-                type="button"
-                className="nav-link"
-                aria-current={active === item.page ? 'page' : undefined}
-                onClick={() => onNavigate(item.page)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-        {showStatus && (
-          <p className="top-nav-status">
-            <StaleStatus healthRef={pollHealthRef} fallbackIsStale={isStale} fallbackDataAgeMs={dataAgeMs} />
-            Synced with {leagueName ?? 'draft'} · ADP {adpFormat}
-            {isStale && dataAgeMs != null ? ` · ${Math.round(dataAgeMs / 1000)}s stale` : ''}
-          </p>
-        )}
+          ))}
+        </nav>
       </div>
 
-      {onChooseAnotherDraft && (
-        <div className="top-nav-actions">
-          <button type="button" className="chrome-outline-button" onClick={onChooseAnotherDraft}>
-            Choose another draft
-          </button>
+      {showStatus && (
+        <div className="top-nav-live">
+          <p className="session-pill">
+            {providerBadgeKey && <ProviderBadge brandKey={providerBadgeKey} size="sm" />}
+            <StaleStatus healthRef={pollHealthRef} fallbackIsStale={isStale} fallbackDataAgeMs={dataAgeMs} />
+            <span className="session-pill-text">
+              {leagueName ?? 'draft'} · ADP {adpFormat}
+              {pickCount != null ? ` · ${pickCount} pick${pickCount === 1 ? '' : 's'}` : ''}
+            </span>
+          </p>
         </div>
       )}
     </header>

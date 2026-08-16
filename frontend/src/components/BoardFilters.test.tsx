@@ -73,3 +73,27 @@ describe('BoardFilters mode control', () => {
     expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
   });
 });
+
+describe('BoardFilters session menu', () => {
+  it('renders the session `⋯` menu next to the card/row toggle when actions are supplied', () => {
+    const actions = [{ id: 'log', label: 'Log next pick', onSelect: () => undefined }];
+    render(
+      <BoardFilters
+        {...defaultProps()}
+        presentationToggleVisible
+        boardPresentation="cards"
+        onBoardPresentationChange={vi.fn()}
+        sessionActions={actions}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Session actions' });
+    expect(trigger.closest('.board-toolbar-right')).toContainElement(
+      screen.getByRole('radiogroup', { name: 'Board layout' }),
+    );
+  });
+
+  it('omits the session menu trigger when no actions are supplied', () => {
+    render(<BoardFilters {...defaultProps()} presentationToggleVisible boardPresentation="cards" onBoardPresentationChange={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Session actions' })).not.toBeInTheDocument();
+  });
+});
