@@ -89,17 +89,12 @@ FantasyPros_*.csv
 # JSON/MD reports under benchmarks/reports/, not source fixtures.
 benchmarks/reports/
 
-# Local planning scratch — PLAN.md is the committed source of truth.
-DRAFT_SCORE_WAR_ROOM_REVISED_PLAN.md
-FRONTEND_OVERHAUL_PHASE_1_REVISED_PLAN.md
+# Local planning scratch — PLAN.md is the committed source of truth. These Cursor
+# plan-mode outputs live under archive/cursor-plans/ once a session ends (see
+# archive/cursor-plans/README.md); anything still at repo root is mid-session.
+archive/cursor-plans/
 *_REVISED_PLAN.md
 *.plan.md
-espn_*.plan.md
-landing_*.plan.md
-live_*.plan.md
-cards_*.plan.md
-draft_*.plan.md
-replace_*.plan.md
 
 # ESPN draft-day local recon captures — not contract fixtures (see fixtures/sleeper/)
 fixtures/espn/
@@ -110,6 +105,7 @@ data/history/
 # Cursor / agent session scratch
 .cursor/
 .agent/
+.claude/
 
 # Misc local
 *.local
