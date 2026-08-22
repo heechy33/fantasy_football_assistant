@@ -1,14 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
 import type { DraftInit, OnTheClock, Pick, PlayerId, PlayerMeta, Position } from '../../../shared/types';
 import { picksMade, roundForOverall, slotForOverall } from '../adapters/draftOrder';
-import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 import { PositionBadge } from './PositionBadge';
 
 export interface DraftLogProps {
   draftInit: DraftInit | null;
   effectivePicks: Pick[];
-  /** Id of the poll response that changed `effectivePicks`; dev timing only. */
-  timingPollId?: number | null;
   playersById: ReadonlyMap<PlayerId, PlayerMeta>;
   onTheClock: OnTheClock | null;
   /** Row-click → player detail drawer, threaded from `DraftWorkspace`'s `handleViewDetails`.
@@ -172,7 +169,6 @@ function centerRowInList(list: HTMLElement, row: HTMLElement, behavior: ScrollBe
 export const DraftLog = memo(function DraftLog({
   draftInit,
   effectivePicks,
-  timingPollId = null,
   playersById,
   onTheClock,
   onViewPlayer,
@@ -186,7 +182,6 @@ export const DraftLog = memo(function DraftLog({
   // True once the user has scrolled the current row out of view. Auto-follow then stays silent
   // until they click "Go to current pick" or a new draft connects.
   const userScrolledAwayRef = useRef(false);
-  const measuredPollIdRef = useRef<number | null>(null);
 
   const onViewPlayerRef = useRef(onViewPlayer);
   onViewPlayerRef.current = onViewPlayer;
@@ -278,37 +273,6 @@ export const DraftLog = memo(function DraftLog({
     const row = currentRowRef.current;
     if (list && row) centerRowInList(list, row, 'smooth');
   }, [scrollTargetOverall]);
-
-  // Layout effects happen before the browser paints, so call this a post-commit frame instead of
-  // pretending it proves paint. Two animation frames give the committed log an opportunity to be
-  // presented before we timestamp it.
-  useEffect(() => {
-    if (timingPollId == null || measuredPollIdRef.current === timingPollId) return;
-    measuredPollIdRef.current = timingPollId;
-    const responseMark = draftPollMarkName(timingPollId, 'response');
-    const frameMark = draftPollMarkName(timingPollId, 'log-next-frame');
-    const report = () => {
-      draftMark(frameMark);
-      if (!import.meta.env.DEV) return;
-      const frameMs = draftMeasure(`log: poll/${timingPollId}→next-frame`, responseMark, frameMark);
-      if (frameMs != null) {
-        // eslint-disable-next-line no-console
-        console.debug(`[draft-timing] poll→log next-frame ${frameMs.toFixed(1)}ms`);
-      }
-    };
-    if (typeof requestAnimationFrame !== 'function') {
-      report();
-      return;
-    }
-    let secondFrame: number | null = null;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(report);
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame != null) cancelAnimationFrame(secondFrame);
-    };
-  }, [entries, timingPollId]);
 
   if (!draftInit) {
     return <section className="draft-log"><p>No draft connected yet.</p></section>;

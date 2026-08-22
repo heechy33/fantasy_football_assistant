@@ -22,11 +22,10 @@ import type { AdpFormat } from '../data/loadPlayerPool';
 import { pointsPerGame } from '../data/pprProduction';
 import { buildSparklinePoints } from '../data/weeklyGameLog';
 import type { TeamDepthRole } from '../data/teamDepthRole';
-import { buildMarketRecommendations, DEFAULT_SCENARIOS, type MarketRecommendation, type Recommendation } from '../engine/recommend';
+import { buildMarketRecommendations, buildRecommendationBoard, DEFAULT_SCENARIOS, type MarketRecommendation, type Recommendation, type RecommendationInput, type RecommendationResult } from '../engine/recommend';
 import type { RecommendationWorkerDynamicInput } from '../engine/recommendationWorkerProtocol';
 import { estimateAvailability } from '../engine/availability';
 import { scoreProjection } from '../engine/scoring';
-import { draftMeasureSync } from '../lib/perf';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRecommendationRefinement } from '../hooks/useRecommendationRefinement';
 import { useBoardWeeklyStats, useWeeklyStats } from '../hooks/useWeeklyStats';
@@ -60,8 +59,6 @@ export interface RecommendationBoardProps {
   draftInit: DraftInit;
   effectivePicks: Pick[];
   picksSignature: string;
-  /** Correlates worker receipt diagnostics with the poll that changed the board. */
-  timingPollId?: number | null;
   onTheClock: OnTheClock | null;
   boundaries: UserPickBoundaries | null;
   adpFormat: AdpFormat;
@@ -100,7 +97,6 @@ export function RecommendationBoard({
   draftInit,
   effectivePicks,
   picksSignature,
-  timingPollId = null,
   boundaries,
   adpFormat,
   adpBoardKey,
@@ -131,6 +127,23 @@ export function RecommendationBoard({
   // "All" excludes K/D-ST — they stay reachable via their own tabs, whose rows (already correctly
   // scoped by the engine/ADP source) are left untouched by this exclusion.
   const isSpecialTeamsPosition = (position: Position | null | undefined) => position === 'K' || position === 'DEF';
+  // Display-only, same shape as the K/D-ST exclusion above: once the one-QB starting slot(s) are
+  // filled, a backup QB is bad redraft advice (bench a bye, don't roster one) even though the
+  // engine still prices it as a small real asset (eligibility.ts's benchDepthValue). This does not
+  // touch buildRecommendationBoard — the QB tab still lists QBs, and a manual QB pick still works.
+  // The SUPER_FLEX guard is belt-and-braces: adapters/sleeper.ts derives format.qb from SUPER_FLEX
+  // presence, so the two should never disagree, but startingSlots is the authoritative source.
+  const qbSlotsFilled = useMemo(() => {
+    const { settings, myTeamId } = draftInit;
+    if (settings.format.qb !== 'one-qb' || settings.startingSlots.includes('SUPER_FLEX') || myTeamId == null) {
+      return false;
+    }
+    const qbSlotsNeeded = settings.startingSlots.filter((slot) => slot === 'QB').length;
+    if (qbSlotsNeeded === 0) return false;
+    const myQbCount = effectivePicks.filter((pick) =>
+      pick.teamId === myTeamId && pick.playerId != null && playersById.get(pick.playerId)?.position === 'QB').length;
+    return myQbCount >= qbSlotsNeeded;
+  }, [draftInit, effectivePicks, playersById]);
   const [boardMode, setBoardMode] = useState<BoardMode>('engine');
   const [boardPresentation, setBoardPresentation] = useState<BoardPresentation>('cards');
   const [cardsVisibleCount, setCardsVisibleCount] = useState<number>(PAGE_SIZES[0]);
@@ -194,10 +207,77 @@ export function RecommendationBoard({
     adpBoardKey,
     adpFormat,
     input: workerInput,
-    timingPollId,
   });
 
-  const board = refinement.result;
+  // Main-thread fallback: the worker is the primary path, but a worker error currently leaves the
+  // board permanently blank (`refinement-error` returns `result: null` and nothing else computes).
+  // When that happens on the clock, compute the legacy full deterministic board synchronously here
+  // (market rows + position expansion included, Stage C omitted) so the user is never left with an
+  // empty panel. Stage C's Monte Carlo rollout is deliberately NOT run on the UI thread (that
+  // freeze is why the worker exists); the deterministic pass alone (~0.3-0.6s) is the "slower,
+  // never blank" fallback.
+  const [fallbackBoard, setFallbackBoard] = useState<{
+    status: 'idle' | 'computing' | 'done' | 'error';
+    requestKey: string | null;
+    result: RecommendationResult | null;
+  }>({ status: 'idle', requestKey: null, result: null });
+
+  // A new request (a new pick or board snapshot) invalidates any fallback result — never let a
+  // stale fallback board from a previous pick show for the current one.
+  useEffect(() => {
+    setFallbackBoard((current) =>
+      current.status === 'idle' && current.requestKey === refinementKey
+        ? current
+        : { status: 'idle', requestKey: null, result: null },
+    );
+  }, [refinementKey]);
+
+  useEffect(() => {
+    if (refinement.status !== 'refinement-error') return;
+    if (refinement.result != null || workerInput == null) return;
+    // Only one compute per request; a completed result for this key stays put (the reset effect
+    // above clears it when the request changes). While 'computing', re-running this effect on a
+    // workerInput/availability change simply reschedules the same compute with fresh closures.
+    if (fallbackBoard.status === 'done' || fallbackBoard.status === 'error') {
+      if (fallbackBoard.requestKey === refinementKey) return;
+    }
+    setFallbackBoard({ status: 'computing', requestKey: refinementKey, result: null });
+    const timer = setTimeout(() => {
+      try {
+        // `workerInput` is the RecommendationInput minus the static pool, and ships availability
+        // as `availabilityEntries` pairs (a Map is not structured-clonable). Reconstruct the full
+        // input here with the main-thread pool. The `include*` flags default to the legacy
+        // non-worker behavior (market rows + position expansion on), which is the richest board
+        // the sync overload can produce. `simulation` is deliberately omitted: the sync overload
+        // otherwise runs Stage C synchronously (its no-options path calls `runSimulation`) —
+        // exactly the UI-thread freeze this fallback must not cause.
+        const input: RecommendationInput = {
+          settings: workerInput.settings,
+          picks: workerInput.picks,
+          myTeamId: workerInput.myTeamId,
+          nextPick: workerInput.nextPick,
+          currentPick: workerInput.currentPick,
+          limit: workerInput.limit,
+          rolloutDisplayLimit: workerInput.rolloutDisplayLimit,
+          simulationCandidateLimit: workerInput.simulationCandidateLimit,
+          displayPosition: workerInput.displayPosition,
+          rosterSpotsPerTeam: workerInput.rosterSpotsPerTeam,
+          draftRounds: workerInput.draftRounds,
+          players,
+          projections,
+          adp,
+          availabilityByPlayer,
+        };
+        const result = buildRecommendationBoard(input);
+        setFallbackBoard({ status: 'done', requestKey: refinementKey, result });
+      } catch {
+        setFallbackBoard({ status: 'error', requestKey: refinementKey, result: null });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [adp, availabilityByPlayer, fallbackBoard.requestKey, fallbackBoard.status, players, projections, refinement.result, refinement.status, refinementKey, workerInput]);
+
+  const board = refinement.result ?? (fallbackBoard.requestKey === refinementKey ? fallbackBoard.result : null);
   const allRecommendations = board?.recommendations ?? [];
   const viewKey = displayPosition ?? 'ALL';
   const rankedRecommendationsForView = board?.recommendationViews?.[viewKey]
@@ -208,7 +288,10 @@ export function RecommendationBoard({
   // view, or the main-thread filter fallback) — so the K/QB/RB/... tabs' own rows pass through
   // untouched regardless of which one served this render.
   const rankedRecommendations = displayPosition == null
-    ? rankedRecommendationsForView.filter((row) => !isSpecialTeamsPosition(playersById.get(row.playerId)?.position))
+    ? rankedRecommendationsForView.filter((row) => {
+        const position = playersById.get(row.playerId)?.position;
+        return !isSpecialTeamsPosition(position) && !(qbSlotsFilled && position === 'QB');
+      })
     : rankedRecommendationsForView;
   const cardRecommendations = rankedRecommendations.slice(0, cardsVisibleCount);
   const diagnostics = board?.diagnostics ?? null;
@@ -293,20 +376,20 @@ export function RecommendationBoard({
       // The worker deliberately ships no market board (cheap S2/stageC payload), so the ADP
       // ordering fallback runs here on the main thread. It is a bounded sort over ~700 ADP rows —
       // measured, not chased: this is not the freeze, but a dev log proves it stays small.
-      : draftMeasureSync(
-          'main-thread ADP ordering',
-          () => buildMarketRecommendations({
-            adp,
-            currentPick: currentOverall ?? picksMade(effectivePicks) + 1,
-            drafted,
-            evaluatedById,
-            scoredIds,
-          }),
-        );
+      : buildMarketRecommendations({
+          adp,
+          currentPick: currentOverall ?? picksMade(effectivePicks) + 1,
+          drafted,
+          evaluatedById,
+          scoredIds,
+        });
     return displayPosition == null
-      ? all.filter((row) => !isSpecialTeamsPosition(playersById.get(row.playerId)?.position))
+      ? all.filter((row) => {
+          const position = playersById.get(row.playerId)?.position;
+          return !isSpecialTeamsPosition(position) && !(qbSlotsFilled && position === 'QB');
+        })
       : all.filter((row) => playersById.get(row.playerId)?.position === displayPosition);
-  }, [adp, board, currentOverall, displayPosition, drafted, picksMade(effectivePicks), evaluatedById, playersById, scoredIds]);
+  }, [adp, board, currentOverall, displayPosition, drafted, picksMade(effectivePicks), evaluatedById, playersById, qbSlotsFilled, scoredIds]);
   const visibleMarketRows = marketRows.slice(0, cardsVisibleCount);
   const hasMoreCards = effectiveBoardMode === 'adp'
     ? marketRows.length > cardsVisibleCount
@@ -378,11 +461,6 @@ export function RecommendationBoard({
                 Updating recommendations for pick {currentOverall ?? picksMade(effectivePicks) + 1}...
               </p>
             )}
-            {isMyTurn && refinement.status === 'refinement-error' && (
-              <p className="recommendation-refinement-status" role="status">
-                Recommendations are temporarily unavailable. Live draft tracking remains active.
-              </p>
-            )}
             {diagnostics != null && diagnostics.unmatchedPickCount > 0 && (
               <p className="warning-banner" role="alert">
                 {diagnostics.unmatchedPickCount} drafted pick{diagnostics.unmatchedPickCount === 1 ? '' : 's'} (overall {diagnostics.unmatchedPickOveralls.join(', ')}) couldn't be matched to a player —
@@ -395,6 +473,11 @@ export function RecommendationBoard({
                 Only {specialTeams.remainingPicks} selection{specialTeams.remainingPicks === 1 ? '' : 's'} remain for {specialTeamsRemaining} unfilled K/DEF slots. Overdue D/ST slots stay ahead of kicker.
               </p>
             )}
+            {qbSlotsFilled && displayPosition == null && (
+              <p className="board-advisory" role="status">
+                You already have a starting QB — backup QBs aren't recommended in 1-QB leagues. See the QB tab.
+              </p>
+            )}
 
             {showSkeleton ? (
               <div className="recommendation-loading-skeleton" aria-hidden={true}>
@@ -402,6 +485,12 @@ export function RecommendationBoard({
                 <span />
                 <span />
               </div>
+            ) : board == null && refinement.status === 'refinement-error' ? (
+              <p className="recommendation-refinement-status" role="status">
+                {fallbackBoard.status === 'computing'
+                  ? `Computing recommendations on the main thread for pick ${currentOverall ?? picksMade(effectivePicks) + 1}...`
+                  : 'Recommendations are temporarily unavailable. Live draft tracking remains active.'}
+              </p>
             ) : (effectiveBoardMode === 'engine' ? rankedRecommendations.length === 0 : marketRows.length === 0) ? (
               <p>
                 {boardKind === 'loading'

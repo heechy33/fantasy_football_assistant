@@ -25,7 +25,7 @@ from typing import Any
 
 from espn_projections import POSITION_BY_DEFAULT_ID, PRO_TEAM_ABBR
 from match import MatchKey, match_named_row
-from transform import AdpEntry, fitted_stdev
+from transform import AdpEntry, fitted_stdev_for_player
 
 # kona_player_info wraps every row under a nested `player` object.
 _ROW_PLAYER_KEY = "player"
@@ -131,21 +131,24 @@ def build_espn_adp_entries(
     sleeper_index: dict[MatchKey, str],
     valid_player_ids: set[str],
     fallback_entries: list[AdpEntry],
+    ffc_cv_index: dict[str, tuple[float, int]] | None = None,
 ) -> tuple[list[AdpEntry], dict[str, Any]]:
     """Compose the committed ESPN default-PPR board.
 
     Head: every row with adp below the detected censor cutoff, matched by
     ids.espn first (never for DEF — ESPN DEF ids are negative synthetics) then
     match_named_row(name/position/team). Unmatched rows stay out of the
-    artifact, same as espn_provider_result. stdev is plain fitted_stdev (the
-    source population's disagreement with Sleeper is bias, not spread — there
-    is no disagreement floor); high/low/timesDrafted are genuinely unknown.
+    artifact, same as espn_provider_result. stdev is `fitted_stdev_for_player`
+    (Phase 2c H2: per-player FFC CV when `ffc_cv_index` has a crosswalked
+    match, else the flat band constant — the source population's disagreement
+    with Sleeper is bias, not spread, so there is still no disagreement
+    floor); high/low/timesDrafted are genuinely unknown.
 
     Tail: every fallback_entries player not already in the head, carried over
     unchanged except their adp is clamped up to the cutoff (a censored ESPN
     player with a deep Sleeper rank must not sort into the honest head region
     — e.g. Oronde Gadsden II, Sleeper 107 / ESPN ~239). Only a clamped row's
-    stdev is recomputed to fitted_stdev(cutoff); everything else keeps its own
+    stdev is recomputed to fitted_stdev_for_player(cutoff, ...); everything else keeps its own
     adpSource/stdevSource so the artifact is honestly mixed at the row level.
     """
     cutoff = detect_censor_cutoff([row.adp for row in rows])
@@ -167,7 +170,7 @@ def build_espn_adp_entries(
                 position=row.position,
                 team=row.team,
                 adp=row.adp,
-                stdev=fitted_stdev(row.adp, cv_bands),
+                stdev=fitted_stdev_for_player(row.adp, player_id, ffc_cv_index, cv_bands),
                 high=None,
                 low=None,
                 timesDrafted=None,
@@ -191,7 +194,7 @@ def build_espn_adp_entries(
                     position=fallback.position,
                     team=fallback.team,
                     adp=adp,
-                    stdev=fallback.stdev if adp == fallback.adp else fitted_stdev(cutoff, cv_bands),
+                    stdev=fallback.stdev if adp == fallback.adp else fitted_stdev_for_player(cutoff, fallback.playerId, ffc_cv_index, cv_bands),
                     high=fallback.high,
                     low=fallback.low,
                     timesDrafted=fallback.timesDrafted,

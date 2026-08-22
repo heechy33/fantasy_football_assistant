@@ -99,6 +99,10 @@ archive/cursor-plans/
 # ESPN draft-day local recon captures — not contract fixtures (see fixtures/sleeper/)
 fixtures/espn/
 
+# Raw ESPN human-draft recap transcription input (see scripts/transcribe-espn-draft.py) —
+# regenerable scratch, superseded by the committed fixtures/real-drafts/ output.
+/espn_draft*.txt
+
 # Append-only ADP history log — capture-only, never deployed; pipeline appends every run
 data/history/
 

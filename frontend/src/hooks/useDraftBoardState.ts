@@ -1,6 +1,5 @@
-import { useCallback, useLayoutEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useMemo, useReducer } from 'react';
 import type { Pick } from '../../../shared/types';
-import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 import {
   applyOverride,
   computeEffectivePicks,
@@ -62,7 +61,6 @@ export interface UseDraftBoardStateResult {
 export function useDraftBoardState(
   livePicks: Pick[],
   initial?: DraftBoardState,
-  timingPollId: number | null = null,
 ): UseDraftBoardStateResult {
   const [state, dispatch] = useReducer(reducer, initial ?? createDraftBoardState());
   const effectivePicks = useMemo(
@@ -71,24 +69,6 @@ export function useDraftBoardState(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.mode, state.overrides, livePicks],
   );
-
-  const measuredPollIdRef = useRef<number | null>(null);
-
-  // Commit mark for the poll→effective relay. A unique poll id is essential: a subsequent,
-  // unchanged poll must not overwrite the response mark before this commit is measured.
-  useLayoutEffect(() => {
-    if (timingPollId == null || measuredPollIdRef.current === timingPollId) return;
-    measuredPollIdRef.current = timingPollId;
-    const responseMark = draftPollMarkName(timingPollId, 'response');
-    const commitMark = draftPollMarkName(timingPollId, 'effective-committed');
-    draftMark(commitMark);
-    if (!import.meta.env.DEV) return;
-    const relayMs = draftMeasure(`relay: poll/${timingPollId}→effective`, responseMark, commitMark);
-    if (relayMs != null) {
-      // eslint-disable-next-line no-console
-      console.debug(`[draft-timing] relay poll→effective ${relayMs.toFixed(1)}ms`);
-    }
-  }, [effectivePicks, timingPollId]);
 
   return {
     state,

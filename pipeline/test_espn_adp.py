@@ -136,6 +136,25 @@ def test_build_espn_adp_entries_head_stdev_is_plain_fitted_no_disagreement_floor
     assert entries[0].stdev == fitted_stdev(18.0, _DEFAULT_CV_BANDS)
 
 
+def test_build_espn_adp_entries_head_uses_ffc_cv_index_when_provided():
+    # Phase 2c H2: a per-player FFC-observed CV, once matched, should diverge
+    # the ESPN board's synthesized stdev from the flat band constant exactly
+    # like it does for the Sleeper board (transform.fitted_stdev_for_player).
+    rows = [_adp_row("Josh Allen", "QB", "BUF", "15830", 18.0)]
+    ffc_cv_index = {"allen": (0.4, 5000)}  # well above the <=24 band's constant
+    entries, _ = build_espn_adp_entries(
+        rows,
+        cv_bands=_DEFAULT_CV_BANDS,
+        espn_id_to_player_id={"15830": "allen"},
+        sleeper_index={("josh allen", "QB"): "allen"},
+        valid_player_ids={"allen"},
+        fallback_entries=[],
+        ffc_cv_index=ffc_cv_index,
+    )
+    assert entries[0].stdev > fitted_stdev(18.0, _DEFAULT_CV_BANDS)
+    assert entries[0].stdev == transform.fitted_stdev_for_player(18.0, "allen", ffc_cv_index, _DEFAULT_CV_BANDS)
+
+
 def test_build_espn_adp_entries_tail_splice_accounting_and_clamp():
     # Head rows in [5, 45) plus a sentinel cluster at 160 so the censor cutoff
     # is detected at 160; four unmatched rows populate the 24-100 baseline

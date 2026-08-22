@@ -115,6 +115,16 @@
   --chrome-ink: #e9eef5;
   --chrome-border: #5a7d9e;
   --accent-cool: #7fb2e5;
+  --accent-cool: #7fb2e5;
+
+  /* Landing trophy chrome — presentation-only accent for the cinematic landing scene
+     (LandingPage / LandingHeroCanvas). Bright/deep are the highlight/shadow ends of the same
+     metallic ramp; --silver is the mid tone matching the polished Lombardi material. Not used
+     for status anywhere — the orange --accent stays urgency-only. */
+  --silver: #c6ceda;
+  --silver-bright: #f2f6fa;
+  --silver-deep: #77828f;
+
 
   /* Semantic status colors — desaturated text tones (each >=4.5:1 on its own badge tone and on
      surface-2) with matching dark background tones for badges/banners. */

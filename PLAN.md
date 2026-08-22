@@ -7,14 +7,37 @@ implementation notes live in `archive/PLAN-history.md`. Repo conventions/command
 
 ## Status and decision
 
-**Plan last revised:** August 18, 2026
+**Plan last revised:** August 21, 2026
 **Active objective:** prove that the recommendation engine creates a measurable drafting edge in
 **PPR redraft snake drafts on Sleeper** before expanding the product.
 
-**Progress:** Gate 0, S0, S1, S2, Phase 1 player context, and the Stage C VONA rollout integration
-are implemented and locally verified — see `archive/PLAN-history.md` for the phase-by-phase build
-record and measured results. Stage C currently runs on the main thread under the existing budgeted
-mode; the Web Worker and calibration work remain open S3/S6 items.
+**Progress:** Gate 0, S0, S1, S2, Phase 1 player context, the Stage C VONA rollout integration, and
+the Phase 1 safety net (main-thread fallback board + clock test) are implemented and locally
+verified — see `archive/PLAN-history.md` for the phase-by-phase build record and measured results.
+Stage C runs in a long-lived Web Worker (`frontend/src/workers/recommendation.worker.ts`, shipped in
+`f821318`) with a deterministic main-thread fallback board; empirical opponent-model calibration and
+real clock testing against a live mock remain open S5/S6 items.
+
+**Active work — Phase 2 (survival curve): closed; the current model ships unchanged.** Phase 2a
+diagnosed the survival-curve assumptions with `pipeline/survival_diagnose.py` against the pinned FFC
+fixture `fixtures/ffc/adp-ppr-observed.json` (2026-08-13→20, 6,978 mocks, 264 players); per the
+2026-08-21 correction in `benchmarks/reports/2026-08-20-ffc-survival-diagnosis-interpretation.md`,
+the original deep-tail "left-skewed" reading was a right-censoring artifact (58% of deep-tail rows
+sit within 10 picks of the 180-pick mock ceiling), and the corrected skew is right-tail-dominant
+across all bands — a single right-skew kernel, not the band-flipping one originally guided. Phase 2b
+transcribed the two all-human ESPN drafts (`espn_draft1.txt` 10-team/14-round, `espn_draft2.txt`
+10-team/16-round) into `fixtures/real-drafts/` and extended `benchmarkAvailability.bench.ts` to the
+11-draft registry (9 recorded Sleeper mocks + 2 human) with cohort labels
+(`humanSeats`/`autodraftShare`/`marketShare`), all-seat seat-independent availability scoring
+(section A.5), and cohort stratification throughout (2d). Phase 2c implemented the H2 per-player CV
+transfer (`build_ffc_cv_index`/`fitted_stdev_for_player`), gate-checked it against the pre-declared
+gates (`benchmarks/reports/2026-08-18-availability-calibration-baseline-phase2c.md`), and **it did
+not ship**: it improved the bot cohort but regressed the held-out human Brier on both metrics
+(`DECISIONS.md`, 2026-08-21), so the `build_data.py` wiring was reverted and the flat-band
+`fitted_stdev` remains production. H1 is unattempted and deferred — no kernel work is planned until
+more real human drafts make the strict-improvement gate meaningful. Availability stays labeled
+experimental per the Phase 2c decision rule.
+
 
 The **ESPN draft-day exception** (see `DECISIONS.md`'s 2026-08-14 entry) is closed — that August 15
 draft has completed. Active work is Sleeper-first again; the two remaining leagues' drafts continue
@@ -61,14 +84,15 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
 
 ### Implemented
 
-- Sleeper connection, league/draft init, 2-3s poll with backoff/stale display, and manual
+- Sleeper connection, league/draft init, 1s poll with backoff/stale display, and manual
   mode with undo/correction (S1)
 - Deterministic PPR engine: linear scoring with diagnostics, slot-aware lineup optimizer (exact
   bitmask-DP solver, handles FLEX correctly), MRV, draining-pool replacement/VOR, leader-anchored
   tiers, survival-conditioned availability, and a ranked recommendation board with explanations
   (S2, `frontend/src/engine/`)
-- `DraftWorkspace` wired into the live-Sleeper session with deterministic S2 and Stage C lookahead
-  recommendations (manual-mode recommendation UI remains an S4 gap)
+- `DraftWorkspace` wired into live-Sleeper, manual, and ESPN-bridge sessions with deterministic S2
+  and Stage C lookahead recommendations (manual-mode recommendations use the same board — `App.tsx`
+  renders `DraftWorkspace` for `manual`/`bridge` sessions too)
 - Seeded Stage C opponent-pick rollouts with VONA, lookahead value, survival, downside, caching, and
   deterministic S2 fallback; the rollout pool follows the global-leaders plus positive-MRV
   positional-extension contract in `archive/PLAN-history.md`'s S3 entry
@@ -78,6 +102,14 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
   `DECISIONS.md`'s 2026-08-11 entry; it is not the primary sort
 - Weekly PPR history artifact (`data/weekly-ppr.json`) and a local-only FantasyPros stars/context
   decoration pipeline (display-only, never an engine input)
+- Historical 2025 draft-strategy backtest harness (Edge Validation Gate, evaluation layer A): a pure
+  TypeScript `frontend/src/engine/backtest.ts` + opt-in runner (`npm run backtest`) that drafts six
+  arms (engine / C1 Stage C lookahead sort, informational / B4 MRV+tiers / B3 static VOR / B2 raw
+  points / B1 FFC ADP) over a paired (slot × seed) grid with one shared opponent field
+  (`opponentModel.ts`), then scores finished
+  rosters against the real 2025 weekly outcomes (`data/weekly-stats.json`) with the exact lineup DP
+  (`eligibility.ts`'s `optimizeLineupValue`), H2H/playoff across seeded schedules, and the
+  pre-declared gates in `fixtures/backtest/2025/gates.md`
 - ESPN draft-day path (manual takeover, reconnaissance Chrome extension, draft-only
   `DraftProviderAdapter`) used for the completed August 15, 2026 private-league draft — draft-day
   scope only, per the now-closed exception in `DECISIONS.md`
@@ -93,15 +125,18 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
 
 ### Not implemented
 
-- Web Worker execution for Stage C (deferred, not currently required by measured cost — see S3 in
-  `archive/PLAN-history.md`), two-turn rollouts, empirical opponent-model calibration, and real
-  clock testing against a live mock (S3/S5/S6)
-- Draft-experience polish: filters/search, tier-cliff visualization, manual pin/avoid, data
-  freshness panel (S4)
-- Reliability/clock testing under real conditions, edge validation against baselines (S5-S6)
+- Empirical opponent-model calibration, two-turn rollouts, and real clock testing against a live
+  mock (S5/S6) — the Web Worker itself shipped in `f821318`
+- Draft-experience polish still missing: board player search, tier-cliff visualization, manual
+  pin/avoid/custom-rank, and a consolidated source/freshness panel (S4) — engine/ADP board modes,
+  position tabs, cards/rows presentation, and data-health status are built
+- Reliability/clock testing under real conditions (S5-S6) — the historical-out-of-sample edge
+  validation (layer A) is implemented (`npm run backtest`); the remaining edge-gate work is layers
+  B-D and the pending N ≥ 1,000 gating run
 - Provider adapters beyond Sleeper and the ESPN draft-day-only path, Cosmos DB, SWA auth (roadmap,
   gated by the Edge Validation Gate)
-- Real recorded Sleeper mock-draft fixtures — `fixtures/sleeper/` is still hand-authored
+- The cross-adapter contract suite described in `CLAUDE.md`'s testing notes — each adapter is
+  tested against its own recorded fixtures today, not one shared contract
 - The official FantasyPros projection/ECR API integration scoped in `DECISIONS.md`'s 2026-08-06
   entry — FFToday remains the sole performance-projection source
 
@@ -219,14 +254,15 @@ Time estimates are planning aids, not permission to skip exit criteria. S0-S3 ar
 
 ### S4 — Draft experience and explanations (2 days)
 
-Build:
+Mostly built: engine/ADP board modes with position tabs and cards/rows presentation
+(`BoardFilters.tsx`), roster/open-slot rail (`MyTeamRail`), the top-three recommendation panel,
+tier/availability/value/confidence fields (`NextPickSurvivalMeter.tsx`, `PlayerDetailDrawer.tsx`),
+and data-health status (`DataHealth.tsx`). Still missing:
 
-- Available-player board with filters/search
-- My roster and open-slot state
-- Top-three recommendation panel
-- Tier cliffs, availability, value vs ADP, runs, byes, injuries, and confidence
-- Data freshness/source panel
+- Board player search
+- Tier-cliff visualization (`tiers.ts` computes `urgency`/`isTierLast`; only a text `<dd>` consumes it)
 - Manual pin/avoid/custom-rank override
+- A consolidated source/freshness panel
 
 Exit criteria:
 
@@ -270,11 +306,26 @@ Compare the engine against at least:
 Use historical preseason rankings/ADP available before each season and actual weekly outcomes from
 later in that season. Do not allow future information into the draft decision.
 
-Measure: optimized weekly starter points, replacement-adjusted points, simulated head-to-head
-wins/playoff rate across schedules, downside/roster fragility.
+**Implemented (2026-08):** the 2025 backtest freezes preseason inputs through
+`pipeline/backtest_snapshot.py` into committed `fixtures/backtest/2025/` (FFC 2025 PPR ADP + FFToday
+2025 projections; leakage/identity/outcome gates passed) and runs six arms over a paired
+(slot × seed) grid sharing one opponent field (`npm run backtest`, `frontend/src/engine/backtest.ts`).
+It measures mean optimized weekly starter points (weeks 1-17, exact lineup DP over real 2025 `pts`),
+replacement-adjusted points, simulated H2H wins / playoff rate across schedules, and
+downside/fragility, against the pre-declared gates in `fixtures/backtest/2025/gates.md`. The 20-seed
+pilot is directional/non-gating; the N ≥ 1,000 gating run is pending review.
 
-Start with recent seasons for which reliable preseason inputs can be reconstructed. `ffsimulator`,
-DynastyProcess rank history, and nflverse weekly data are the starting references.
+**Sim-sort disagreement probe and C1 arm (2026-08-22, both pre-declared):** the pilot found
+`engine`/`b4` produce byte-identical picks — Stage C's simulated `lookaheadValue` never sorts the
+board (`DECISIONS.md`, 2026-08-10/2026-08-22). A cheap opt-in probe (`npm run probe:simsort`,
+`frontend/src/engine/simSortProbe.ts`) screened whether sorting by `lookaheadValue` instead would
+ever disagree with `planValue` before paying for a sixth fully-scored arm; it found 37.8% top-1
+disagreement (every round band above its threshold), clearing the pre-declared rule, so the `c1` arm
+was added. In the 240-draft pilot, C1 finished directionally ahead of engine (+1.002 pts/week, 95%
+CI [-0.151, 2.155] — not yet significant) with a notably higher coverage rate (0.750 vs 0.614);
+`DECISIONS.md`'s 2026-08-22 entries have the full numbers and the open coverage-mechanism question.
+Not promoted to production and not gated — reported only, pending a scoped gating run if pursued
+further.
 
 #### B. Availability calibration
 

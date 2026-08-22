@@ -1,0 +1,49 @@
+{
+  "draft_id": "espn-draft2-10team-16round",
+  "league_id": null,
+  "type": "snake",
+  "status": "complete",
+  "season": "2026",
+  "metadata": {
+    "name": "ESPN 10-team PPR (draft 2)",
+    "scoring_type": "ppr",
+    "source": "espn_draft2.txt",
+    "transcribed": true
+  },
+  "settings": {
+    "teams": 10,
+    "rounds": 16,
+    "slots_qb": 1,
+    "slots_rb": 2,
+    "slots_wr": 2,
+    "slots_te": 1,
+    "slots_flex": 1,
+    "slots_super_flex": 0,
+    "slots_k": 1,
+    "slots_def": 1
+  },
+  "draft_order": {
+    "espn-d2-t1": 1,
+    "espn-d2-t2": 2,
+    "espn-d2-t3": 3,
+    "espn-d2-t4": 4,
+    "espn-d2-t5": 5,
+    "espn-d2-t6": 6,
+    "espn-d2-t7": 7,
+    "espn-d2-t8": 8,
+    "espn-d2-t9": 9,
+    "espn-d2-t10": 10
+  },
+  "slot_to_roster_id": {
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "4": 4,
+    "5": 5,
+    "6": 6,
+    "7": 7,
+    "8": 8,
+    "9": 9,
+    "10": 10
+  }
+}

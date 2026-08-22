@@ -135,6 +135,69 @@ export function rosterValue(
   return optimizeLineup(settings, players, projectedPoints).value;
 }
 
+/**
+ * Value-only exact lineup solve: returns `optimizeLineup(...).value` at a fraction of the cost,
+ * for callers that read only the optimal *value* and never occupant identity. The historical
+ * backtest scores ~185 (team, week) cells per draft with `optimizeLineup`'s string-keyed BigInt
+ * memo, which measured ~28ms/solve on a real 16-man roster — infeasible at ~1,200 drafts.
+ *
+ * Same DP, same eligibility (`accepts`), same tie-break semantics — the count tie-break in
+ * `solveIndexed` selects WHICH equal-value assignment is canonical and never changes the optimum's
+ * value, so dropping it (and the identity-tracking `picks` array) leaves the value exact. The memo
+ * stores only the scalar value under an integer `mask * (slots + 1) + slot` key (exact within 2^53
+ * for <= 30 scored players) instead of a BigInt-interpolated string key. For more than 30 scored
+ * players (beyond safe 32-bit mask range) it falls back to `optimizeLineup`.
+ *
+ * Verified against `optimizeLineup` by a randomized property suite (`backtest.test.ts`) so this
+ * path can never drift from the canonical solver — it is a performance profile, not a new algorithm.
+ */
+export function optimizeLineupValue(
+  settings: LeagueSettings,
+  players: readonly PlayerMeta[],
+  projectedPoints: ReadonlyMap<PlayerId, number>,
+): number {
+  const slots = settings.startingSlots.filter((slot) => slot !== 'BN' && slot !== 'IR');
+  const playerById = new Map(players.map((player) => [player.playerId, player]));
+  const ids = players.filter((player) => projectedPoints.has(player.playerId)).map((player) => player.playerId);
+  if (ids.length > 30) return optimizeLineup(settings, players as PlayerMeta[], projectedPoints).value;
+
+  const points = ids.map((id) => projectedPoints.get(id) ?? 0);
+  const slotEligibilityMask = slots.map((slot) => {
+    let mask = 0;
+    ids.forEach((id, index) => {
+      const player = playerById.get(id);
+      if (player && accepts(slot, player)) mask |= 1 << index;
+    });
+    return mask;
+  });
+  const fullMask = ids.length ? (1 << ids.length) - 1 : 0;
+  const slotCount = slots.length;
+  const memo = new Map<number, number>();
+
+  function solve(slotIndex: number, remainingMask: number): number {
+    if (slotIndex >= slotCount) return 0;
+    const key = remainingMask * (slotCount + 1) + slotIndex;
+    const cached = memo.get(key);
+    if (cached !== undefined) return cached;
+    // Leaving a slot empty is legal for partial rosters and makes the solver
+    // useful before a full mock draft is complete.
+    let best = solve(slotIndex + 1, remainingMask);
+    const eligible = (slotEligibilityMask[slotIndex] ?? 0) & remainingMask;
+    for (let index = 0; index < ids.length; index += 1) {
+      const bit = 1 << index;
+      if (!(eligible & bit)) continue;
+      const sub = solve(slotIndex + 1, remainingMask & ~bit);
+      const value = (points[index] ?? 0) + sub;
+      if (value > best) best = value;
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  return solve(0, fullMask);
+}
+
+
 export function slotEligibility(slot: RosterSlot, player: PlayerMeta): boolean {
   return accepts(slot, player);
 }

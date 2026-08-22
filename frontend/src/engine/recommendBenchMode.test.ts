@@ -154,6 +154,37 @@ describe('bench mode on real committed data (PLAN.md bench-mode revision, findin
       expect(prev.marginalRosterUtility).toBeGreaterThanOrEqual(cur.marginalRosterUtility - tolerance);
     }
   });
+
+  // Guard for DECISIONS.md's 2026-08-21 QB-gating entry: hiding a redundant QB2 from the 1-QB
+  // "All" board is `RecommendationBoard.tsx`'s presentation policy, deliberately kept out of
+  // `buildRecommendationBoard` (the backtest harness reads this function directly, and has no
+  // waiver wire to fairly price a QB gate — see the decision log). If this ever regresses to false
+  // it means the gate has migrated into the engine and the backtest's pending gating run is no
+  // longer measuring what it was pre-declared against.
+  it('still lets buildRecommendationBoard return a redundant QB2 (the 1-QB gate is UI-only, not engine)', () => {
+    const players = loadRealData<PlayerMeta[]>('players.json');
+    const projections = loadRealData<SeasonProjection[]>('projections-season.json');
+    const adp = loadRealData<AdpEntry[]>('adp-ppr.json');
+    const playersById = new Map(players.map((p) => [p.playerId, p]));
+    const scores = new Set(projections.map((p) => p.playerId));
+
+    const teams = 12;
+    const { picks, myRosterIds } = buildLateStateOnRealData(adp, playersById, scores, teams, 170);
+
+    clearSimulationCache();
+    const result = buildRecommendationBoard({
+      settings, players, projections, adp, picks, myTeamId: 'me',
+      nextPick: null, currentPick: picks.length + 1, limit: 40,
+      rosterSpotsPerTeam: 16, draftRounds: 16,
+    });
+
+    expect(result.diagnostics.coreStartingSlotsFilled).toBe(true);
+    const myQbCount = myRosterIds.filter((id) => playersById.get(id)?.position === 'QB').length;
+    expect(myQbCount).toBeGreaterThanOrEqual(1);
+
+    const hasQbRow = result.recommendations.some((r) => playersById.get(r.playerId)?.position === 'QB');
+    expect(hasQbRow).toBe(true);
+  });
 });
 
 describe('benchDepthValue / expectedUnavailableFraction (eligibility.ts)', () => {

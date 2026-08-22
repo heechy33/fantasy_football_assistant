@@ -7,15 +7,18 @@ from transform import (
     apply_player_bye_weeks_to_adp,
     backfill_bye_weeks_from_ids,
     build_adp_entries,
+    build_ffc_cv_index,
     build_player_meta,
     build_season_projections,
     build_sleeper_adp_entries,
     fitted_stdev,
+    fitted_stdev_for_player,
     fit_adp_cv_bands,
     parse_college,
     parse_height_inches,
     parse_jersey_number,
     parse_weight_lbs,
+    per_player_cv,
     SLEEPER_ADP_SENTINEL,
 )
 
@@ -45,6 +48,91 @@ def test_fitted_stdev_floor_applies_at_the_very_top_of_the_board():
 def test_fitted_stdev_is_monotonic_increasing_in_adp():
     values = [fitted_stdev(a) for a in (1, 5, 12, 24, 48, 100, 250)]
     assert values == sorted(values)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2c H2: per-player FFC CV transfer (build_ffc_cv_index / per_player_cv
+# / fitted_stdev_for_player), replacing the flat band constant for players
+# FFC has actually observed. See benchmarks/reports/2026-08-20-ffc-survival-
+# diagnosis-interpretation.md's H2 section for the finding this implements.
+# ---------------------------------------------------------------------------
+
+
+def _ffc_entry(player_id, adp, stdev, times_drafted=100):
+    return AdpEntry(
+        playerId=player_id, name="X", position="RB", team="XX",
+        adp=adp, stdev=stdev, high=None, low=None, timesDrafted=times_drafted,
+        byeWeek=None, adpSource="ffc", stdevSource="observed",
+    )
+
+
+def test_build_ffc_cv_index_keys_by_player_id_and_skips_unmatched_or_degenerate():
+    entries = [
+        _ffc_entry("a", adp=10.0, stdev=2.0, times_drafted=150),  # cv = 0.2
+        _ffc_entry(None, adp=20.0, stdev=3.0),                     # no crosswalk match
+        _ffc_entry("b", adp=0.0, stdev=3.0),                       # degenerate adp
+        _ffc_entry("c", adp=30.0, stdev=0.0),                      # degenerate stdev
+    ]
+    index = build_ffc_cv_index(entries)
+    assert set(index) == {"a"}
+    cv, n = index["a"]
+    assert cv == pytest.approx(0.2)
+    assert n == 150
+
+
+def test_per_player_cv_falls_back_to_band_when_no_ffc_match():
+    # adp=6 -> top band, cv=0.247 (see test_fitted_stdev_matches_calibrated_bands)
+    assert per_player_cv(6, "unmatched", {}) == pytest.approx(0.247)
+    assert per_player_cv(6, None, {"other": (0.5, 200)}) == pytest.approx(0.247)
+
+
+def test_per_player_cv_shrinks_toward_band_by_sample_size():
+    # Top band constant is 0.247; observed cv 0.4 for this player.
+    index = {"lightly_sampled": (0.4, 5), "heavily_sampled": (0.4, 5000)}
+    light = per_player_cv(6, "lightly_sampled", index)
+    heavy = per_player_cv(6, "heavily_sampled", index)
+    # Both pulled toward 0.4 from the 0.247 band, but the heavily-sampled
+    # player should sit much closer to the observed value.
+    assert 0.247 < light < heavy < 0.4 + 1e-9
+    assert heavy == pytest.approx(0.4, abs=0.01)
+    assert light == pytest.approx(0.247, abs=0.03)
+
+
+def test_per_player_cv_clamped_to_tolerance_band():
+    # Band constant 0.247 (adp=6); an extreme, heavily-sampled observed cv of
+    # 2.0 would shrink to ~2.0 with prior_n=50 and n=5000, but must clamp to
+    # 2x the band constant (0.494) per the tolerance guard.
+    index = {"extreme": (2.0, 5000)}
+    assert per_player_cv(6, "extreme", index) == pytest.approx(0.247 * 2.0, abs=0.01)
+    # Symmetric low-side clamp.
+    index_low = {"extreme_low": (0.01, 5000)}
+    assert per_player_cv(6, "extreme_low", index_low) == pytest.approx(0.247 * 0.5, abs=0.01)
+
+
+def test_fitted_stdev_for_player_matches_fitted_stdev_when_no_index():
+    # ffc_cv_index=None (or an index missing this player) must reproduce
+    # fitted_stdev's original band-only output exactly -- a strict extension.
+    for adp in (1, 6, 18, 36, 100, 250):
+        assert fitted_stdev_for_player(adp, "some-player", None) == pytest.approx(fitted_stdev(adp))
+        assert fitted_stdev_for_player(adp, "some-player", {}) == pytest.approx(fitted_stdev(adp))
+        assert fitted_stdev_for_player(adp, None, {"other": (0.9, 500)}) == pytest.approx(fitted_stdev(adp))
+
+
+def test_fitted_stdev_for_player_uses_per_player_cv_when_matched():
+    index = {"p": (0.4, 5000)}  # heavily sampled, well above the 0.247 top-band constant
+    result = fitted_stdev_for_player(6, "p", index)
+    assert result > fitted_stdev(6)  # must diverge from the flat-band value
+    assert result == pytest.approx(6 * per_player_cv(6, "p", index), abs=0.01)
+
+
+def test_build_sleeper_adp_entries_uses_ffc_cv_index_when_provided():
+    # adp=20 is well clear of the stdev floor, so the CV difference actually shows up.
+    rows = [_row("9221", "Jahmyr", "Gibbs", "RB", "DET", adp_ppr=20.0)]
+    ffc_cv_index = {"9221": (0.4, 5000)}  # well above the <=24 band's 0.169 constant
+    entries, _ = build_sleeper_adp_entries(rows, "ppr", ffc_cv_index=ffc_cv_index)
+    entry = entries[0]
+    assert entry.stdev > fitted_stdev(20.0)
+    assert entry.stdev == pytest.approx(fitted_stdev_for_player(20.0, "9221", ffc_cv_index), abs=1e-4)
 
 
 def _row(player_id, first, last, position, team, adp_ppr=999.0, adp_std=999.0, adp_half_ppr=999.0, adp_2qb=999.0):

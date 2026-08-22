@@ -50,12 +50,13 @@ afterEach(() => {
   cleanup();
 });
 
-/** Drives Home -> "Set up ESPN draft" -> fills the required draft position -> submits, landing in
- * the Draft Room. Shared by both tests below since the regression is specifically about what this
- * flow produces. */
+/** Drives Home -> "Connect your league" (the collapsed provider panels) -> "Set up ESPN draft" ->
+ * fills the required draft position -> submits, landing in the Draft Room. Shared by both tests
+ * below since the regression is specifically about what this flow produces. */
 async function startEspnSetup(user: ReturnType<typeof userEvent.setup>) {
   render(<App />);
   await act(async () => {});
+  await user.click(await screen.findByRole('button', { name: 'Connect your league' }));
   await user.click(await screen.findByRole('button', { name: 'Set up ESPN draft' }));
   await user.type(screen.getByLabelText(/Your draft position/), '3');
   await user.click(screen.getByRole('button', { name: 'Start draft' }));

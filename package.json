@@ -12,7 +12,9 @@
     "verify:artifact": "node scripts/verify-artifact.mjs",
     "pipeline": "python pipeline/build_data.py",
     "fetch:sleeper-mock": "node scripts/fetch-sleeper-mock.mjs",
-    "benchmark:availability": "node scripts/run-benchmark.mjs"
+    "benchmark:availability": "node scripts/run-benchmark.mjs",
+    "backtest": "node scripts/run-backtest.mjs",
+    "probe:simsort": "node scripts/run-simsort-probe.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

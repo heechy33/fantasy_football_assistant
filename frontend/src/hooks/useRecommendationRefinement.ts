@@ -1,6 +1,5 @@
 import { startTransition, useEffect, useRef, useState } from 'react';
 import type { RecommendationResult } from '../engine/recommend';
-import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 import {
   applyStageCPatch,
   type RecommendationWorkerDynamicInput,
@@ -34,8 +33,6 @@ interface UseRecommendationRefinementInput {
   /** Fallback board selector for the worker's `fetchAdpBoard` (see `RecommendationWorkerRequest.init`). */
   adpFormat: AdpFormat;
   input: RecommendationWorkerDynamicInput | null;
-  /** Poll response that produced this request; used only for dev timing correlation. */
-  timingPollId?: number | null;
 }
 
 interface RefinementSnapshot {
@@ -57,7 +54,6 @@ export function useRecommendationRefinement({
   adpBoardKey,
   adpFormat,
   input,
-  timingPollId = null,
 }: UseRecommendationRefinementInput): RecommendationRefinement {
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
@@ -65,7 +61,6 @@ export function useRecommendationRefinement({
   const adpBoardKeyRef = useRef<AdpBoardKey | null>(null);
   const latestRequestIdRef = useRef(0);
   const latestRequestKeyRef = useRef('');
-  const requestPollIdsRef = useRef(new Map<number, number | null>());
   const [workerReady, setWorkerReady] = useState(false);
   const [snapshot, setSnapshot] = useState<RefinementSnapshot | null>(null);
 
@@ -105,23 +100,9 @@ export function useRecommendationRefinement({
       // racing burst — but it must never surface an out-of-date board.
       if (message.staticVersion !== staticVersionRef.current) return;
       if (message.requestId !== latestRequestIdRef.current || message.requestKey !== latestRequestKeyRef.current) return;
-      if (message.type === 'result') {
-        const pollId = requestPollIdsRef.current.get(message.requestId) ?? null;
-        const receiptMark = pollId == null
-          ? null
-          : draftPollMarkName(pollId, message.phase === 's2' ? 'worker-s2-received' : 'worker-stagec-received');
-        if (receiptMark != null) draftMark(receiptMark);
-        if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
-          console.log(`[recommendation-worker] ${message.phase} queueMs=${message.timings.queueMs} computeMs=${message.timings.computeMs.toFixed(1)} totalMs=${message.timings.totalMs.toFixed(1)}`);
-          const receiptMs = pollId == null || receiptMark == null
-            ? null
-            : draftMeasure(`receipt: poll/${pollId}→${message.phase}`, draftPollMarkName(pollId, 'response'), receiptMark);
-          if (receiptMs != null) {
-            // eslint-disable-next-line no-console
-            console.debug(`[draft-timing] poll→${message.phase} receipt ${receiptMs.toFixed(1)}ms`);
-          }
-        }
+      if (message.type === 'result' && import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log(`[recommendation-worker] ${message.phase} queueMs=${message.timings.queueMs} computeMs=${message.timings.computeMs.toFixed(1)} totalMs=${message.timings.totalMs.toFixed(1)}`);
       }
       if (message.type === 'error') {
         setSnapshot((current) => current == null
@@ -209,8 +190,6 @@ export function useRecommendationRefinement({
     if (previousRequestId > 0 && previousRequestId !== requestId) postCancel(worker, previousRequestId);
     latestRequestIdRef.current = requestId;
     latestRequestKeyRef.current = requestKey;
-    requestPollIdsRef.current.clear();
-    requestPollIdsRef.current.set(requestId, timingPollId);
     setSnapshot((current) => ({
       requestId,
       requestKey,
@@ -228,7 +207,7 @@ export function useRecommendationRefinement({
       input,
     };
     worker.postMessage(computeMessage);
-  }, [adpBoardKey, enabled, input, requestKey, timingPollId, workerReady]);
+  }, [adpBoardKey, enabled, input, requestKey, workerReady]);
 
   if (!enabled) return { status: 'idle', result: null, error: null, timings: null, workerReady };
   if (typeof Worker === 'undefined') return { status: 'base-ready', result: null, error: null, timings: null, workerReady: false };

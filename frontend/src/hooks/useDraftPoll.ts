@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { Cred, DraftInit, DraftPicks, ProviderAdapter } from '../../../shared/types';
-import { draftMark, draftMeasure, draftPollMarkName } from '../lib/perf';
 
 export type DraftPollPhase = 'idle' | 'initializing' | 'ready' | 'init-error';
 
@@ -12,8 +11,6 @@ export interface DraftPollSnapshot {
   lastSuccessfulPollAt: number | null;
   /** Timestamp when the provider's pick content last changed. */
   lastChangedAt: number | null;
-  /** Monotonic id of the response that last changed pick content. Timing-only; not provider data. */
-  lastChangedPollId: number | null;
   lastHttpStatus: number | null;
   retryAt: number | null;
   requestDurationMs: number | null;
@@ -27,7 +24,6 @@ const IDLE_SNAPSHOT: DraftPollSnapshot = {
   draftPicks: null,
   lastSuccessfulPollAt: null,
   lastChangedAt: null,
-  lastChangedPollId: null,
   lastHttpStatus: null,
   retryAt: null,
   requestDurationMs: null,
@@ -65,7 +61,6 @@ export function shouldCommitPollSnapshot(current: DraftPollSnapshot, next: Draft
   return next.phase !== current.phase
     || next.draftPicks !== current.draftPicks
     || next.lastChangedAt !== current.lastChangedAt
-    || next.lastChangedPollId !== current.lastChangedPollId
     || next.consecutiveFailures !== current.consecutiveFailures
     || next.lastError !== current.lastError
     || next.lastHttpStatus !== current.lastHttpStatus
@@ -218,9 +213,6 @@ export function createDraftPollController(options: DraftPollControllerOptions): 
     nextPollId = request.id;
     activeRequest = request;
     const startedAt = Date.now();
-    const startMark = draftPollMarkName(request.id, 'start');
-    const responseMark = draftPollMarkName(request.id, 'response');
-    draftMark(startMark);
     request.timeout = scheduleTimeout(() => {
       request.timedOut = true;
       request.controller.abort();
@@ -229,21 +221,12 @@ export function createDraftPollController(options: DraftPollControllerOptions): 
       const draftPicks = await adapter.picks(cred, draftId, request.controller.signal);
       if (stopped || activeRequest !== request) return;
       const finishedAt = Date.now();
-      draftMark(responseMark);
-      if (import.meta.env.DEV) {
-        const networkMs = draftMeasure(`poll/${request.id}/network`, startMark, responseMark);
-        if (networkMs != null) {
-          // eslint-disable-next-line no-console
-          console.debug(`[draft-timing] poll/network ${networkMs.toFixed(1)}ms`);
-        }
-      }
       failures = 0;
       const changed = snapshot.draftPicks == null || !sameDraftPicksContent(snapshot.draftPicks, draftPicks);
       emit({
         draftPicks: changed ? draftPicks : snapshot.draftPicks,
         lastSuccessfulPollAt: draftPicks.fetchedAt,
         lastChangedAt: changed ? draftPicks.fetchedAt : snapshot.lastChangedAt,
-        lastChangedPollId: changed ? request.id : snapshot.lastChangedPollId,
         lastHttpStatus: 200,
         retryAt: null,
         requestDurationMs: Math.max(0, finishedAt - startedAt),

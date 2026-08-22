@@ -1,0 +1,26 @@
+{
+  "provider": "espn",
+  "transcribed": true,
+  "source": "espn_draft1.txt",
+  "humanSeats": 10,
+  "autodraftShare": 0,
+  "marketShare": 0,
+  "adpFile": "adp-espn-ppr.json",
+  "scoringType": "ppr",
+  "qbFormat": "one-qb",
+  "rounds": 14,
+  "replayUserId": "espn-d1-t1",
+  "rosterAssumption": "1QB 2RB 2WR 1TE 1FLEX 1K 1DEF (9 starters); bench = rounds - 9. Regenerate if the real roster slots differ.",
+  "fantasyTeamNamesBySlot": {
+    "1": "Koston's Top-Notch Team",
+    "2": "Himchan",
+    "3": "Ethan's Excellent Team",
+    "4": "Abhahuakbar",
+    "5": "Oleg's Otherworldly Team",
+    "6": "Slurp My Penix",
+    "7": "DhootGrapesInc.",
+    "8": "Amon Drugs",
+    "9": "Puka Najewa",
+    "10": "Njigbas in Trouble"
+  }
+}

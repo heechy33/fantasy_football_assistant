@@ -33,8 +33,6 @@ export interface DraftWorkspaceProps {
    * signature is what stops the board rebuild on a no-op poll tick; `onTheClock`/`boundaries` are
    * what the board, pagination-reset, DraftLog you-up chip, and PlayerDetailDrawer all read. */
   picksSignature: string;
-  /** Id of the poll response that produced this effective-pick snapshot; dev timing only. */
-  timingPollId?: number | null;
   onTheClock: OnTheClock | null;
   boundaries: UserPickBoundaries | null;
   /** Row-level "Edit pick" trigger threaded to the draft log (manual correction/takeover). */
@@ -60,7 +58,6 @@ export function DraftWorkspace({
   adpFormat,
   activeProvider,
   picksSignature,
-  timingPollId = null,
   onTheClock,
   boundaries,
   onCorrect,
@@ -129,7 +126,6 @@ export function DraftWorkspace({
     <DraftLog
       draftInit={draftInit}
       effectivePicks={effectivePicks}
-      timingPollId={timingPollId}
       playersById={playersById}
       onTheClock={onTheClock}
       onViewPlayer={handleViewDetails}
@@ -163,7 +159,6 @@ export function DraftWorkspace({
             draftInit={draftInit}
             effectivePicks={effectivePicks}
             picksSignature={picksSignature}
-            timingPollId={timingPollId}
             onTheClock={onTheClock}
             boundaries={boundaries}
             adpFormat={adpFormat}

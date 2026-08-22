@@ -34,9 +34,11 @@ deliberately — future work, not dead code to delete.
   Functions, so no code should assume a server-side scheduler exists. Currently just `/api/health`;
   no provider endpoints exist yet.
 - **Data pipeline**: Python, runs via GitHub Actions cron (not Azure — that's the scheduler).
-- **Draft engine**: pure TypeScript, client-side on the main thread. Stage C (VONA rollouts) is
-  built and tested; a Web Worker is an open option only if real usage shows main-thread jank after
-  the S3 performance fixes (see `PLAN.md`'s S3 "Performance" note).
+- **Draft engine**: pure TypeScript. Stage C (VONA rollouts) runs in a long-lived Web Worker
+  (`frontend/src/workers/recommendation.worker.ts` + `hooks/useRecommendationRefinement.ts`, shipped
+  in `f821318`) initialized at pool load with cooperative cancel of superseded requests; a
+  deterministic main-thread fallback board keeps the UI usable if the worker fails or is
+  unavailable.
 - **DB/Auth**: Cosmos DB free tier (provisioned; `enableFreeTier` set-only-at-creation) and SWA
   `/.auth/*` — **roadmap only**. Keep `/api/*` `anonymous` in `frontend/public/staticwebapp.config.json`.
 - **Hosting cost target: $0/month** — any change that incurs cost needs a deliberate call-out.
@@ -52,6 +54,9 @@ deliberately — future work, not dead code to delete.
   `hooks/`, `components/`, `styles/tokens.css` — draft-board state, UI. `DraftWorkspace` +
   `MyTeamRail` + `RecommendationCard`/`PlayerContextModal` are the current workspace components
   (earlier `DraftBoard`/`RecommendationPanel` sketches were superseded; don't recreate them).
+  `RecommendationBoard.tsx`'s "All" tab always excludes K/DEF, and excludes QBs once
+  `format.qb === 'one-qb'` and the starting QB slot is filled (see `DECISIONS.md`, 2026-08-22) —
+  both are presentation filters, not engine changes; position tabs are never filtered.
 - `extension/` — draft-day-only ESPN reconnaissance Chrome extension (closed exception), not an
   in-season sync product.
 - `api/src/functions/health.ts` — the only endpoint. `shared/types.d.ts` — the frontend/api
@@ -127,6 +132,8 @@ npm test                  # frontend + api test suites (vitest, --run)
 npm run typecheck         # tsc --noEmit, both packages
 npm run verify:artifact   # asserts frontend/dist/ contains the required config + data files
 npm run pipeline           # python pipeline/build_data.py — regenerates data/*.json
+npm run backtest            # opt-in 2025 historical draft-strategy backtest (5 arms); slow
+npm run probe:simsort       # opt-in Stage C sim-sort disagreement probe; cheap, non-gating
 ```
 
 Azure provisioning (`infra/main.bicep`) and `az login` are interactive, and not needed for the
@@ -146,8 +153,10 @@ active Sleeper path — not something to run unprompted.
 - Data-layer helpers (`frontend/src/data/`): tested against real `data/*.json` invariants (unique
   player IDs, finite/non-negative stats, valid ADP ranges) and `fixtures/sleeper/` for the
   degraded-data-mode resolver.
-- Adapters: one shared contract suite run against each provider's recorded fixtures — monotonic
-  `overall`, `slotToTeam` covering all teams, no duplicate `playerId`.
+- Adapters: each adapter is tested against its own recorded fixtures (`sleeper.test.ts`,
+  `espn*.test.ts`, `draftOrder.test.ts`); a single shared contract suite run against every
+  provider's fixtures — monotonic `overall`, `slotToTeam` covering all teams, no duplicate
+  `playerId` — is still to build.
 - Pipeline: crosswalk coverage gate — CI fails if the match rate against Sleeper's top 300 by ADP
   drops below threshold. This is how rookie-season ID gaps get caught before draft day.
 - Acceptance is the **clock test**: pick lands upstream → updated recommendation on screen, target

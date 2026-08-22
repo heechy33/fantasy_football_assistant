@@ -627,6 +627,7 @@ def _build_espn_adp_board(
     sleeper_index: dict[Any, str],
     valid_player_ids: set[str],
     fallback_entries: list[transform.AdpEntry],
+    ffc_cv_index: dict[str, tuple[float, int]] | None = None,
 ) -> tuple[list[transform.AdpEntry] | None, dict[str, Any]]:
     """Build the ESPN default-PPR ADP board, or fail open with (None, diagnostics).
 
@@ -647,6 +648,7 @@ def _build_espn_adp_board(
             sleeper_index=sleeper_index,
             valid_player_ids=valid_player_ids,
             fallback_entries=fallback_entries,
+            ffc_cv_index=ffc_cv_index,
         )
     except ValueError as error:
         return None, {"diagnostic": f"ValueError: {error}", "censorCutoff": None, "espnRows": 0, "tailRows": 0}
@@ -788,6 +790,16 @@ def main() -> int:
     sleeper_entries_by_format: dict[str, list[transform.AdpEntry]] = {}
     for fmt in sources.ADP_FORMATS:
         cv_bands = transform.fit_adp_cv_bands(ffc_entries_by_format[fmt])
+        # Phase 2c H2 (build_ffc_cv_index / fitted_stdev_for_player) was implemented and
+        # gate-checked against the pinned FFC snapshot and the two held-out ESPN human
+        # drafts: it improved the bot cohort but *regressed* human Brier on both the
+        # analytic (+0.000272) and all-seat (+0.000025) metrics, failing its own
+        # pre-declared "human Brier must strictly improve" gate. Per the Phase 2c
+        # decision rule, it does not ship — the flat band CV (`fitted_stdev`) stays
+        # production. The tested mechanism remains available in transform.py for a
+        # future attempt (more human data, a different shrinkage prior, or paired
+        # with an H1 fix) — see the 2026-08-21 correction in
+        # benchmarks/reports/2026-08-20-ffc-survival-diagnosis-interpretation.md.
         if sleeper_adp_error is None:
             sleeper_entries, sleeper_diag = transform.build_sleeper_adp_entries(sleeper_adp_rows, fmt, cv_bands)
         else:
@@ -821,6 +833,10 @@ def main() -> int:
     # few honest head rows all keep adp-ppr.json untouched, record an error
     # manifest entry, and remove any stale ESPN board so it can't look current.
     espn_url = espn_projections.ESPN_DEFAULTS_URL.format(season=args.season)
+    # ffc_cv_index intentionally omitted (defaults to None): Phase 2c H2 failed its
+    # own gate against the held-out human drafts (see the note above the Sleeper ADP
+    # loop) and does not ship. `_build_espn_adp_board` keeps the parameter so a future
+    # attempt can wire it back in without touching this call site's other arguments.
     espn_entries, espn_adp_diag = _build_espn_adp_board(
         espn_payload,
         espn_payload_error,

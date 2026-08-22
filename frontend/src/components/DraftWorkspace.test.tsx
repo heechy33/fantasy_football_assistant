@@ -125,6 +125,9 @@ const players: PlayerMeta[] = [
   makePlayer('rb2', 'Rush Two', 'RB'),
   makePlayer('rb3', 'Rush Three', 'RB'),
   makePlayer('k1', 'Kick One', 'K'),
+  makePlayer('qbx1', 'Quarter Brady', 'QB'),
+  makePlayer('qbx2', 'Quarter Mahomes', 'QB'),
+  makePlayer('qbx3', 'Quarter Rodgers', 'QB'),
 ];
 const playersById = new Map(players.map((p) => [p.playerId, p]));
 const projections: SeasonProjection[] = players.map((p) => ({ playerId: p.playerId, source: 'fftoday', stats: {} }));
@@ -910,5 +913,89 @@ describe('DraftWorkspace blocking alerts', () => {
 
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent(/Only 1 selection remain for 2 unfilled K\/DEF slots/);
+  });
+});
+
+describe('DraftWorkspace QB gating (1-QB leagues, display-only)', () => {
+  // 2-team / 3-round snake, slot 1 = me: 1-me, 2-them, 3-them, 4-me, 5-me, 6-them (same grid as
+  // the draft-log clock-wiring describe block above). Drafting qbx1 at overall 1 fills the
+  // league's single starting QB slot; picks 2-3 (them) advance the clock back to me at overall 4.
+  const iHaveAStartingQb: Pick[] = [
+    { overall: 1, round: 1, slot: 1, teamId: 'me', playerId: 'qbx1', providerPlayerId: 'qbx1' },
+    { overall: 2, round: 1, slot: 2, teamId: 'them', playerId: 'rb1', providerPlayerId: 'rb1' },
+    { overall: 3, round: 2, slot: 2, teamId: 'them', playerId: 'rb3', providerPlayerId: 'rb3' },
+  ];
+
+  it('hides a redundant QB from the Engine All board once the starting QB slot is filled, but keeps it on the QB tab', async () => {
+    buildRecommendationBoard.mockImplementation((input: { displayPosition: string | null }) => {
+      if (input.displayPosition == null) {
+        return {
+          recommendations: [
+            makeRecommendation({ playerId: 'rb2', rank: 1 }),
+            makeRecommendation({ playerId: 'qbx2', rank: 2 }),
+          ],
+          diagnostics: baseDiagnostics,
+        };
+      }
+      if (input.displayPosition === 'QB') {
+        return { recommendations: [makeRecommendation({ playerId: 'qbx2', rank: 1 })], diagnostics: baseDiagnostics };
+      }
+      return { recommendations: [], diagnostics: baseDiagnostics };
+    });
+    const user = userEvent.setup();
+    render(<DraftWorkspace {...defaultProps({ effectivePicks: iHaveAStartingQb })} />);
+
+    const cards = screen.getAllByRole('article');
+    expect(cards).toHaveLength(1);
+    expect(within(cards[0]!).getByText('Two')).toBeInTheDocument();
+    expect(screen.queryByText('Mahomes')).not.toBeInTheDocument();
+    expect(screen.getByText(/backup QBs aren't recommended in 1-QB leagues/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'QB' }));
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.getByText('Mahomes')).toBeInTheDocument();
+  });
+
+  it('still shows a QB on the All board, with no advisory, when no QB is rostered yet', () => {
+    buildRecommendationBoard.mockReturnValue({
+      recommendations: [
+        makeRecommendation({ playerId: 'rb2', rank: 1 }),
+        makeRecommendation({ playerId: 'qbx2', rank: 2 }),
+      ],
+      diagnostics: baseDiagnostics,
+    });
+    render(<DraftWorkspace {...defaultProps()} />);
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByText('Mahomes')).toBeInTheDocument();
+    expect(screen.queryByText(/backup QBs aren't recommended/)).not.toBeInTheDocument();
+  });
+
+  it('does not gate a two-QB league even with both starting QB slots filled', async () => {
+    const twoQbSettings: LeagueSettings = {
+      ...settings,
+      startingSlots: ['QB', 'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'],
+      rosterSlots: { QB: 2, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DEF: 1 },
+      format: { reception: 'ppr', qb: 'two-qb', draft: 'snake' },
+    };
+    const twoQbDraftInit: DraftInit = { ...draftInit, settings: twoQbSettings };
+    const bothQbSlotsFilled: Pick[] = [
+      { overall: 1, round: 1, slot: 1, teamId: 'me', playerId: 'qbx1', providerPlayerId: 'qbx1' },
+      { overall: 2, round: 1, slot: 2, teamId: 'them', playerId: 'rb1', providerPlayerId: 'rb1' },
+      { overall: 3, round: 2, slot: 2, teamId: 'them', playerId: 'rb3', providerPlayerId: 'rb3' },
+      { overall: 4, round: 2, slot: 1, teamId: 'me', playerId: 'qbx2', providerPlayerId: 'qbx2' },
+    ];
+    buildRecommendationBoard.mockReturnValue({
+      recommendations: [
+        makeRecommendation({ playerId: 'rb2', rank: 1 }),
+        makeRecommendation({ playerId: 'qbx3', rank: 2 }),
+      ],
+      diagnostics: baseDiagnostics,
+    });
+    render(<DraftWorkspace {...defaultProps({ draftInit: twoQbDraftInit, effectivePicks: bothQbSlotsFilled })} />);
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByText('Rodgers')).toBeInTheDocument();
+    expect(screen.queryByText(/backup QBs aren't recommended/)).not.toBeInTheDocument();
   });
 });

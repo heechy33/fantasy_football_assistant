@@ -1,0 +1,1682 @@
+[
+  {
+    "player_id": "9509",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 1,
+    "draft_slot": 1,
+    "pick_no": 1,
+    "metadata": {
+      "first_name": "Bijan",
+      "last_name": "Robinson"
+    }
+  },
+  {
+    "player_id": "9221",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 1,
+    "draft_slot": 2,
+    "pick_no": 2,
+    "metadata": {
+      "first_name": "Jahmyr",
+      "last_name": "Gibbs"
+    }
+  },
+  {
+    "player_id": "7564",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 1,
+    "draft_slot": 3,
+    "pick_no": 3,
+    "metadata": {
+      "first_name": "Ja'Marr",
+      "last_name": "Chase"
+    }
+  },
+  {
+    "player_id": "9488",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 1,
+    "draft_slot": 4,
+    "pick_no": 4,
+    "metadata": {
+      "first_name": "Jaxon",
+      "last_name": "Smith-Njigba"
+    }
+  },
+  {
+    "player_id": "9493",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 1,
+    "draft_slot": 5,
+    "pick_no": 5,
+    "metadata": {
+      "first_name": "Puka",
+      "last_name": "Nacua"
+    }
+  },
+  {
+    "player_id": "4034",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 1,
+    "draft_slot": 6,
+    "pick_no": 6,
+    "metadata": {
+      "first_name": "Christian",
+      "last_name": "McCaffrey"
+    }
+  },
+  {
+    "player_id": "6813",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 1,
+    "draft_slot": 7,
+    "pick_no": 7,
+    "metadata": {
+      "first_name": "Jonathan",
+      "last_name": "Taylor"
+    }
+  },
+  {
+    "player_id": "7547",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 1,
+    "draft_slot": 8,
+    "pick_no": 8,
+    "metadata": {
+      "first_name": "Amon-Ra",
+      "last_name": "St. Brown"
+    }
+  },
+  {
+    "player_id": "8138",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 1,
+    "draft_slot": 9,
+    "pick_no": 9,
+    "metadata": {
+      "first_name": "James",
+      "last_name": "Cook III"
+    }
+  },
+  {
+    "player_id": "9226",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 1,
+    "draft_slot": 10,
+    "pick_no": 10,
+    "metadata": {
+      "first_name": "De'Von",
+      "last_name": "Achane"
+    }
+  },
+  {
+    "player_id": "6786",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 2,
+    "draft_slot": 10,
+    "pick_no": 11,
+    "metadata": {
+      "first_name": "CeeDee",
+      "last_name": "Lamb"
+    }
+  },
+  {
+    "player_id": "9224",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 2,
+    "draft_slot": 9,
+    "pick_no": 12,
+    "metadata": {
+      "first_name": "Chase",
+      "last_name": "Brown"
+    }
+  },
+  {
+    "player_id": "12527",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 2,
+    "draft_slot": 8,
+    "pick_no": 13,
+    "metadata": {
+      "first_name": "Ashton",
+      "last_name": "Jeanty"
+    }
+  },
+  {
+    "player_id": "6794",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 2,
+    "draft_slot": 7,
+    "pick_no": 14,
+    "metadata": {
+      "first_name": "Justin",
+      "last_name": "Jefferson"
+    }
+  },
+  {
+    "player_id": "4866",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 2,
+    "draft_slot": 6,
+    "pick_no": 15,
+    "metadata": {
+      "first_name": "Saquon",
+      "last_name": "Barkley"
+    }
+  },
+  {
+    "player_id": "4984",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 2,
+    "draft_slot": 5,
+    "pick_no": 16,
+    "metadata": {
+      "first_name": "Josh",
+      "last_name": "Allen"
+    }
+  },
+  {
+    "player_id": "12507",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 2,
+    "draft_slot": 4,
+    "pick_no": 17,
+    "metadata": {
+      "first_name": "Omarion",
+      "last_name": "Hampton"
+    }
+  },
+  {
+    "player_id": "8151",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 2,
+    "draft_slot": 3,
+    "pick_no": 18,
+    "metadata": {
+      "first_name": "Kenneth",
+      "last_name": "Walker III"
+    }
+  },
+  {
+    "player_id": "8112",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 2,
+    "draft_slot": 2,
+    "pick_no": 19,
+    "metadata": {
+      "first_name": "Drake",
+      "last_name": "London"
+    }
+  },
+  {
+    "player_id": "7569",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 2,
+    "draft_slot": 1,
+    "pick_no": 20,
+    "metadata": {
+      "first_name": "Nico",
+      "last_name": "Collins"
+    }
+  },
+  {
+    "player_id": "13287",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 3,
+    "draft_slot": 1,
+    "pick_no": 21,
+    "metadata": {
+      "first_name": "Jeremiyah",
+      "last_name": "Love"
+    }
+  },
+  {
+    "player_id": "3198",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 3,
+    "draft_slot": 2,
+    "pick_no": 22,
+    "metadata": {
+      "first_name": "Derrick",
+      "last_name": "Henry"
+    }
+  },
+  {
+    "player_id": "5859",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 3,
+    "draft_slot": 3,
+    "pick_no": 23,
+    "metadata": {
+      "first_name": "A.J.",
+      "last_name": "Brown"
+    }
+  },
+  {
+    "player_id": "8150",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 3,
+    "draft_slot": 4,
+    "pick_no": 24,
+    "metadata": {
+      "first_name": "Kyren",
+      "last_name": "Williams"
+    }
+  },
+  {
+    "player_id": "11604",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 3,
+    "draft_slot": 5,
+    "pick_no": 25,
+    "metadata": {
+      "first_name": "Brock",
+      "last_name": "Bowers"
+    }
+  },
+  {
+    "player_id": "5850",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 3,
+    "draft_slot": 6,
+    "pick_no": 26,
+    "metadata": {
+      "first_name": "Josh",
+      "last_name": "Jacobs"
+    }
+  },
+  {
+    "player_id": "8155",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 3,
+    "draft_slot": 7,
+    "pick_no": 27,
+    "metadata": {
+      "first_name": "Breece",
+      "last_name": "Hall"
+    }
+  },
+  {
+    "player_id": "8130",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 3,
+    "draft_slot": 8,
+    "pick_no": 28,
+    "metadata": {
+      "first_name": "Trey",
+      "last_name": "McBride"
+    }
+  },
+  {
+    "player_id": "7525",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 3,
+    "draft_slot": 9,
+    "pick_no": 29,
+    "metadata": {
+      "first_name": "DeVonta",
+      "last_name": "Smith"
+    }
+  },
+  {
+    "player_id": "10229",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 3,
+    "draft_slot": 10,
+    "pick_no": 30,
+    "metadata": {
+      "first_name": "Rashee",
+      "last_name": "Rice"
+    }
+  },
+  {
+    "player_id": "8144",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 4,
+    "draft_slot": 10,
+    "pick_no": 31,
+    "metadata": {
+      "first_name": "Chris",
+      "last_name": "Olave"
+    }
+  },
+  {
+    "player_id": "7526",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 4,
+    "draft_slot": 9,
+    "pick_no": 32,
+    "metadata": {
+      "first_name": "Jaylen",
+      "last_name": "Waddle"
+    }
+  },
+  {
+    "player_id": "7588",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 4,
+    "draft_slot": 8,
+    "pick_no": 33,
+    "metadata": {
+      "first_name": "Javonte",
+      "last_name": "Williams"
+    }
+  },
+  {
+    "player_id": "9997",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 4,
+    "draft_slot": 7,
+    "pick_no": 34,
+    "metadata": {
+      "first_name": "Zay",
+      "last_name": "Flowers"
+    }
+  },
+  {
+    "player_id": "12514",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 4,
+    "draft_slot": 6,
+    "pick_no": 35,
+    "metadata": {
+      "first_name": "Emeka",
+      "last_name": "Egbuka"
+    }
+  },
+  {
+    "player_id": "8137",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 4,
+    "draft_slot": 5,
+    "pick_no": 36,
+    "metadata": {
+      "first_name": "George",
+      "last_name": "Pickens"
+    }
+  },
+  {
+    "player_id": "11635",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 4,
+    "draft_slot": 4,
+    "pick_no": 37,
+    "metadata": {
+      "first_name": "Ladd",
+      "last_name": "McConkey"
+    }
+  },
+  {
+    "player_id": "11632",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 4,
+    "draft_slot": 3,
+    "pick_no": 38,
+    "metadata": {
+      "first_name": "Malik",
+      "last_name": "Nabers"
+    }
+  },
+  {
+    "player_id": "12481",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 4,
+    "draft_slot": 2,
+    "pick_no": 39,
+    "metadata": {
+      "first_name": "Cam",
+      "last_name": "Skattebo"
+    }
+  },
+  {
+    "player_id": "13279",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 4,
+    "draft_slot": 1,
+    "pick_no": 40,
+    "metadata": {
+      "first_name": "Carnell",
+      "last_name": "Tate"
+    }
+  },
+  {
+    "player_id": "8146",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 5,
+    "draft_slot": 1,
+    "pick_no": 41,
+    "metadata": {
+      "first_name": "Garrett",
+      "last_name": "Wilson"
+    }
+  },
+  {
+    "player_id": "11564",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 5,
+    "draft_slot": 2,
+    "pick_no": 42,
+    "metadata": {
+      "first_name": "Drake",
+      "last_name": "Maye"
+    }
+  },
+  {
+    "player_id": "12526",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 5,
+    "draft_slot": 3,
+    "pick_no": 43,
+    "metadata": {
+      "first_name": "Tetairoa",
+      "last_name": "McMillan"
+    }
+  },
+  {
+    "player_id": "7543",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 5,
+    "draft_slot": 4,
+    "pick_no": 44,
+    "metadata": {
+      "first_name": "Travis",
+      "last_name": "Etienne Jr."
+    }
+  },
+  {
+    "player_id": "11584",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 5,
+    "draft_slot": 5,
+    "pick_no": 45,
+    "metadata": {
+      "first_name": "Bucky",
+      "last_name": "Irving"
+    }
+  },
+  {
+    "player_id": "4983",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 5,
+    "draft_slot": 6,
+    "pick_no": 46,
+    "metadata": {
+      "first_name": "DJ",
+      "last_name": "Moore"
+    }
+  },
+  {
+    "player_id": "5927",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 5,
+    "draft_slot": 7,
+    "pick_no": 47,
+    "metadata": {
+      "first_name": "Terry",
+      "last_name": "McLaurin"
+    }
+  },
+  {
+    "player_id": "2133",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 5,
+    "draft_slot": 8,
+    "pick_no": 48,
+    "metadata": {
+      "first_name": "Davante",
+      "last_name": "Adams"
+    }
+  },
+  {
+    "player_id": "12517",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 5,
+    "draft_slot": 9,
+    "pick_no": 49,
+    "metadata": {
+      "first_name": "Colston",
+      "last_name": "Loveland"
+    }
+  },
+  {
+    "player_id": "4881",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 5,
+    "draft_slot": 10,
+    "pick_no": 50,
+    "metadata": {
+      "first_name": "Lamar",
+      "last_name": "Jackson"
+    }
+  },
+  {
+    "player_id": "6790",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 6,
+    "draft_slot": 10,
+    "pick_no": 51,
+    "metadata": {
+      "first_name": "D'Andre",
+      "last_name": "Swift"
+    }
+  },
+  {
+    "player_id": "12512",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 6,
+    "draft_slot": 9,
+    "pick_no": 52,
+    "metadata": {
+      "first_name": "Quinshon",
+      "last_name": "Judkins"
+    }
+  },
+  {
+    "player_id": "12519",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 6,
+    "draft_slot": 8,
+    "pick_no": 53,
+    "metadata": {
+      "first_name": "Luther",
+      "last_name": "Burden III"
+    }
+  },
+  {
+    "player_id": "11566",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 6,
+    "draft_slot": 7,
+    "pick_no": 54,
+    "metadata": {
+      "first_name": "Jayden",
+      "last_name": "Daniels"
+    }
+  },
+  {
+    "player_id": "12529",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 6,
+    "draft_slot": 6,
+    "pick_no": 55,
+    "metadata": {
+      "first_name": "TreVeyon",
+      "last_name": "Henderson"
+    }
+  },
+  {
+    "player_id": "SEA",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 6,
+    "draft_slot": 5,
+    "pick_no": 56,
+    "metadata": {
+      "first_name": "Seahawks",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "12518",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 6,
+    "draft_slot": 4,
+    "pick_no": 57,
+    "metadata": {
+      "first_name": "Tyler",
+      "last_name": "Warren"
+    }
+  },
+  {
+    "player_id": "12490",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 6,
+    "draft_slot": 3,
+    "pick_no": 58,
+    "metadata": {
+      "first_name": "Bhayshul",
+      "last_name": "Tuten"
+    }
+  },
+  {
+    "player_id": "6801",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 6,
+    "draft_slot": 2,
+    "pick_no": 59,
+    "metadata": {
+      "first_name": "Tee",
+      "last_name": "Higgins"
+    }
+  },
+  {
+    "player_id": "6904",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 6,
+    "draft_slot": 1,
+    "pick_no": 60,
+    "metadata": {
+      "first_name": "Jalen",
+      "last_name": "Hurts"
+    }
+  },
+  {
+    "player_id": "11620",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 7,
+    "draft_slot": 1,
+    "pick_no": 61,
+    "metadata": {
+      "first_name": "Rome",
+      "last_name": "Odunze"
+    }
+  },
+  {
+    "player_id": "8148",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 7,
+    "draft_slot": 2,
+    "pick_no": 62,
+    "metadata": {
+      "first_name": "Jameson",
+      "last_name": "Williams"
+    }
+  },
+  {
+    "player_id": "5892",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 7,
+    "draft_slot": 3,
+    "pick_no": 63,
+    "metadata": {
+      "first_name": "David",
+      "last_name": "Montgomery"
+    }
+  },
+  {
+    "player_id": "6770",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 7,
+    "draft_slot": 4,
+    "pick_no": 64,
+    "metadata": {
+      "first_name": "Joe",
+      "last_name": "Burrow"
+    }
+  },
+  {
+    "player_id": "12508",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 7,
+    "draft_slot": 5,
+    "pick_no": 65,
+    "metadata": {
+      "first_name": "Jaxson",
+      "last_name": "Dart"
+    }
+  },
+  {
+    "player_id": "8142",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 7,
+    "draft_slot": 6,
+    "pick_no": 66,
+    "metadata": {
+      "first_name": "Alec",
+      "last_name": "Pierce"
+    }
+  },
+  {
+    "player_id": "10859",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 7,
+    "draft_slot": 7,
+    "pick_no": 67,
+    "metadata": {
+      "first_name": "Sam",
+      "last_name": "LaPorta"
+    }
+  },
+  {
+    "player_id": "13286",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 7,
+    "draft_slot": 8,
+    "pick_no": 68,
+    "metadata": {
+      "first_name": "Jadarian",
+      "last_name": "Price"
+    }
+  },
+  {
+    "player_id": "11628",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 7,
+    "draft_slot": 9,
+    "pick_no": 69,
+    "metadata": {
+      "first_name": "Marvin",
+      "last_name": "Harrison Jr."
+    }
+  },
+  {
+    "player_id": "5967",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 7,
+    "draft_slot": 10,
+    "pick_no": 70,
+    "metadata": {
+      "first_name": "Tony",
+      "last_name": "Pollard"
+    }
+  },
+  {
+    "player_id": "7553",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 8,
+    "draft_slot": 10,
+    "pick_no": 71,
+    "metadata": {
+      "first_name": "Kyle",
+      "last_name": "Pitts Sr."
+    }
+  },
+  {
+    "player_id": "11563",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 8,
+    "draft_slot": 9,
+    "pick_no": 72,
+    "metadata": {
+      "first_name": "Bo",
+      "last_name": "Nix"
+    }
+  },
+  {
+    "player_id": "6819",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 8,
+    "draft_slot": 8,
+    "pick_no": 73,
+    "metadata": {
+      "first_name": "Michael",
+      "last_name": "Pittman Jr."
+    }
+  },
+  {
+    "player_id": "9500",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 8,
+    "draft_slot": 7,
+    "pick_no": 74,
+    "metadata": {
+      "first_name": "Josh",
+      "last_name": "Downs"
+    }
+  },
+  {
+    "player_id": "2216",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 8,
+    "draft_slot": 6,
+    "pick_no": 75,
+    "metadata": {
+      "first_name": "Mike",
+      "last_name": "Evans"
+    }
+  },
+  {
+    "player_id": "5022",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 8,
+    "draft_slot": 5,
+    "pick_no": 76,
+    "metadata": {
+      "first_name": "Dallas",
+      "last_name": "Goedert"
+    }
+  },
+  {
+    "player_id": "5045",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 8,
+    "draft_slot": 4,
+    "pick_no": 77,
+    "metadata": {
+      "first_name": "Courtland",
+      "last_name": "Sutton"
+    }
+  },
+  {
+    "player_id": "12506",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 8,
+    "draft_slot": 3,
+    "pick_no": 78,
+    "metadata": {
+      "first_name": "Harold",
+      "last_name": "Fannin Jr."
+    }
+  },
+  {
+    "player_id": "5846",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 8,
+    "draft_slot": 2,
+    "pick_no": 79,
+    "metadata": {
+      "first_name": "DK",
+      "last_name": "Metcalf"
+    }
+  },
+  {
+    "player_id": "13281",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 8,
+    "draft_slot": 1,
+    "pick_no": 80,
+    "metadata": {
+      "first_name": "Jordyn",
+      "last_name": "Tyson"
+    }
+  },
+  {
+    "player_id": "8228",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 9,
+    "draft_slot": 1,
+    "pick_no": 81,
+    "metadata": {
+      "first_name": "Jaylen",
+      "last_name": "Warren"
+    }
+  },
+  {
+    "player_id": "8167",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 9,
+    "draft_slot": 2,
+    "pick_no": 82,
+    "metadata": {
+      "first_name": "Christian",
+      "last_name": "Watson"
+    }
+  },
+  {
+    "player_id": "7523",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 9,
+    "draft_slot": 3,
+    "pick_no": 83,
+    "metadata": {
+      "first_name": "Trevor",
+      "last_name": "Lawrence"
+    }
+  },
+  {
+    "player_id": "10232",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 9,
+    "draft_slot": 4,
+    "pick_no": 84,
+    "metadata": {
+      "first_name": "Michael",
+      "last_name": "Wilson"
+    }
+  },
+  {
+    "player_id": "4199",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 9,
+    "draft_slot": 5,
+    "pick_no": 85,
+    "metadata": {
+      "first_name": "Aaron",
+      "last_name": "Jones Sr."
+    }
+  },
+  {
+    "player_id": "6797",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 9,
+    "draft_slot": 6,
+    "pick_no": 86,
+    "metadata": {
+      "first_name": "Justin",
+      "last_name": "Herbert"
+    }
+  },
+  {
+    "player_id": "9487",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 9,
+    "draft_slot": 7,
+    "pick_no": 87,
+    "metadata": {
+      "first_name": "Parker",
+      "last_name": "Washington"
+    }
+  },
+  {
+    "player_id": "11631",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 9,
+    "draft_slot": 8,
+    "pick_no": 88,
+    "metadata": {
+      "first_name": "Brian",
+      "last_name": "Thomas Jr."
+    }
+  },
+  {
+    "player_id": "12501",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 9,
+    "draft_slot": 9,
+    "pick_no": 89,
+    "metadata": {
+      "first_name": "Matthew",
+      "last_name": "Golden"
+    }
+  },
+  {
+    "player_id": "7594",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 9,
+    "draft_slot": 10,
+    "pick_no": 90,
+    "metadata": {
+      "first_name": "Chuba",
+      "last_name": "Hubbard"
+    }
+  },
+  {
+    "player_id": "9756",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 10,
+    "draft_slot": 10,
+    "pick_no": 91,
+    "metadata": {
+      "first_name": "Jordan",
+      "last_name": "Addison"
+    }
+  },
+  {
+    "player_id": "8136",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 10,
+    "draft_slot": 9,
+    "pick_no": 92,
+    "metadata": {
+      "first_name": "Rachaad",
+      "last_name": "White"
+    }
+  },
+  {
+    "player_id": "11560",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 10,
+    "draft_slot": 8,
+    "pick_no": 93,
+    "metadata": {
+      "first_name": "Caleb",
+      "last_name": "Williams"
+    }
+  },
+  {
+    "player_id": "7611",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 10,
+    "draft_slot": 7,
+    "pick_no": 94,
+    "metadata": {
+      "first_name": "Rhamondre",
+      "last_name": "Stevenson"
+    }
+  },
+  {
+    "player_id": "9484",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 10,
+    "draft_slot": 6,
+    "pick_no": 95,
+    "metadata": {
+      "first_name": "Tucker",
+      "last_name": "Kraft"
+    }
+  },
+  {
+    "player_id": "12530",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 10,
+    "draft_slot": 5,
+    "pick_no": 96,
+    "metadata": {
+      "first_name": "Travis",
+      "last_name": "Hunter"
+    }
+  },
+  {
+    "player_id": "7567",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 10,
+    "draft_slot": 4,
+    "pick_no": 97,
+    "metadata": {
+      "first_name": "Kenny",
+      "last_name": "Gainwell"
+    }
+  },
+  {
+    "player_id": "HOU",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 10,
+    "draft_slot": 3,
+    "pick_no": 98,
+    "metadata": {
+      "first_name": "Texans",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "1466",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 10,
+    "draft_slot": 2,
+    "pick_no": 99,
+    "metadata": {
+      "first_name": "Travis",
+      "last_name": "Kelce"
+    }
+  },
+  {
+    "player_id": "8110",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 10,
+    "draft_slot": 1,
+    "pick_no": 100,
+    "metadata": {
+      "first_name": "Jake",
+      "last_name": "Ferguson"
+    }
+  },
+  {
+    "player_id": "6806",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 11,
+    "draft_slot": 1,
+    "pick_no": 101,
+    "metadata": {
+      "first_name": "J.K.",
+      "last_name": "Dobbins"
+    }
+  },
+  {
+    "player_id": "7021",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 11,
+    "draft_slot": 2,
+    "pick_no": 102,
+    "metadata": {
+      "first_name": "Rico",
+      "last_name": "Dowdle"
+    }
+  },
+  {
+    "player_id": "11533",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 11,
+    "draft_slot": 3,
+    "pick_no": 103,
+    "metadata": {
+      "first_name": "Brandon",
+      "last_name": "Aubrey"
+    }
+  },
+  {
+    "player_id": "12533",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 11,
+    "draft_slot": 4,
+    "pick_no": 104,
+    "metadata": {
+      "first_name": "Jacory",
+      "last_name": "Croskey-Merritt"
+    }
+  },
+  {
+    "player_id": "8698",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 11,
+    "draft_slot": 5,
+    "pick_no": 105,
+    "metadata": {
+      "first_name": "Jake",
+      "last_name": "Tonges"
+    }
+  },
+  {
+    "player_id": "4217",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 11,
+    "draft_slot": 6,
+    "pick_no": 106,
+    "metadata": {
+      "first_name": "George",
+      "last_name": "Kittle"
+    }
+  },
+  {
+    "player_id": "8259",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 11,
+    "draft_slot": 7,
+    "pick_no": 107,
+    "metadata": {
+      "first_name": "Cameron",
+      "last_name": "Dicker"
+    }
+  },
+  {
+    "player_id": "2747",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 11,
+    "draft_slot": 8,
+    "pick_no": 108,
+    "metadata": {
+      "first_name": "Jason",
+      "last_name": "Myers"
+    }
+  },
+  {
+    "player_id": "11583",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 11,
+    "draft_slot": 9,
+    "pick_no": 109,
+    "metadata": {
+      "first_name": "Jonathon",
+      "last_name": "Brooks"
+    }
+  },
+  {
+    "player_id": "12015",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 11,
+    "draft_slot": 10,
+    "pick_no": 110,
+    "metadata": {
+      "first_name": "Harrison",
+      "last_name": "Mevis"
+    }
+  },
+  {
+    "player_id": "DEN",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 12,
+    "draft_slot": 10,
+    "pick_no": 111,
+    "metadata": {
+      "first_name": "Broncos",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "13330",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 12,
+    "draft_slot": 9,
+    "pick_no": 112,
+    "metadata": {
+      "first_name": "Kenyon",
+      "last_name": "Sadiq"
+    }
+  },
+  {
+    "player_id": "12489",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 12,
+    "draft_slot": 8,
+    "pick_no": 113,
+    "metadata": {
+      "first_name": "RJ",
+      "last_name": "Harvey"
+    }
+  },
+  {
+    "player_id": "12534",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 12,
+    "draft_slot": 7,
+    "pick_no": 114,
+    "metadata": {
+      "first_name": "Kyle",
+      "last_name": "Monangai"
+    }
+  },
+  {
+    "player_id": "8183",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 12,
+    "draft_slot": 6,
+    "pick_no": 115,
+    "metadata": {
+      "first_name": "Brock",
+      "last_name": "Purdy"
+    }
+  },
+  {
+    "player_id": "5872",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 12,
+    "draft_slot": 5,
+    "pick_no": 116,
+    "metadata": {
+      "first_name": "Deebo",
+      "last_name": "Samuel Sr."
+    }
+  },
+  {
+    "player_id": "2449",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 12,
+    "draft_slot": 4,
+    "pick_no": 117,
+    "metadata": {
+      "first_name": "Stefon",
+      "last_name": "Diggs"
+    }
+  },
+  {
+    "player_id": "3294",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 12,
+    "draft_slot": 3,
+    "pick_no": 118,
+    "metadata": {
+      "first_name": "Dak",
+      "last_name": "Prescott"
+    }
+  },
+  {
+    "player_id": "13294",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 12,
+    "draft_slot": 2,
+    "pick_no": 119,
+    "metadata": {
+      "first_name": "Makai",
+      "last_name": "Lemon"
+    }
+  },
+  {
+    "player_id": "421",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 12,
+    "draft_slot": 1,
+    "pick_no": 120,
+    "metadata": {
+      "first_name": "Matthew",
+      "last_name": "Stafford"
+    }
+  },
+  {
+    "player_id": "3451",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 13,
+    "draft_slot": 1,
+    "pick_no": 121,
+    "metadata": {
+      "first_name": "Ka'imi",
+      "last_name": "Fairbairn"
+    }
+  },
+  {
+    "player_id": "5189",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 13,
+    "draft_slot": 2,
+    "pick_no": 122,
+    "metadata": {
+      "first_name": "Eddy",
+      "last_name": "Pineiro"
+    }
+  },
+  {
+    "player_id": "5947",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 13,
+    "draft_slot": 3,
+    "pick_no": 123,
+    "metadata": {
+      "first_name": "Jakobi",
+      "last_name": "Meyers"
+    }
+  },
+  {
+    "player_id": "LAR",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 13,
+    "draft_slot": 4,
+    "pick_no": 124,
+    "metadata": {
+      "first_name": "Rams",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "9753",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 13,
+    "draft_slot": 5,
+    "pick_no": 125,
+    "metadata": {
+      "first_name": "Zach",
+      "last_name": "Charbonnet"
+    }
+  },
+  {
+    "player_id": "11786",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 13,
+    "draft_slot": 6,
+    "pick_no": 126,
+    "metadata": {
+      "first_name": "Cam",
+      "last_name": "Little"
+    }
+  },
+  {
+    "player_id": "9754",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 13,
+    "draft_slot": 7,
+    "pick_no": 127,
+    "metadata": {
+      "first_name": "Quentin",
+      "last_name": "Johnston"
+    }
+  },
+  {
+    "player_id": "BAL",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 13,
+    "draft_slot": 8,
+    "pick_no": 128,
+    "metadata": {
+      "first_name": "Ravens",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "PIT",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 13,
+    "draft_slot": 9,
+    "pick_no": 129,
+    "metadata": {
+      "first_name": "Steelers",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "12467",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 13,
+    "draft_slot": 10,
+    "pick_no": 130,
+    "metadata": {
+      "first_name": "Jordan",
+      "last_name": "James"
+    }
+  },
+  {
+    "player_id": "4046",
+    "picked_by": "espn-d1-t10",
+    "roster_id": 10,
+    "round": 14,
+    "draft_slot": 10,
+    "pick_no": 131,
+    "metadata": {
+      "first_name": "Patrick",
+      "last_name": "Mahomes"
+    }
+  },
+  {
+    "player_id": "2020",
+    "picked_by": "espn-d1-t9",
+    "roster_id": 9,
+    "round": 14,
+    "draft_slot": 9,
+    "pick_no": 132,
+    "metadata": {
+      "first_name": "Cairo",
+      "last_name": "Santos"
+    }
+  },
+  {
+    "player_id": "5849",
+    "picked_by": "espn-d1-t8",
+    "roster_id": 8,
+    "round": 14,
+    "draft_slot": 8,
+    "pick_no": 133,
+    "metadata": {
+      "first_name": "Kyler",
+      "last_name": "Murray"
+    }
+  },
+  {
+    "player_id": "PHI",
+    "picked_by": "espn-d1-t7",
+    "roster_id": 7,
+    "round": 14,
+    "draft_slot": 7,
+    "pick_no": 134,
+    "metadata": {
+      "first_name": "Eagles",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "LAC",
+    "picked_by": "espn-d1-t6",
+    "roster_id": 6,
+    "round": 14,
+    "draft_slot": 6,
+    "pick_no": 135,
+    "metadata": {
+      "first_name": "Chargers",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "4227",
+    "picked_by": "espn-d1-t5",
+    "roster_id": 5,
+    "round": 14,
+    "draft_slot": 5,
+    "pick_no": 136,
+    "metadata": {
+      "first_name": "Harrison",
+      "last_name": "Butker"
+    }
+  },
+  {
+    "player_id": "6650",
+    "picked_by": "espn-d1-t4",
+    "roster_id": 4,
+    "round": 14,
+    "draft_slot": 4,
+    "pick_no": 137,
+    "metadata": {
+      "first_name": "Chase",
+      "last_name": "McLaughlin"
+    }
+  },
+  {
+    "player_id": "8126",
+    "picked_by": "espn-d1-t3",
+    "roster_id": 3,
+    "round": 14,
+    "draft_slot": 3,
+    "pick_no": 138,
+    "metadata": {
+      "first_name": "Wan'Dale",
+      "last_name": "Robinson"
+    }
+  },
+  {
+    "player_id": "NE",
+    "picked_by": "espn-d1-t2",
+    "roster_id": 2,
+    "round": 14,
+    "draft_slot": 2,
+    "pick_no": 139,
+    "metadata": {
+      "first_name": "Patriots",
+      "last_name": "D/ST"
+    }
+  },
+  {
+    "player_id": "DET",
+    "picked_by": "espn-d1-t1",
+    "roster_id": 1,
+    "round": 14,
+    "draft_slot": 1,
+    "pick_no": 140,
+    "metadata": {
+      "first_name": "Lions",
+      "last_name": "D/ST"
+    }
+  }
+]

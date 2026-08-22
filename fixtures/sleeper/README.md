@@ -1,9 +1,17 @@
 # Sleeper fixtures
 
-Hand-authored, matching Sleeper's documented public API shapes and `shared/types.d.ts` — **not**
-recordings of a real draft. No live Sleeper mock draft was available to record from when these were
-written (2026-08-06). Swap these for real recorded fixtures once S1 (live Sleeper connection) lands,
-and keep the hand-authored ones only if they're still useful as a minimal/synthetic case.
+Two kinds of fixtures live here:
+
+- `recorded/` — **real recorded Sleeper mock drafts**, captured verbatim with
+  `scripts/fetch-sleeper-mock.mjs` (writes `recorded/<draftId>/{draft,picks}.json`, raw upstream
+  payloads, no normalization). These are the bot-cohort inputs for the availability/VONA calibration
+  harness (`frontend/src/engine/benchmarkAvailability.bench.ts`). **Autodraft finding:** the
+  recorded mocks are mostly autodrafted — the benchmark registry reports `autodraftShare` 0.90-0.92
+  — so they validate synchronization, latency, and market-shaped drafting, not human behavioral
+  signal. The two all-human ESPN drafts under `fixtures/real-drafts/` are the held-out human cohort.
+- The hand-authored files below, matching Sleeper's documented public API shapes and
+  `shared/types.d.ts` — minimal/synthetic cases from before any live mock was available
+  (2026-08-06), kept as deterministic unit-test fixtures.
 
 Player ids and names here (`9001`, "RB One", ...) are fictional placeholders, not real Sleeper
 player ids — don't rely on them matching anything in the committed `data/` pipeline output.

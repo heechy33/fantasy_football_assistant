@@ -400,6 +400,93 @@ def fitted_stdev(
     return round(max(_ADP_STDEV_FLOOR, adp * cv_bands[-1][1]), 4)
 
 
+def _band_cv(adp: float, cv_bands: tuple[tuple[float, float], ...]) -> float:
+    for upper, cv in cv_bands:
+        if adp < upper:
+            return cv
+    return cv_bands[-1][1]
+
+
+def build_ffc_cv_index(ffc_entries: list[AdpEntry]) -> dict[str, tuple[float, int]]:
+    """Per-player (observed coefficient of variation, times_drafted) keyed by
+    sleeper playerId, built from FFC's own crosswalked entries
+    (`build_adp_entries`'s output). This is the H2 per-player CV-transfer
+    input for `fitted_stdev_for_player` — see `survival_diagnose.py`'s H2
+    check (`benchmarks/reports/2026-08-20-ffc-survival-diagnosis-
+    interpretation.md`): the flat band CV is a good central estimate but
+    flattens real per-player structure (2.1x p90/p10 spread in the top
+    band), so a player FFC has actually observed should use its own ratio,
+    shrunk toward the band per `fitted_stdev_for_player`, rather than the
+    band average outright. A player with no FFC row, no crosswalk match, or
+    a degenerate FFC stdev/adp is simply absent, and callers fall back to
+    the flat band CV for that player.
+    """
+    index: dict[str, tuple[float, int]] = {}
+    for entry in ffc_entries:
+        if entry.playerId is None or entry.adp <= 0 or entry.stdev <= 0:
+            continue
+        index[entry.playerId] = (entry.stdev / entry.adp, entry.timesDrafted or 0)
+    return index
+
+
+# Pseudo-count weight given to the band CV when blending it with an
+# FFC-observed per-player CV (empirical-Bayes shrinkage): weight on the
+# observed ratio is `times_drafted / (times_drafted + prior_n)`. Chosen so a
+# lightly-sampled player (single digits to tens of times_drafted) stays close
+# to the band average, while a well-sampled one (FFC's deep-ADP median is
+# ~193 times_drafted, elite players are in the thousands) is dominated by its
+# own observed ratio rather than a flat band constant.
+_CV_SHRINKAGE_PRIOR_N = 50
+
+# A per-player CV is only trusted within this multiplicative band around the
+# ADP band's own constant — the same far-from-band tolerance
+# `survival_diagnose.py`'s H2 check already flags (`farFromBandCvFraction`
+# uses the identical 0.5x/2x bounds), so one noisy or misattributed FFC row
+# can't send a single player's synthesized dispersion wildly off structure.
+_CV_TOLERANCE_LOW = 0.5
+_CV_TOLERANCE_HIGH = 2.0
+
+
+def per_player_cv(
+    adp: float,
+    player_id: str | None,
+    ffc_cv_index: dict[str, tuple[float, int]],
+    cv_bands: tuple[tuple[float, float], ...] = _DEFAULT_ADP_CV_BANDS,
+    prior_n: int = _CV_SHRINKAGE_PRIOR_N,
+) -> float:
+    """Resolve the coefficient of variation to use for one player's stdev
+    synthesis: the flat band constant when no FFC-observed ratio exists for
+    this player, else an empirical-Bayes shrinkage of the FFC-observed CV
+    toward the band constant, clamped to the tolerance band above.
+    """
+    band_cv = _band_cv(adp, cv_bands)
+    entry = ffc_cv_index.get(player_id) if player_id else None
+    if entry is None:
+        return band_cv
+    observed_cv, times_drafted = entry
+    weight = times_drafted / (times_drafted + prior_n) if times_drafted > 0 else 0.0
+    shrunk = weight * observed_cv + (1.0 - weight) * band_cv
+    return min(max(shrunk, _CV_TOLERANCE_LOW * band_cv), _CV_TOLERANCE_HIGH * band_cv)
+
+
+def fitted_stdev_for_player(
+    adp: float,
+    player_id: str | None,
+    ffc_cv_index: dict[str, tuple[float, int]] | None,
+    cv_bands: tuple[tuple[float, float], ...] = _DEFAULT_ADP_CV_BANDS,
+    prior_n: int = _CV_SHRINKAGE_PRIOR_N,
+) -> float:
+    """Phase 2c H2 fix: same synthesis as `fitted_stdev`, but resolves the CV
+    per-player via `per_player_cv` when `ffc_cv_index` is given (Sleeper/ESPN
+    boards) instead of always using the flat band constant. Passing
+    `ffc_cv_index=None` (or omitting a player from it) reproduces
+    `fitted_stdev`'s original band-only behavior exactly, so this is a
+    strict extension, not a behavior change for unmatched players.
+    """
+    cv = per_player_cv(adp, player_id, ffc_cv_index or {}, cv_bands, prior_n)
+    return round(max(_ADP_STDEV_FLOOR, adp * cv), 4)
+
+
 # Sleeper's projections payload nests every format's ADP mean under `stats`
 # alongside real box-score stats; transform._clean_stats strips `adp*` keys back
 # out of that same payload before it's used as a season projection (canonical
@@ -424,15 +511,19 @@ def build_sleeper_adp_entries(
     sleeper_rows: list[dict[str, Any]],
     fmt: str,
     cv_bands: tuple[tuple[float, float], ...] = _DEFAULT_ADP_CV_BANDS,
+    ffc_cv_index: dict[str, tuple[float, int]] | None = None,
 ) -> tuple[list[AdpEntry], dict[str, Any]]:
     """Sleeper's own draft-lobby ADP for one format. `player_id` is already a
     sleeper_id (a team abbreviation for DEF, e.g. "LAR" — same convention as
     /v1/players/nfl), so unlike FFC's rows this needs no crosswalk at all.
 
-    The payload carries no dispersion field, so `stdev` is synthesized via
-    `fitted_stdev` and `high`/`low`/`timesDrafted` are genuinely unknown (None),
-    not zero — a 0 there would misleadingly read as "always this exact pick" or
-    "zero recorded drafts" instead of "this source doesn't expose that."
+    The payload carries no dispersion field, so `stdev` is synthesized —
+    per-player via `fitted_stdev_for_player` when `ffc_cv_index` is given
+    (Phase 2c H2: `build_ffc_cv_index` on this format's own FFC board), else
+    the flat-band `fitted_stdev` — and `high`/`low`/`timesDrafted` are
+    genuinely unknown (None), not zero — a 0 there would misleadingly read as
+    "always this exact pick" or "zero recorded drafts" instead of "this
+    source doesn't expose that."
     """
     stat_key = SLEEPER_ADP_STAT_KEYS[fmt]
     usable: list[tuple[float, dict[str, Any]]] = []
@@ -463,7 +554,7 @@ def build_sleeper_adp_entries(
                 position=position,
                 team=player.get("team"),
                 adp=adp,
-                stdev=fitted_stdev(adp, cv_bands),
+                stdev=fitted_stdev_for_player(adp, str(player_id), ffc_cv_index, cv_bands),
                 high=None,
                 low=None,
                 timesDrafted=None,

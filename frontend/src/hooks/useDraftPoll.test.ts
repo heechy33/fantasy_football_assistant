@@ -323,24 +323,6 @@ describe('createDraftPollController', () => {
     expect(adapter.picks).not.toHaveBeenCalled();
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 'init-error' }));
   });
-
-  it('records poll-start and poll-response marks that bound the network wait', async () => {
-    // Fake timers swap `performance` for one without mark/measure — use the real clock here.
-    vi.useRealTimers();
-    const adapter = makeAdapter();
-    const controller = createDraftPollController({
-      adapter, cred: CRED, draftId: 'd-1', intervalMs: 60_000, onChange: () => {},
-    });
-    await controller.start();
-
-    const starts = performance.getEntriesByName('ffa:poll-1-start');
-    const responses = performance.getEntriesByName('ffa:poll-1-response');
-    expect(starts).toHaveLength(1);
-    expect(responses).toHaveLength(1);
-    expect(responses[0]!.startTime).toBeGreaterThanOrEqual(starts[0]!.startTime);
-
-    controller.stop();
-  });
 });
 
 function snapshotAt(overrides: Partial<DraftPollSnapshot> = {}): DraftPollSnapshot {
@@ -348,7 +330,6 @@ function snapshotAt(overrides: Partial<DraftPollSnapshot> = {}): DraftPollSnapsh
     phase: 'ready',
     draftInit: DRAFT_INIT,
     draftPicks: draftPicks(1000),
-    lastChangedPollId: null,
     ...IDLE_HEALTH,
     ...overrides,
   };

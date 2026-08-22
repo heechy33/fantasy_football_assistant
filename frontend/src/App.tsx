@@ -120,6 +120,7 @@ export default function App() {
   const draftId = session.kind === 'connected' ? session.draftId : null;
   const cred = session.kind === 'connected' ? session.cred : IDLE_CRED;
   const poll = useDraftPoll({ adapter: sleeperAdapter, cred, draftId });
+
   const bridge = useEspnBridge(session.kind === 'bridge' ? session.frozenInit : null);
   // Live picks flow straight from whichever provider is active into the effective draft state
   // (merged with manual overrides) — no effect-driven relay, so a changed poll/bridge tick renders
@@ -129,7 +130,7 @@ export default function App() {
   const livePicks = session.kind === 'bridge'
     ? (bridge.picks?.picks ?? EMPTY_PICKS)
     : (poll.draftPicks?.picks ?? EMPTY_PICKS);
-  const board = useDraftBoardState(livePicks, undefined, poll.lastChangedPollId);
+  const board = useDraftBoardState(livePicks);
 
   // D9 backstop: the board's live/manual mode must always match what the session implies (bridge
   // and connected sessions run live; everything else runs manual). The transition handlers below
@@ -475,6 +476,7 @@ export default function App() {
       <TopNav
         active={page}
         onNavigate={setPage}
+        immersive={page === 'home'}
         leagueName={page === 'draft' ? effectiveInit?.settings.name ?? null : null}
         adpFormat={page === 'draft' ? adpFormat : null}
         isStale={false}
@@ -533,7 +535,6 @@ export default function App() {
                   adpFormat={adpFormat}
                   activeProvider={activeProvider}
                   picksSignature={picksSignature}
-                  timingPollId={poll.lastChangedPollId}
                   onTheClock={onTheClock}
                   boundaries={boundaries}
                   onCorrect={openCorrection}
@@ -551,7 +552,6 @@ export default function App() {
               adpFormat={adpFormat}
               activeProvider={activeProvider}
               picksSignature={picksSignature}
-              timingPollId={null}
               onTheClock={onTheClock}
               boundaries={boundaries}
               onCorrect={openCorrection}

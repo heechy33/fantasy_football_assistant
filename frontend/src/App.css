@@ -44,6 +44,29 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   background: var(--chrome);
   color: var(--chrome-ink);
 }
+/* Immersive variant (Home) — the bar dissolves into the cinematic scene: a fading scrim
+   instead of a solid slab, so the trophy reads as part of the page, not under chrome. */
+.top-nav-immersive {
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, rgb(15 17 20 / .8), rgb(15 17 20 / .35) 60%, transparent);
+  box-shadow: none;
+}
+.top-nav-immersive .brand-button:hover, .top-nav-immersive .brand-button:focus-visible { background: rgb(255 255 255 / .07); }
+/* Signed-out auth CTAs — placeholder seam until real auth lands; pinned to the far edge of the
+   identity row so the bar reads brand left / account right, like any marketing shell. */
+.top-nav-auth { display: flex; align-items: center; gap: .55rem; margin-left: auto; }
+.nav-auth-signin {
+  padding: .45rem .7rem;
+  border-radius: var(--radius-md);
+  color: var(--chrome-ink);
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: .95rem;
+  font-weight: 700;
+  opacity: .75;
+}
+.nav-auth-signin:hover, .nav-auth-signin:focus-visible { opacity: 1; background: var(--chrome-2); }
+.nav-auth-signup { padding: .45rem .95rem; font-size: .92rem; }
 .top-nav-identity {
   display: flex;
   flex-wrap: wrap;
@@ -177,47 +200,318 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 .session-alert[data-severity="danger"] { color: var(--danger-text); background: var(--danger-bg); }
 .session-alert button { flex-shrink: 0; }
 
-/* Landing â€” two provider paths side by side instead of one Sleeper form with ESPN buried behind a
-   "skip connecting" link. Each `.provider-card` is a plain `section`, so it already carries the
-   base border/padding/background; these rules only add the heading row and CTA. */
-/* Landing hero — eyebrow + display-font headline (accent word) + tight subcopy. The two provider
-   cards below ARE the primary actions, so the hero stays compact and hands off quickly. */
-.landing-hero h2 {
-  max-width: 20ch;
-  margin-bottom: .75rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.9rem, 4.2vw, 3rem);
-  font-weight: 800;
-  letter-spacing: -.015em;
-  line-height: 1.04;
-  text-transform: none;
+/* Landing — one persistent cinematic scene (LandingPage): a fixed full-viewport Three.js layer
+   behind every section, so the chrome Lombardi carries the whole narrative instead of living
+   only in the hero. Sections stay transparent/frosted so the scene never breaks mid-story. */
+.landing-page > section,
+.landing-page > footer { position: relative; z-index: 1; }
+.landing-scene { position: fixed; z-index: 0; inset: 0; pointer-events: none; }
+.landing-hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Floor glow under the trophy — also the no-WebGL fallback that carries the scene alone. Two
+   faint color washes (cool floodlight left, warm end-zone glow right) sit inside the same radial
+   pool so the floor reads as lit concrete instead of flat black. */
+.landing-scene-glow {
+  position: absolute;
+  inset: auto 0 0;
+  height: 55%;
+  background:
+    radial-gradient(ellipse 30% 42% at 24% 96%, rgb(127 178 229 / .07), transparent 70%),
+    radial-gradient(ellipse 28% 40% at 78% 98%, rgb(224 165 96 / .06), transparent 70%),
+    radial-gradient(ellipse 50% 65% at 50% 100%, rgb(198 206 218 / .18), transparent 70%);
 }
-.landing-hero-accent { color: var(--accent-cool); }
-.landing-hero-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
+/* Vignette keeps overlaid copy readable against moving chrome reflections. */
+.landing-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 95% 85% at 50% 24%, transparent 52%, rgb(10 11 13 / .6));
+}
+/* Hero — full viewport, centered display type rising in staggered beats. */
+.landing-hero {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1.1rem;
+  min-height: calc(100svh - 3.6rem);
+  margin: -1rem calc(50% - 50vw) 0;
+  padding: 5rem 1.5rem 5rem;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: transparent;
+  text-align: center;
+}
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  to { opacity: 1; transform: none; }
+}
+.landing-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0;
+  padding: .38rem .85rem;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  background: rgb(23 25 29 / .72);
+  color: var(--text-2);
+  font-size: .78rem;
+  font-weight: 600;
+  animation: landing-rise .8s .1s cubic-bezier(.2,.7,.2,1) backwards;
+}
+.landing-hero-pill .landing-feed-dot { width: .42rem; height: .42rem; }
+.landing-hero-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: clamp(2.5rem, 6vw, 4.6rem);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+  color: var(--text-1);
+  animation: landing-rise 1s .28s cubic-bezier(.2,.7,.2,1) backwards;
+}
+.landing-hero-copy { max-width: 36rem; margin: 0; color: var(--text-2); font-size: 1.05rem; line-height: 1.55; animation: landing-rise 1s .5s cubic-bezier(.2,.7,.2,1) backwards; }
 .draft-room-empty p,
 .teams-page .teams-empty-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
-/* Three "why" cards — Sleeper-style feature strip mapping to existing product truth. No new logic,
-   just the pitch. */
-.landing-features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin: 1.75rem 0 2rem; }
-.feature-card {
-  display: grid;
-  gap: .35rem;
+.landing-hero-cta { margin-top: .75rem; text-decoration: none; animation: landing-rise 1s .65s cubic-bezier(.2,.7,.2,1) backwards; }
+/* Sections — plain numbered kickers, sentence-case headings, even rhythm. */
+.landing-section {
+  position: relative;
   margin: 0;
-  padding: 1.1rem 1.15rem;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  padding: 5.5rem 0 4.75rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
-.feature-card h3 { margin: 0; font-size: .95rem; font-weight: 800; }
-.feature-card p { margin: 0; color: var(--text-2); font-size: .85rem; line-height: 1.45; }
-.landing-paths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; }
+.landing-section header { position: relative; margin-bottom: 1.6rem; }
+.landing-section h3 {
+  margin: .35rem 0 0;
+  font-family: var(--font-sans);
+  font-size: clamp(1.65rem, 3vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+.landing-kicker {
+  margin: 0;
+  color: var(--text-3);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.landing-section-lede { max-width: 40rem; margin: .6rem 0 0; color: var(--text-2); }
+[data-reveal] { opacity: 0; transform: translateY(1.1rem); transition: opacity .7s ease, transform .7s ease; }
+[data-reveal].revealed { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .landing-hero-pill, .landing-hero-title, .landing-hero-copy, .landing-hero-cta { animation: none; }
+  .landing-feed-row, .landing-feed-dot { animation: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+/* Feature beats — three quiet cards, one claim each. */
+.landing-beats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.1rem;
+}
+@media (max-width: 900px) { .landing-beats { grid-template-columns: 1fr; } }
+.landing-beat {
+  margin: 0;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: rgb(23 25 29 / .86);
+}
+.landing-beat h4 { margin: 0 0 .45rem; font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+.landing-beat p { margin: 0; color: var(--text-2); font-size: .9rem; line-height: 1.55; }
+/* Chapter II — the live board: a staged Draft-Room feed beside two demo player cards built from
+   the REAL product faces (NextPickSurvivalMeter / StarRating). Show the app, don't describe it. */
+.landing-board {
+  display: grid;
+  grid-template-columns: minmax(19rem, 27rem) auto;
+  gap: clamp(1.4rem, 4vw, 3.2rem);
+  align-items: start;
+}
+@media (max-width: 940px) { .landing-board { grid-template-columns: 1fr; } }
+.landing-board-feed {
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: rgb(17 19 23 / .72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+.landing-feed-head {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin: 0;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--border-divider);
+  color: var(--text-3);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.landing-feed-dot {
+  width: .48rem;
+  height: .48rem;
+  border-radius: 50%;
+  background: var(--accent-cool);
+  box-shadow: 0 0 8px var(--accent-cool);
+  animation: landing-feed-pulse 1.6s ease-in-out infinite;
+}
+@keyframes landing-feed-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.landing-feed-list { margin: 0; padding: .3rem 0; list-style: none; }
+.landing-feed-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: .75rem;
+  padding: .55rem 1rem;
+  animation: landing-feed-in .55s calc(var(--feed-i) * 0.28s + 0.15s) cubic-bezier(.2, .7, .2, 1) backwards;
+}
+@keyframes landing-feed-in { from { opacity: 0; transform: translateX(-.9rem); } }
+.landing-feed-pick {
+  font-family: var(--font-display);
+  font-size: .82rem;
+  font-weight: 800;
+  color: var(--silver);
+  font-variant-numeric: tabular-nums;
+}
+.landing-feed-who { display: flex; align-items: baseline; gap: .5rem; min-width: 0; }
+.landing-feed-who strong { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.landing-feed-who em { font-style: normal; color: var(--text-3); font-size: .76rem; }
+.landing-feed-note { justify-self: end; color: var(--text-4); font-size: .74rem; }
+.landing-feed-note[data-state='live'] {
+  color: var(--accent-cool);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+/* Card showcase — the REAL Draft-Room PlayerCard faces rendered with static demo data, fanned
+   slightly like a hand of cards. Display-only: the details click is a no-op on the landing. */
+.landing-board-cards { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 1.6rem; }
+.landing-demo-card { transition: transform 180ms ease; }
+.landing-demo-card-left { transform: rotate(-2.4deg); }
+.landing-demo-card-right { transform: rotate(2deg) translateY(.7rem); }
+.landing-demo-card:hover { transform: rotate(0deg) translateY(-.25rem); }
+.landing-demo-card .player-card { cursor: default; box-shadow: 0 24px 48px rgb(0 0 0 / .45); }
+@media (prefers-reduced-motion: reduce) { .landing-demo-card { transition: none; } }
+.landing-board-note { max-width: 34rem; margin: 1.6rem 0 0; color: var(--text-3); font-size: .88rem; }
+/* Chapter III — the integrations map: hub at center, a wiring stem down to a horizontal rail,
+   then one stub per platform spoke. Pure CSS so it stays crisp and reflows cleanly. The provider
+   panels below float as frosted glass over the scene so forms stay legible while the trophy
+   keeps moving behind them. */
+.landing-integrations { display: grid; gap: 1.6rem; max-width: 56rem; }
+.integrations-map { display: grid; justify-items: center; }
+.integrations-hub {
+  display: grid;
+  justify-items: center;
+  gap: .45rem;
+}
+.integrations-hub-mark {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border: 1px solid var(--silver-deep);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 18%, rgb(255 255 255 / .16), transparent 60%),
+    linear-gradient(180deg, #2b3038, #14171c);
+  color: var(--silver);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .04), 0 18px 36px rgb(0 0 0 / .5);
+}
+.integrations-hub-label {
+  color: var(--text-2);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+/* Wiring: one stem from the hub, one rail across the spoke centers, one stub per spoke — drawn
+   with plain borders/backgrounds and a faint silver sheen, like the reference diagram. */
+.integrations-stem {
+  width: 1px;
+  height: 1.9rem;
+  background: linear-gradient(180deg, var(--border-3), var(--border-2));
+}
+.integrations-rail {
+  align-self: stretch;
+  height: 1px;
+  width: calc(100% - 100% / 6); /* first-to-last spoke-center span for a 6-column row */
+  margin: 0 auto;
+  background: linear-gradient(90deg, transparent, var(--border-2) 12%, var(--border-2) 88%, transparent);
+}
+.integrations-spokes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.integrations-spokes li {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 1.4rem;
+}
+.integrations-spokes li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 1.4rem;
+  background: var(--border-2);
+}
+@media (max-width: 700px) {
+  /* The rail math only holds on a single 6-up row; stacked spokes keep their stubs. */
+  .integrations-rail { display: none; }
+  .integrations-spokes { grid-template-columns: repeat(3, 1fr); row-gap: 1.2rem; }
+}
+/* Collapsed connect gate — the setup forms live behind this CTA. */
+.landing-connect-cta {
+  display: grid;
+  justify-items: center;
+  gap: .7rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--border-3);
+  border-radius: var(--radius-lg);
+  background: rgb(19 21 24 / .5);
+}
+.landing-connect-note { margin: 0; color: var(--text-3); font-size: .85rem; }
+.provider-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.6rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: rgb(19 21 24 / .72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.provider-panel:hover, .provider-panel:focus-within { transform: translateY(-2px); border-color: var(--border-3); }
+.provider-panel-active { border-color: var(--silver-deep); background: rgb(23 25 29 / .8); }
+.provider-panel-active:hover { border-color: var(--silver); }
+/* Sign-off — a quiet credits line closing the story. */
+.landing-footer { margin-top: 5rem; padding: 2.4rem 0 3rem; border-top: 1px solid var(--border-divider); text-align: center; }
+.landing-footer p { margin: 0; color: var(--text-4); font-size: .8rem; letter-spacing: .04em; }
+.provider-panel-lede { display: flex; align-items: flex-start; gap: .75rem; }
+.provider-panel-lede h3 { margin: 0 0 .3rem; font-family: var(--font-sans); font-size: 1.2rem; font-weight: 700; letter-spacing: -.01em; }
+.provider-panel-lede .provider-card-copy { margin: 0; }
+.provider-panel-body { border-top: 1px solid var(--border-divider); padding-top: 1rem; }
 .provider-card-heading { display: flex; align-items: center; gap: .55rem; margin-bottom: .6rem; }
 .provider-card-heading h3 { margin: 0; font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; letter-spacing: .01em; }
-.provider-card { transition: transform 160ms ease, border-color 160ms ease; }
-.provider-card:hover, .provider-card:focus-within { transform: translateY(-2px); border-color: var(--border-3); }
-@media (max-width: 700px) {
-  .landing-features { grid-template-columns: 1fr; }
-}
 .provider-card-copy { color: var(--text-2); }
 .provider-card-warning { color: var(--warn-text); }
 .provider-card-note { margin-top: .75rem; font-size: .85rem; }
@@ -239,10 +533,8 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   border-radius: var(--radius-sm);
   color: var(--text-2);
   background: transparent;
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+  font-size: .82rem;
+  font-weight: 600;
   opacity: .85;
 }
 .provider-subtabs button:hover,
@@ -301,7 +593,7 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .player-meta { color: var(--text-2); }
 .dialog-actions { margin-top: 1rem; justify-content: flex-start; }
 @media (max-width: 820px) {
-  .landing-paths { grid-template-columns: 1fr; }
+  .provider-panel-lede { flex-direction: column; }
 }
 @media (max-width: 620px) {
   .app-shell { width: min(100% - 1rem, 1080px); padding-top: 1rem; }
@@ -1515,6 +1807,14 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
   font-size: .82rem;
 }
 
+/* Non-blocking, non-alert board note (e.g. "backup QBs aren't recommended") — quiet like
+   .recommendation-refinement-status, distinct from it since it explains an absence, not a status. */
+.board-advisory {
+  margin: .65rem 0;
+  color: var(--text-3);
+  font-size: .82rem;
+}
+
 .recommendation-loading-skeleton {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1586,5 +1886,4 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 .player-board-row-meta > span { overflow: hidden; text-overflow: ellipsis; }
 .player-board-row-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }
 .player-board-row-adp-source { margin-left: .3rem; color: var(--text-3); font-size: .62rem; font-weight: 700; letter-spacing: .03em; }
-@media (max-width: 600px) {
-}
+

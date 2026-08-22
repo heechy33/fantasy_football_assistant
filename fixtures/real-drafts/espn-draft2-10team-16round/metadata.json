@@ -1,0 +1,26 @@
+{
+  "provider": "espn",
+  "transcribed": true,
+  "source": "espn_draft2.txt",
+  "humanSeats": 10,
+  "autodraftShare": 0,
+  "marketShare": 0,
+  "adpFile": "adp-espn-ppr.json",
+  "scoringType": "ppr",
+  "qbFormat": "one-qb",
+  "rounds": 16,
+  "replayUserId": "espn-d2-t1",
+  "rosterAssumption": "1QB 2RB 2WR 1TE 1FLEX 1K 1DEF (9 starters); bench = rounds - 9. Regenerate if the real roster slots differ.",
+  "fantasyTeamNamesBySlot": {
+    "1": null,
+    "2": null,
+    "3": null,
+    "4": null,
+    "5": null,
+    "6": null,
+    "7": null,
+    "8": null,
+    "9": null,
+    "10": null
+  }
+}

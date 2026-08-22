@@ -219,3 +219,12 @@ stress-tested against the live poll loop end-to-end, not because measured cost h
 Deferred, not built: the Web Worker (main-thread cost turned out to be a fixable engine defect, not
 an inherent scenario-count problem — revisit if real usage still shows main-thread jank), the
 two-turn rollout, and opponent-model calibration (S6).
+
+> **Correction (2026-08-21): the Web Worker did ship.** Commit `f821318` ("frontend: card-board
+> layout, worker latency fixes, and DataHealth polish") landed `frontend/src/workers/
+> recommendation.worker.ts`, `frontend/src/hooks/useRecommendationRefinement.ts`, and
+> `frontend/src/engine/recommendationWorkerProtocol.ts`: a long-lived worker created at pool load,
+> cooperative cancel of superseded requests instead of terminate, and a main-thread fallback board.
+> The deferral above was written when measured main-thread cost was the binding constraint; the
+> latency follow-up ended up needing the worker on the live clock path regardless. Two-turn rollouts
+> and opponent-model calibration (S6) remain deferred.

@@ -23,6 +23,13 @@ export interface TopNavProps {
   statusProvider?: string | null;
   /** Effective pick count, appended to the status pill (e.g. "· 29 picks"). */
   pickCount?: number | null;
+  /** Home renders the landing's cinematic scene; the bar dissolves into it (fading scrim)
+   * instead of sitting as a solid slab above it. */
+  immersive?: boolean;
+  /** Auth gate seam: while false (the only state until real auth lands) the page tabs are hidden
+   * and placeholder Sign in / Sign up CTAs render instead — the app reads as a public marketing
+   * landing. Wiring a real session flips this to true and restores the full nav unchanged. */
+  authenticated?: boolean;
 }
 
 const NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
@@ -54,11 +61,12 @@ function StaleStatus({ healthRef, fallbackIsStale, fallbackDataAgeMs }: {
 }
 
 /**
- * Two-tier app shell header. The identity row (brand + Home/Draft Room/Teams tabs) is always
- * present. The status row (league/ADP/pick-count pill, top-right) renders only when the caller
- * supplies draft state — `App` only passes `leagueName`/`adpFormat`/etc while `page === 'draft'`,
- * so Home gets brand+nav and nothing else. No router — the app is a single screen, so navigation
- * is a lifted `page` state in App and buttons here.
+ * Two-tier app shell header. The identity row (brand +, when authenticated, the Home/Draft
+ * Room/Teams tabs; otherwise placeholder Sign in / Sign up CTAs) is always present. The status
+ * row (league/ADP/pick-count pill, top-right) renders only when the caller supplies draft state —
+ * `App` only passes `leagueName`/`adpFormat`/etc while `page === 'draft'`, so Home gets brand+nav
+ * and nothing else. No router — the app is a single screen, so navigation is a lifted `page`
+ * state in App and buttons here.
  */
 export function TopNav({
   active,
@@ -70,12 +78,14 @@ export function TopNav({
   pollHealthRef = null,
   statusProvider = null,
   pickCount = null,
+  immersive = false,
+  authenticated = false,
 }: TopNavProps) {
   const showStatus = leagueName != null || adpFormat != null;
   const providerBadgeKey = statusProvider === 'espn' || statusProvider === 'sleeper' ? statusProvider : null;
 
   return (
-    <header className="top-nav">
+    <header className={immersive ? 'top-nav top-nav-immersive' : 'top-nav'}>
       <div className="top-nav-identity">
         <h1 className="brand">
           <button
@@ -87,19 +97,34 @@ export function TopNav({
             {APP_NAME}
           </button>
         </h1>
-        <nav aria-label="Primary">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.page}
-              type="button"
-              className="nav-link"
-              aria-current={active === item.page ? 'page' : undefined}
-              onClick={() => onNavigate(item.page)}
-            >
-              {item.label}
+        {/* Signed-in nav tabs — hidden entirely while signed out so Draft Room / Teams read as
+            account features, matching the marketing-landing-first flow. */}
+        {authenticated && (
+          <nav aria-label="Primary">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.page}
+                type="button"
+                className="nav-link"
+                aria-current={active === item.page ? 'page' : undefined}
+                onClick={() => onNavigate(item.page)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        )}
+        {/* Placeholder auth CTAs — visual-only until the real auth phase wires handlers. */}
+        {!authenticated && (
+          <div className="top-nav-auth">
+            <button type="button" className="nav-auth-signin" title="Sign in (coming soon)">
+              Sign in
             </button>
-          ))}
-        </nav>
+            <button type="button" className="primary-button nav-auth-signup" title="Create an account (coming soon)">
+              Sign up
+            </button>
+          </div>
+        )}
       </div>
 
       {showStatus && (
