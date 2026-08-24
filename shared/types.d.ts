@@ -549,92 +549,6 @@ export interface PlayerWeeklyStatsArtifact {
   heat: Record<string, Record<string, WeeklyStatBreakpoints | null>>;
 }
 
-/** Optional, local-only FantasyPros display decoration for player cards. */
-export interface FantasyProsStars {
-  rank: number;
-  tier: number | null;
-  upside: number | null;
-  bust: number | null;
-  sos: number | null;
-  ecrVsAdp: number | null;
-  positionRank: string;
-}
-
-export interface FantasyProsUnmatchedRow {
-  rank: number;
-  name: string;
-  team: string | null;
-  position: string;
-}
-
-export interface FantasyProsArtifact {
-  schemaVersion: number;
-  generatedAt: string;
-  season: number;
-  source: {
-    name: 'fantasypros-draft-rankings-csv';
-    file: string;
-    rows: number;
-    droppedNonRankRows: number;
-    matched: number;
-    unmatched: number;
-    status: 'ok';
-  };
-  players: Record<PlayerId, FantasyProsStars>;
-  unmatched: FantasyProsUnmatchedRow[];
-}
-
-/**
- * Display-only per-site ADP decoration (gitignored, local-only â€” absent in
- * production deploys). A parse of FantasyPros' Overall ADP export; the board's
- * own ADP (Sleeper lobby + FFC fallback) is the only provenance the engine
- * consumes. This type is structurally NOT `AdpEntry[]`, so it cannot be handed
- * to buildRecommendationBoard / draftScore.ts by accident.
- */
-export interface FantasyProsAdpArtifact {
-  schemaVersion: number;
-  generatedAt: string;
-  season: number;
-  source: {
-    name: 'fantasypros-overall-adp-csv';
-    file: string;
-    rows: number;
-    matched: number;
-    unmatched: number;
-    emptyColumns: string[];
-    status: 'ok';
-  };
-  /** Per-site ADP providers that had non-blank cells, in CSV header order. */
-  providers: Array<{
-    key: 'espn' | 'sleeper' | 'cbs' | 'rtsports' | 'fantrax';
-    label: string;
-    rows: number;
-    matchedRows: number;
-  }>;
-  consensus: { key: 'avg'; label: string; rows: number };
-  realTime: { key: 'realTime'; label: string; rows: number };
-  players: Record<
-    PlayerId,
-    {
-      rank: number;
-      positionRank: string;
-      /** FantasyPros AVG â€” the consensus number, never mixed into `adp`. */
-      avg?: number;
-      /** FantasyPros Real-Time rank + movement delta, never mixed into `adp`. */
-      realTime?: { rank: number; delta: number | null };
-      /** Blank provider cells are absent keys, never null. */
-      adp?: Partial<Record<'espn' | 'sleeper' | 'cbs' | 'rtsports' | 'fantrax', number>>;
-    }
-  >;
-  unmatched: Array<{
-    rank: number;
-    name: string;
-    team: string | null;
-    position: string;
-    reason: string;
-  }>;
-}
-
 /**
  * Display-only multi-provider season projections (committed, deployed). Stat
  * maps use Sleeper's vocabulary, keyed by playerId with no row-level source
@@ -694,8 +608,11 @@ export interface AdpEntry {
    * automatic fallback when Sleeper's (undocumented) ADP endpoint is unavailable or too sparse.
    * 'espn' is ESPN's public default-league average draft position (the `adp-espn-ppr.json` board,
    * selected only for ESPN sessions) â€” same honesty caveat as Sleeper: no published range or sample
-   * size, so its stdev is also a fitted estimate. */
-  adpSource: 'sleeper' | 'ffc' | 'espn';
+   * size, so its stdev is also a fitted estimate.
+   * 'underdog' is Underdog's best-ball ADP (the `adp-underdog-bestball.json` board) — a SEPARATE
+   * best-ball half-PPR TE-premium lane used for display/decoration and market-spread raw material
+   * only; it is never selected as an engine board and never blended into redraft composites. */
+  adpSource: 'sleeper' | 'ffc' | 'espn' | 'underdog';
   /** 'observed' when `stdev` came directly from the source (FFC). 'fitted' when it was synthesized
    * from FFC's coefficient-of-variation curve applied to a non-FFC adp mean (Sleeper has no
    * dispersion field; ESPN's leaguedefaults feed publishes no draft-position distribution either) â€”

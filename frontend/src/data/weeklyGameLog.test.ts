@@ -82,7 +82,7 @@ describe('buildGameLogRows', () => {
     expect(rushYdCell.display).toBe('60');
   });
 
-  it('fin is formatted with the position prefix (e.g. RB5), matching the FantasyPros-style reference', () => {
+  it('fin is formatted with the position prefix (e.g. RB5)', () => {
     const rows = buildGameLogRows(artifact(), 'rb1', 'RB');
     const week1 = rows.find((row) => row.week === 1)!;
     const finCell = week1.cells.find((cell) => cell.key === 'fin')!;

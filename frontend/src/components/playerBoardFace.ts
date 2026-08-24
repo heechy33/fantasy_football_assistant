@@ -1,6 +1,6 @@
-import type { AdpEntry, FantasyProsStars, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
+import type { AdpEntry, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
-import { adpPositionalRank, displayPositionalRank } from '../data/positionalRank';
+import { adpPositionalRank } from '../data/positionalRank';
 import { playerStatusTag } from '../data/playerStatusTag';
 import type { Recommendation } from '../engine/recommend';
 
@@ -16,7 +16,6 @@ export interface PlayerBoardFaceProps {
    * ESPN head + Sleeper-tail splice), so this must come from the player's own board
    * entry — never a board-wide "ESPN" badge. */
   adpSource?: AdpEntry['adpSource'] | null;
-  fantasyPros?: FantasyProsStars;
   usage?: PlayerUsage;
   depthRole?: TeamDepthRole | null;
   avgPointsPerGame?: number | null;
@@ -49,7 +48,7 @@ export function boardUsageStat(position: string | null | undefined, usage: Playe
 }
 
 export function boardFaceValues({
-  playerId, recommendation, player, adp, adpBoard, adpSource, fantasyPros, usage, depthRole, avgPointsPerGame,
+  playerId, recommendation, player, adp, adpBoard, adpSource, usage, depthRole, avgPointsPerGame,
   projectedPoints, availableNextPickProbability,
 }: PlayerBoardFaceProps) {
   const isRoleless = player?.position === 'K' || player?.position === 'DEF';
@@ -59,7 +58,7 @@ export function boardFaceValues({
     adpValue: recommendation?.availabilityAdp ?? adp ?? null,
     adpSourceLabel: adpSourceLabel(adpSource),
     availabilityValue: recommendation?.availableNextPickProbability ?? availableNextPickProbability ?? null,
-    positionalRank: displayPositionalRank(fantasyPros?.positionRank, adpPositionalRank(playerId, player?.position, adpBoard)),
+    positionalRank: adpPositionalRank(playerId, player?.position, adpBoard),
     usageStat: boardUsageStat(player?.position, usage),
     statusTag: player ? playerStatusTag(player, usage) : null,
     isRoleless,

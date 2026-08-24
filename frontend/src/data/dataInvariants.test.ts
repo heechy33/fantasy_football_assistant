@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -6,8 +6,6 @@ import type { AdpEntry, DataManifest, PlayerMeta, PlayerUsageArtifact, ProviderP
 import {
   validateAdpProvenance,
   validateAdpRanges,
-  validateFantasyProsAdp,
-  validateFantasyProsStars,
   validateFiniteProjections,
   validateManifestCrosswalk,
   validatePlayerUsage,
@@ -278,112 +276,6 @@ describe('committed data/*.json invariants', () => {
       'weekly-stats-heat-breakpoints',
     ]));
   });
-
-  it('validateFantasyProsStars reconciles a valid artifact and catches star/count drift', () => {
-    const valid = {
-      schemaVersion: 1,
-      generatedAt: '2026-08-12T00:00:00Z',
-      season: 2026,
-      source: {
-        name: 'fantasypros-draft-rankings-csv',
-        file: 'FantasyPros_2026_Draft_ALL_Rankings.csv',
-        rows: 2,
-        droppedNonRankRows: 1,
-        matched: 1,
-        unmatched: 1,
-        status: 'ok',
-      },
-      players: {
-        '1': { rank: 1, tier: 1, upside: 5, bust: 1, sos: 0, ecrVsAdp: -2, positionRank: 'WR1' },
-      },
-      unmatched: [{ rank: 2, name: 'Unknown', team: null, position: 'RB' }],
-    };
-    expect(validateFantasyProsStars(valid)).toEqual([]);
-
-    const invalid = {
-      ...valid,
-      source: { ...valid.source, rows: 4, matched: 2, status: 'bad' },
-      players: {
-        '1': { ...valid.players['1'], upside: 0, sos: 6, ecrVsAdp: 1.5, positionRank: '' },
-      },
-    };
-    const checks = validateFantasyProsStars(invalid).map((entry) => entry.check);
-    expect(checks).toEqual(expect.arrayContaining([
-      'fantasypros-source-status',
-      'fantasypros-matched-count',
-      'fantasypros-source-reconciliation',
-      'fantasypros-upside-range',
-      'fantasypros-sos-range',
-      'fantasypros-ecr-integer',
-      'fantasypros-player-position-rank',
-    ]));
-  });
-
-  it.skipIf(!existsSync(join(dataDir, 'fantasypros-stars.json')))(
-    'validates a local FantasyPros artifact when one is staged',
-    () => {
-      expect(validateFantasyProsStars(loadJson('fantasypros-stars.json'))).toEqual([]);
-    },
-  );
-
-  it('validateFantasyProsAdp reconciles a valid artifact and catches drift', () => {
-    const valid = {
-      schemaVersion: 1,
-      generatedAt: '2026-08-12T00:00:00Z',
-      season: 2026,
-      source: {
-        name: 'fantasypros-overall-adp-csv',
-        file: 'FantasyPros_2026_Overall_ADP_Rankings.csv',
-        rows: 2, matched: 1, unmatched: 1,
-        emptyColumns: ['NFL'], status: 'ok',
-      },
-      providers: [
-        { key: 'espn', label: 'ESPN', rows: 2, matchedRows: 1 },
-        { key: 'sleeper', label: 'Sleeper', rows: 2, matchedRows: 1 },
-      ],
-      consensus: { key: 'avg', label: 'FantasyPros AVG', rows: 2 },
-      realTime: { key: 'realTime', label: 'FantasyPros Real-Time', rows: 2 },
-      players: {
-        '1': {
-          rank: 1, positionRank: 'RB1', avg: 14.1,
-          realTime: { rank: 14, delta: -1 },
-          adp: { espn: 14.5, sleeper: 15.2 },
-        },
-      },
-      unmatched: [{ rank: 2, name: 'Unknown', team: null, position: 'WR', reason: 'not-in-player-pool' }],
-    };
-    expect(validateFantasyProsAdp(valid)).toEqual([]);
-
-    const invalid = {
-      ...valid,
-      source: { ...valid.source, rows: 4, matched: 2, status: 'bad' },
-      players: {
-        '1': {
-          ...valid.players['1'],
-          rank: 0,
-          adp: { espn: -1, sleeper: NaN },
-          avg: Number.POSITIVE_INFINITY,
-          realTime: { rank: 1.5, delta: 'up' },
-        },
-      },
-    };
-    const checks = validateFantasyProsAdp(invalid).map((entry) => entry.check);
-    expect(checks).toEqual(expect.arrayContaining([
-      'fantasypros-adp-source-status',
-      'fantasypros-adp-source-reconciliation',
-      'fantasypros-adp-player-rank',
-      'fantasypros-adp-player-adp-value',
-      'fantasypros-adp-player-avg',
-      'fantasypros-adp-player-real-time',
-    ]));
-  });
-
-  it.skipIf(!existsSync(join(dataDir, 'fantasypros-adp.json')))(
-    'validates a local FantasyPros ADP artifact when one is staged',
-    () => {
-      expect(validateFantasyProsAdp(loadJson('fantasypros-adp.json'))).toEqual([]);
-    },
-  );
 
   it('projections-providers.json parses as an object, keys exist in players.json, stats finite (legitimate negative stat values are real, e.g. CBS negative rush yards)', () => {
     const artifact = loadJson<ProviderProjectionsArtifact>('projections-providers.json');

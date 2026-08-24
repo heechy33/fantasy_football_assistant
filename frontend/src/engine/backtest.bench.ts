@@ -26,6 +26,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   BACKTEST_ARMS,
   BACKTEST_BASE_SEED,
+  BACKTEST_BOX_POSITIONS,
   BACKTEST_PLAYOFF_START_WEEK,
   BACKTEST_POSITION_CAPS,
   BACKTEST_ROUNDS,
@@ -33,17 +34,41 @@ import {
   BACKTEST_STARTING_SLOTS,
   BACKTEST_TEAMS,
   buildBacktestContext,
+  mean,
   runBacktest,
   type BacktestArm,
   type BacktestIntegrity,
   type BacktestRunResult,
 } from './backtest';
 import { gitCommitOrUnknown, loadBacktestFixtures, reportsDir } from './backtestFixtures';
+import { loadBlendOverrides } from './blendContext';
+import { defaultOpponentModelConfig } from './opponentModel';
 import { clearSimulationCache } from './recommend';
 
 const SEED_COUNT = Number(process.env.BACKTEST_SEEDS ?? '20');
 const GATING = process.env.BACKTEST_GATING === '1';
-const FILE_STEM = GATING ? '-historical-backtest-2025' : '-historical-backtest-2025-pilot';
+// C1-attribution diagnostics rerun (2026-08-24 pre-declaration): BACKTEST_DIAGNOSTICS='1' appends a
+// distinct stem so an instrumented rerun can never overwrite a committed report. The run itself is
+// unchanged — same arms, seeds, and gates; only additive recorded arrays differ.
+const DIAGNOSTICS = process.env.BACKTEST_DIAGNOSTICS === '1';
+// Saturation dose-response sweep (2026-08-24 pre-declaration in DECISIONS.md): scales the opponent
+// model's `shockScale` (priority noise multiplier; default 1 = observed ADP stdev as-is). Opt-in
+// only — unset env keeps the committed run byte-for-byte. Scale 0 = deterministic ADP-order field
+// (the saturation limit); higher scales make the field less ADP-like. Distinct report stem so a
+// sweep run can never overwrite a committed report.
+const SHOCK_SCALE_ENV = process.env.BACKTEST_OPPONENT_SHOCK_SCALE;
+const SHOCK_SCALE = SHOCK_SCALE_ENV === undefined ? 1 : Number(SHOCK_SCALE_ENV);
+if (!Number.isFinite(SHOCK_SCALE) || SHOCK_SCALE < 0) {
+  throw new Error(`BACKTEST_OPPONENT_SHOCK_SCALE must be a finite number >= 0, got '${SHOCK_SCALE_ENV}'`);
+}
+// Blend-ladder pilot (gates-blend-addendum.md section 6): BLENDED_PROJECTIONS/BLENDED_WEEKLY swap
+// the run's input context; the resulting report gets a distinct stem so the two contexts never
+// overwrite each other. Unset env -> committed FFToday context, byte-for-byte as before.
+const BLEND_OVERRIDES = loadBlendOverrides();
+const FILE_STEM = (GATING ? '-historical-backtest-2025' : '-historical-backtest-2025-pilot')
+  + (BLEND_OVERRIDES ? '-pavg-context' : '')
+  + (DIAGNOSTICS ? '-c1-diagnostics' : '')
+  + (SHOCK_SCALE_ENV !== undefined && SHOCK_SCALE !== 1 ? `-shockscale${SHOCK_SCALE}` : '');
 
 const ARM_LABELS: Record<BacktestArm, string> = {
   engine: 'Engine (Stage C on)',
@@ -68,14 +93,34 @@ describe.skipIf(!process.env.BENCHMARK)('2025 historical backtest (opt-in, PLAN.
       // Load the frozen fixtures. `loadBacktestFixtures` throws on any leakage/integrity
       // violation (season/SHA-256 pins, FFC identity gate) — see backtestFixtures.ts.
       // -------------------------------------------------------------------
-      const { inputs, integrity, provenance } = loadBacktestFixtures();
+      const { inputs, integrity, provenance } = loadBacktestFixtures({
+        projections: BLEND_OVERRIDES?.projections,
+        weekly: BLEND_OVERRIDES?.weekly,
+      });
       expect(integrity.handMapped.length).toBe(1); // Hollywood Brown -> Marquise Brown (5848)
 
-      const ctx = buildBacktestContext(inputs);
+      const ctx = buildBacktestContext({
+        ...inputs,
+        projections: BLEND_OVERRIDES?.projections ?? inputs.projections,
+        weekly: BLEND_OVERRIDES?.weekly ?? inputs.weekly,
+      }, SHOCK_SCALE_ENV !== undefined
+        ? { opponentConfig: { ...defaultOpponentModelConfig(BACKTEST_TEAMS, BACKTEST_ROUNDS), shockScale: SHOCK_SCALE } }
+        : {});
       // eslint-disable-next-line no-console
       console.log(`[backtest] start: ${GATING ? 'GATING' : 'pilot'} run — `
         + `${SEED_COUNT} seeds/slot x ${BACKTEST_TEAMS} slots = ${BACKTEST_TEAMS * SEED_COUNT} drafts/arm, `
         + `${BACKTEST_ARMS.length} arms (${BACKTEST_ARMS.join(', ')})`);
+      if (SHOCK_SCALE_ENV !== undefined) {
+        // eslint-disable-next-line no-console
+        console.log(`[backtest] shock-scale sweep: opponent shockScale = ${SHOCK_SCALE} `
+          + `(default is 1; 0 = deterministic ADP-order field)`);
+      }
+      if (BLEND_OVERRIDES) {
+        // eslint-disable-next-line no-console
+        console.log(`[backtest] blend-context inputs: ${BLEND_OVERRIDES.loadedFrom.projections}, `
+          + `${BLEND_OVERRIDES.loadedFrom.weekly}`);
+      }
+      let lastLoggedDecile = 0;
       const result = runBacktest(ctx, {
         seedCount: SEED_COUNT,
         gating: GATING,
@@ -83,6 +128,16 @@ describe.skipIf(!process.env.BENCHMARK)('2025 historical backtest (opt-in, PLAN.
           // eslint-disable-next-line no-console
           console.log(`[backtest] slot ${slot}/${totalSlots} complete — `
             + `${(elapsedMs / 60000).toFixed(1)} min elapsed`);
+        },
+        onDraftComplete: (completed, total, elapsedMs) => {
+          const decile = Math.floor((completed / total) * 10);
+          if (decile <= lastLoggedDecile) return;
+          lastLoggedDecile = decile;
+          const elapsedMin = elapsedMs / 60000;
+          const etaMin = completed > 0 ? (elapsedMin / completed) * (total - completed) : 0;
+          // eslint-disable-next-line no-console
+          console.log(`[backtest] progress: ${decile * 10}% (${completed}/${total} drafts) — `
+            + `${elapsedMin.toFixed(1)} min elapsed, ~${etaMin.toFixed(1)} min remaining`);
         },
       });
       expect(result.arms.engine.drafts).toBe(BACKTEST_TEAMS * SEED_COUNT);
@@ -110,6 +165,9 @@ function writeReport(
       gating: GATING,
       seedBase: BACKTEST_BASE_SEED,
       seedCount: SEED_COUNT,
+      // 2026-08-24 saturation sweep: the opponent model's priority-noise multiplier for this run
+      // (default 1). Recorded so sweep artifacts are self-describing.
+      shockScale: SHOCK_SCALE,
       slots: BACKTEST_TEAMS,
       teams: BACKTEST_TEAMS,
       rounds: BACKTEST_ROUNDS,
@@ -129,6 +187,14 @@ function writeReport(
       return [arm, aggregate];
     })),
     perDraftMeanWeekly: Object.fromEntries(BACKTEST_ARMS.map((arm) => [arm, result.arms[arm].perDraftMeanWeekly])),
+    // Diagnostics-only (2026-08-24 c1-attribution pre-declaration): positional decomposition of the
+    // subject seat's optimized starters plus first-pick timing. Feeds no gate.
+    starterPointsByPosition: Object.fromEntries(
+      BACKTEST_ARMS.map((arm) => [arm, result.arms[arm].perDraftStarterPointsByPosition]),
+    ),
+    firstPickRoundByPosition: Object.fromEntries(
+      BACKTEST_ARMS.map((arm) => [arm, result.arms[arm].firstPickRoundByPosition]),
+    ),
     pairedEngineVsB3: result.pairedEngineVsB3,
     // Informational only (2026-08-22 sim-sort disagreement probe) — never gates. `meanEngine`/
     // `meanBaseline` inside this PairedStats hold c1's/engine's means respectively (see
@@ -197,6 +263,37 @@ function renderMd(
   lines.push(`- n = ${p.n} paired drafts. Engine mean ${fmt(p.meanEngine, 3)} vs baseline-3 mean ${fmt(p.meanBaseline, 3)}.`);
   lines.push(`- Mean paired difference (engine - b3): ${fmt(p.meanDiff, 3)} pts/week, SE ${fmt(p.stdErr, 3)}.`);
   lines.push(`- Paired-difference 95% CI: [${fmt(p.ciLower, 3)}, ${fmt(p.ciUpper, 3)}].`);
+  lines.push('');
+  lines.push('## Subject starter points by position (diagnostics-only — 2026-08-24 c1-attribution pre-declaration)');
+  lines.push('');
+  lines.push('Mean weekly optimized-starter points attributed to each starter\'s own position '
+    + `(weeks 1-17; FLEX points land in the occupant's position, so the six columns sum to the `
+    + `arm's mean weekly total). K/TE/DEF are the cap-1 slots (${JSON.stringify({
+      TE: BACKTEST_POSITION_CAPS.TE, K: BACKTEST_POSITION_CAPS.K, DEF: BACKTEST_POSITION_CAPS.DEF,
+    })}). Paired per-position CIs and the pre-declared flip test are computed offline by `
+    + `\`pipeline/analyze_c1_positions.py\`.`);
+  lines.push('');
+  lines.push('| Arm | QB | RB | WR | TE | K | DEF | K+TE+DEF |');
+  lines.push('|---|---|---|---|---|---|---|---|');
+  for (const arm of BACKTEST_ARMS) {
+    const byPos = result.arms[arm].perDraftStarterPointsByPosition;
+    const cell = (pos: string) => fmt(mean(byPos[pos as keyof typeof byPos] ?? []), 3);
+    const cap1 = BACKTEST_BOX_POSITIONS.filter((pos) => pos === 'TE' || pos === 'K' || pos === 'DEF')
+      .reduce((sum, pos) => sum + mean(byPos[pos] ?? []), 0);
+    lines.push(`| ${ARM_LABELS[arm]} | ${cell('QB')} | ${cell('RB')} | ${cell('WR')} | ${cell('TE')} `
+      + `| ${cell('K')} | ${cell('DEF')} | ${fmt(cap1, 3)} |`);
+  }
+  lines.push('');
+  lines.push('Mean round of the subject\'s first pick at each position (lower = earlier; 0 = never drafted):');
+  lines.push('');
+  lines.push('| Arm | QB | RB | WR | TE | K | DEF |');
+  lines.push('|---|---|---|---|---|---|---|');
+  for (const arm of BACKTEST_ARMS) {
+    const rounds = result.arms[arm].firstPickRoundByPosition;
+    const cell = (pos: string) => fmt(mean(rounds[pos as keyof typeof rounds] ?? []), 2);
+    lines.push(`| ${ARM_LABELS[arm]} | ${cell('QB')} | ${cell('RB')} | ${cell('WR')} | ${cell('TE')} `
+      + `| ${cell('K')} | ${cell('DEF')} |`);
+  }
   lines.push('');
   lines.push('## C1 vs engine (informational, non-gating — sim-sort disagreement probe follow-up)');
   lines.push('');

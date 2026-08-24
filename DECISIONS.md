@@ -599,6 +599,472 @@ not silently promoting it.
 
 ---
 
+## 2026-08-23 â€” Early-window opponent-FPA ("SOS") measured and cut
+
+**Decision:** do not build the proposed 3-week trailing opponent-FPA tie-breaker, and treat
+SOS as settled-negative rather than something to redesign. The displayed FantasyPros SOS
+stars are also measured as ≈ null and should not gain any engine role.
+
+**Evidence:** `pipeline/measure_sos.py` (`npm run measure:sos`, network-free) against real
+2025 weekly outcomes (`data/weekly-stats.json`), with a rule pre-declared in the report
+header before results were computed (`benchmarks/reports/2026-08-23-sos-validation.{json,md}`):
+
+| Signal | n | partial r (given player form) | 95% CI | top-12 hit-rate delta | share pairs positive |
+|---|---|---|---|---|---|
+| sos_1w | 3109 | 0.073 | [0.031, 0.111] | -0.065 | 0.17 |
+| **sos_3w (primary)** | 3329 | 0.094 | [0.058, 0.132] | **-0.063** | **0.13** |
+| sos_5w | 3116 | 0.119 | [0.079, 0.160] | -0.066 | 0.14 |
+| sos_std (season-to-date) | 3116 | 0.127 | [0.094, 0.163] | -0.049 | 0.24 |
+
+The keep gate required both halves to pass. The primary signal's correlation half passed
+(CI excludes zero), but the rank-utility half failed decisively: adding the signal to a
+form-only ranking *lowered* next-week top-12 hit rates in ~87% of position-week pools, and
+mean within-pool Spearman dropped from 0.393 (form alone) to 0.312 at best. Verdict: CUT.
+
+Two findings worth keeping beyond the binary verdict:
+
+1. **The "less stale" claim runs backwards here.** Predictive partial correlation rises
+   monotonically with window length (1w < 3w < 5w < season-to-date). Nothing about the
+   early window makes FPA more useful; if anything it is noisier. This directly refutes
+   the hypothesis that motivated the feature.
+2. **Small r still hurts rankings at equal weight.** A real-but-tiny matchup signal,
+   z-added to form at parity, drowns out a much stronger form signal. Any future proposal
+   must specify a shrinkage weight and beat the same rank-utility gate, not just show
+   r > 0.
+
+FantasyPros preseason SOS stars (n=343, controlling for their own overall rank): partial r
+vs realized season PPG = -0.05 — indistinguishable from zero, consistent with the literature.
+
+**Why cut rather than redesign:** the burden of proof was on SOS; it showed a trace of raw
+signal but zero ranking value in its proposed use, on one clean season, with the specific
+early-window rationale empirically inverted. Limitations recorded in the report: single
+season (~14 independent prediction weeks), FPA derived from the same feed it predicts.
+
+---
+
+## 2026-08-23 — Projection-blend ladder step 0: no 2025 provider projections pass the vintage gate; retrospective screen cut, pivot to prospective 2026
+
+**Decision:** the proposed Phase C offline screen (blend of Sleeper/ESPN/CBS vs FFToday-only,
+scored against 2025 actuals) is **cut** — it cannot be run cleanly. Step 0's pre-declared rule
+(fixed before probing: PASS = rows retrievable AND vintage verifiably ≤ 2025-09-04 from source
+provenance or an independent archive capture) fails for every provider:
+
+| Provider | Blocker |
+|---|---|
+| Sleeper | 637 season rows retrievable, but all bulk re-synced `last_modified` = **2026-01-04T09:21Z** — cannot distinguish frozen-August values from mid-season revisions |
+| ESPN | 1,052 season-projection entries retrievable, payload carries **no as-of field at all** |
+| CBS | 2025 restofseason pages render zero table rows; URL construction is post-season by design |
+| Wayback | 0 captures of the CBS 2025 URLs in the Jun–Sep 2025 window |
+
+Evidence and diagnostics: `benchmarks/reports/2026-08-23-projection-vintage-audit.{md,json}`.
+Notable content signals (recorded as observations, not gate evidence): both retrievable sources
+carry projection-grade values (Sleeper r=0.786 vs 2025 actuals, n=567; ESPN r=0.794 vs half-PPR
+actuals, n=478; FFToday fixture control r=0.732, n=380), Sleeper rows embed 2025 rosters
+(Kyler Murray team=ARI in-row vs MIN live) and `gp=18`. Content looks preseason-genuine; provenance
+is unverifiable, and unverifiable provenance is exactly what the FFToday leakage gate exists to
+exclude — running the screen anyway would compare a leakage-audited FFToday board against boards
+whose vintage we cannot swear to.
+
+**Standing convention (extends the fftodayLeakage precedent):** any projection source used in an
+evaluation must carry verifiable as-of provenance ≤ the season's first kickoff. "Retrievable now"
+is not "vintage-clean". This applies to future retrospective tests of any kind.
+
+**Pivot:** the blend-vs-FFToday ladder proceeds **prospectively on 2026**, riding a frozen pre-kickoff
+snapshot — all four sources (FFToday 414 rows, Sleeper 637, ESPN 551, CBS 404) copied with SHA-256
+pins to `fixtures/projection-freeze/2026-preseason/` (`provenance.json` carries hashes + git commit;
+the nightly data refresh must never overwrite this directory). The original live artifact
+`data/projections-providers.json` (`fetchedAt` 2026-08-22, before the 2026 first game)
+SHA-pinnable like the backtest fixtures). Ladder shape is unchanged (rank-utility primary gate per
+the 2026-08-23 SOS entry → disagreement probe mirroring `simSortProbe` thresholds → CRN-paired
+pilot → gated run with pre-declared numbers in `gates.md`); only the outcome feed changes to
+accumulating 2026 weekly actuals. Composite ADP still gets its own availability-calibration (Brier)
+screen, not the points/rank ladder.
+
+**Exploratory carve-out, explicitly non-gating:** an unverified advisory screen on the Sleeper+ESPN
+2025 data is permissible if labeled exploratory-only and never cited alone; any build decision
+still requires the prospective 2026 ladder. Default is to skip it — the prospective path is cheap
+and clean, and the 2026 draft window makes it timely regardless.
+
+---
+
+## 2026-08-23 — Blend ladder reopened: 2025 backtest track authorized under an asymmetric decision rule
+
+**Decision:** the blend-vs-FFToday question is re-opened **retrospectively** through the existing
+2025 backtest harness, alongside (not instead of) the prospective 2026 pivot recorded earlier
+today. This entry **supersedes** the earlier same-day carve-out that set "default is skip" for the
+exploratory 2025 screen. Pre-declared rules live in
+`fixtures/backtest/2025/gates-blend-addendum.md` (written before any pavg construction, screen,
+probe, or run); source bytes are frozen once in `fixtures/projection-freeze/2025-retrievable/`
+(`pipeline/freeze_2025_retrievable.py`; SHA-256 pinned; never re-fetched silently).
+
+**Why reopen what step 0 cut:** step 0 ruled the sources vintage-unverifiable, which makes any
+retrospective comparison *asymmetric*, not useless. If Sleeper/ESPN values were revised toward
+actuals mid-season, the blend gets an unfair advantage — so a blend **loss is conclusive**
+(permanent cut), while a win can only ever be **provisional**, requiring mandatory in-season 2026
+confirmation before any production switch. Either way an answer arrives before drafts.
+
+**Corrections adopted during validation (recorded so they are not re-made):**
+
+- Outcome coverage must be widened to the candidate pool before any run — `data/weekly-stats.json`'s
+  649-player scope plus `gates.md`'s scored-0 rule would systematically punish wider-coverage arms.
+- A projection swap cannot be an in-run additive arm like `c1`: it changes `scores`, replacement
+  levels, and opponent-pool membership via `buildBacktestContext`. Pavg comparisons run as separate
+  CRN-paired runs (seeds are input-independent); the integrity gate is byte-reproduction of the
+  committed FFToday reports.
+- Union pool is primary (real blending widens coverage); intersection-pool diagnostic is mandatory
+  to attribute quality vs coverage.
+- All results are labeled **2025-conditional**: CIs quantify draft-level variance only; one season,
+  one outcome draw.
+
+**Status:** steps A/A2 complete (freeze committed). Ladder next rungs: pavg build → offline screen
+(exploratory) → disagreement probe → CRN-paired pilot → gated run, all per the addendum.
+
+---
+
+## 2026-08-24 — Blend pilot run: AMBIGUOUS verdict, FFToday kept; blending stays open only via the prospective 2026 ladder
+
+**Decision:** the pre-declared pilot (gates-blend-addendum.md section 6) returned an **ambiguous**
+verdict for both tested arms, so **FFToday is kept as the production projection source and the
+burden of proof stays on the blend.** This is not a permanent cut (the loss branch did not fire),
+but no promotion, provisional or otherwise, is earned.
+
+**Setup:** two CRN-paired runs under identical current code — FFToday context vs pavg context
+(`BLENDED_PROJECTIONS`/`BLENDED_WEEKLY` input swap; extended outcomes artifact from the frozen
+full weekly feed). N = 240 paired drafts/context (12 slots × 20 seeds). Amendment noted: the
+addendum declared a 144-draft minimum; the actual run used the runner's default 20 seeds
+(larger N only tightens the same direction-only gate).
+
+| Comparison | Mean diff (pts/wk) | 95% CI | Verdict inputs |
+|---|---|---|---|
+| **b2**: pavg board vs FFToday board | **+2.926** | [+1.731, +4.121] | blend board clearly better raw |
+| **engine**: pavg context vs FFToday context | **+0.898** | [−0.651, +2.447] | positive, crosses zero |
+
+Downside gate **failed**: engine 10th-pct pooled weekly 97.660 (pavg) vs 99.600 (FFToday) —
+−1.94 pts, far outside the −0.5 non-inferiority band, despite higher starter coverage (0.666 vs
+0.614).
+
+**Reading (2025-conditional, per the standing caveat):**
+
+1. The blend's *ranking* is real (+2.9 for B2, CI well above zero) — consistent with the offline
+   screen (pavg ρ=0.733 vs fftoday 0.709 on the common pool).
+2. The engine captures most of that value itself: only +0.9 reaches the engine arm, CI crosses
+   zero. Availability modeling already harvests what better projections would offer.
+3. The engine+pavg tail got *worse* (p10 −1.94). A plausible mechanism — the wider union pool
+   raises coverage but deep-board picks under the blend scored worse in the tail — matches the
+   union-vs-intersection attribution question, which was NOT run (deviation below).
+
+**Deviations from the addendum, recorded:**
+
+- Intersection-pool diagnostic skipped: the verdict is ambiguous either way (no promotion is on
+  the table), so the quality-vs-coverage attribution has no decision relevance this season. It
+  becomes mandatory again if blending is ever re-tabled.
+- Integrity gate adapted: the committed gating JSON predates per-draft arrays, so byte-level cell
+  reproduction was impossible. b1/b2/b3 reproduced the recorded corrected re-run means exactly
+  (112.634 / 124.025 / 130.502); engine/c1 drifted +0.078/+0.088 vs the prose record
+  (129.588/130.590) — attributed to unreconstructable 08-22 working-tree deltas, disclosed rather
+  than hidden. Internal validity of the paired comparison is unaffected (identical code both
+  sides).
+- Section 3's blend rule was amended (point-level → key-level averaging) BEFORE any pavg bytes
+  existed; both variants were computed in the screen and their rankings agree at Spearman 0.991
+  on the common pool — measured, as required, not assumed.
+
+**Consequences:** do not build blend features into production; do not spend the ~4 h gating run on
+this question for 2025 data. The blend hypothesis survives only through the prospective 2026
+ladder on the frozen 2026-preseason snapshot, where clean vintage provenance exists. Artifacts:
+`benchmarks/reports/2026-08-23-blend-screen.{json,md}` (steps C/D),
+`benchmarks/reports/2026-08-23-blend-pilot-analysis.json` (paired stats + verdict),
+`benchmarks/reports/2026-08-{23,24}-historical-backtest-2025-pilot*.json` (raw runs).
+
+---
+
+## 2026-08-24 — N=1008 gating run recorded (ran 2026-08-23 but was left unrecorded); all three gates PASS; C1 stratified; engine-vs-B1 deficit logged
+
+**Recordkeeping correction:** the gating backtest (`BACKTEST_GATING=1`, 84 seeds/slot × 12 slots =
+1008 drafts/arm, seed base `20250825`, commit `ec69271`) ran at 2026-08-23T03:19Z and its
+report/artifact were committed, but nothing recorded it and `PLAN.md` still listed the gating run
+as pending until now. Recorded unchanged:
+
+- **All three pre-declared gates vs B3 PASS**: primary-point-floor (129.390 ≥ 112.719 − 0.25);
+  primary-ci (+16.671 pts/wk, 95% CI [16.155, 17.187]); downside non-inferiority (p10 weekly 98.300
+  vs B3 83.200 − 0.5). Artifacts: `benchmarks/reports/2026-08-23-historical-backtest-2025.{md,json}`.
+  Layer-A evidence now exists; any roadmap expansion still waits on the plan's user-review step.
+- **C1 vs engine (informational, non-gating): +0.768 pts/wk, 95% CI [+0.231, +1.305]** — significant,
+  unlike both 240-draft pilots.
+- **Engine vs B1 (plain FFC ADP): −0.830 pts/wk, 95% CI [−1.539, −0.121]** — the production engine
+  sorts significantly *worse* than plain best-available-by-ADP on this 2025 grid; **C1 vs B1:
+  −0.062 [−0.721, +0.597] (statistical tie)** — C1 repairs the deficit rather than beating naive
+  ADP. Recorded as a standing finding that demands either a fix or a documented reason it does not
+  matter (candidate explanation, unchecked: B1 is flattered because the opponent-model field shares
+  FFC ADP priors). Not yet investigated; do not market an "edge" while it stands.
+
+**C1 stratification diagnostics** (offline from committed `perDraftMeanWeekly`;
+`pipeline/analyze_c1_gating.py` → `benchmarks/reports/2026-08-24-c1-gating-stratification.json`;
+self-check: overall c1−engine reproduces the committed gating report exactly):
+
+- Per-slot c1−engine is **strongly bimodal, not smoothly declining**: slots 1–6 positive and each
+  individually significant (+1.975 … +7.233); slots 7–12 negative with 8/10/11/12 individually
+  significant (−1.661 … −3.500). Spearman(slot, meanDiff) = −0.951.
+- Per-slot engine−B1 is mixed, not uniformly bad: engine significantly worse than ADP at slots 1–3
+  and 11, significantly better at slots 5 and 7 (+2.168 / +7.099).
+- **Still open and blocking any C1 promotion:** position-level (cap-1 K/TE/DEF) attribution of C1's
+  coverage gain — per-pick data is not in the committed artifact, so this needs an instrumented
+  rerun recording per-position starter points. Per the 2026-08-22 c1 entry, promotion additionally
+  requires pre-declared gate numbers for C1 (including vs B1 and a downside band). Neither exists;
+  C1 stays reported-only.
+
+---
+
+## 2026-08-24 — C1-attribution diagnostics: instrumentation added and interpretation rules pre-declared (before any rerun)
+
+**Question being instrumented** (open since the 2026-08-22 c1 entry): does C1's gating-run edge
+(+0.768 pts/wk over engine, significant) live in its cap-1 K/TE/DEF starter points
+(`BACKTEST_POSITION_CAPS` TE/K/DEF are each 1), and does it draft those positions earlier — or is
+there a real sorting-skill component outside them?
+
+**Instrumentation (additive; picking code and every existing metric untouched):**
+`eligibility.ts` gains `optimizeLineupStarters` (the int-memo value DP extended with occupant
+identity, bit-identical values, documented tie-break divergence on exact ties, property-tested
+against both sibling solvers); `backtest.ts` gains `scoreRosterWeeklyDetailed` (subject seat only;
+per-week starter points attributed to each starter's own position — FLEX points land in the
+occupant's position, so the six buckets sum exactly to the weekly optimum) plus two per-arm
+slot-major arrays (`perDraftStarterPointsByPosition`, `firstPickRoundByPosition`, 0 = never
+drafted) and `DraftResult.subjectFirstPickRound`. The runner writes both arrays under a distinct
+report stem (`BACKTEST_DIAGNOSTICS='1'` appends `-c1-diagnostics`) so an instrumented rerun can
+never overwrite a committed report. Nothing here feeds `evaluateGates`; the committed gates stay
+exactly as committed.
+
+**Run plan:** pilot size first (20 seeds × 12 slots = 240 paired drafts, ~50–65 min measured),
+escalating N only if a verdict-relevant comparison lands borderline. Diagnostics never require the
+gating-size grid.
+
+**Pre-declared interpretation rules (fixed before the rerun runs):**
+
+1. **Flip rule:** recompute the paired c1−engine difference using QB+RB+WR starter buckets only
+   ("skill-position-only"). If that excluded diff's sign flips against the inclusive +0.768, or its
+   95% CI crosses zero while the inclusive CI excludes zero → **C1's edge is a cap-slot artifact**
+   → cut from consideration on 2025 data; no further gating work.
+2. **Shippability rule:** even a significant positive edge that lives entirely inside K+TE+DEF is
+   **not promotable**: the backtest has no waiver wire, so streaming makes those points recoverable
+   in a real league regardless of who drafted them. Only a material skill-position gap survives
+   this rule and would justify scoping a real promotion gate (vs engine *and* vs B1, downside band
+   included).
+3. **Timing read:** mean/median first-pick round per position, c1 vs engine — significantly
+   earlier K/DEF/TE picks combined with no surviving skill-position gain confirms the
+   coverage-timing mechanism from the 2026-08-22 open question.
+4. **Integrity:** deterministic arms' (b1/b2/b3) `perDraftMeanWeekly` cells must reproduce the
+   committed 240-draft FFToday-context pilot JSON byte-for-byte at equal seeds; engine/c1 drift, if
+   any, is disclosed rather than hidden (precedent: the blend-pilot integrity gate).
+
+---
+
+## 2026-08-24 — C1-attribution diagnostics RESULT: the edge is cap-slot-only and TE-driven; C1 not promotable on 2025 data
+
+**Run:** instrumented pilot-size rerun (`BACKTEST_DIAGNOSTICS='1'`, 20 seeds × 12 slots = 240 paired
+drafts, FFToday context, log `benchmarks/reports/c1-diagnostics-run.log`). **Integrity gate:
+perfect** — all six arms' `perDraftMeanWeekly` cells byte-reproduce the committed 240-draft pilot
+JSON, proving the instrumentation perturbed nothing; every paired comparison below is over exactly
+the committed run's drafts.
+
+**Disclosure:** the first analysis pass computed `engine − c1` labeled as `c1 − engine`; caught
+because the "inclusive" composite printed −1.012 against the committed record's +1.012. Fixed in
+`pipeline/analyze_c1_positions.py` before any conclusion was drawn; the corrected inclusive value
+reproduces the committed +1.012 exactly.
+
+**Paired c1 − engine by position bucket (pts/wk, n=240):**
+
+| Bucket | Diff | 95% CI | |
+|---|---|---|---|
+| QB | −0.377 | [−0.909, +0.156] | |
+| RB | +2.700 | [+1.907, +3.494] | * |
+| WR | **−5.424** | [−6.429, −4.418] | * |
+| TE | **+3.916** | [+3.404, +4.428] | * |
+| K | +0.161 | [−0.022, +0.344] | |
+| DEF | +0.035 | [−0.140, +0.209] | |
+| **K+TE+DEF** | **+4.112** | [+3.549, +4.675] | * |
+| skill-only (QB+RB+WR) | **−3.100** | [−4.205, −1.994] | * |
+| all (inclusive) | +1.012 | [−0.140, +2.165] | |
+
+**Timing:** c1 drafts TE 1.12 rounds earlier (6.51 vs 7.64) and QB 0.90 rounds earlier (3.15 vs
+4.06), both significant; WR slightly later (+0.25); **K/DEF timing is byte-identical between arms**
+(both always take DEF round 15, K round 16).
+
+**Rule application (pre-declared above):**
+1. Flip rule: skill-only is significantly NEGATIVE while the inclusive diff is positive — the sign
+   flip fires directionally at this N (the inclusive CI does not yet exclude zero at n=240, where
+   the gating run's did at n=1008).
+2. Shippability rule: dispositive. The entire positive edge lives in cap-1 slots, and specifically
+   in **TE** (+3.92 of +4.11); K and DEF contribute ~zero. An edge that trades away 5.4 pts/wk of
+   WR production for early-TE construction is exactly what a no-waiver backtest cannot price and a
+   real league can stream around. **C1 is NOT promotable on 2025 data.**
+3. No escalation to larger N: ARTIFACT and CAP-SLOT-ONLY lead to the same decision, so the extra
+   hours would sharpen a label, not a choice.
+4. The 2026-08-22 open question ("does sorting by lookahead systematically draft K/DEF earlier?")
+   is answered: NO — K/DEF are drafted at identical fixed rounds. The mechanism is a roster-
+   construction shift: earlier TE/QB, later WR, more TE starter points, fewer WR starter points.
+
+**Consequences:** C1 stays reported-only and is closed for 2025 data (same standing as the blend).
+The engine-vs-B1 deficit (2026-08-24 gating-record entry) remains the open item worth attention.
+Artifacts: `benchmarks/reports/2026-08-24-historical-backtest-2025-pilot-c1-diagnostics.{json,md}`,
+`benchmarks/reports/2026-08-24-c1-attribution-analysis.json`, `pipeline/analyze_c1_positions.py`.
+
+---
+
+## 2026-08-24 — Engine-vs-B1 deficit LOCALIZED: skill-position (WR/QB) construction shift, not cap-slot noise; saturation dose-response sweep pre-declared
+
+**Step 1 — offline positional attribution (no rerun).** The already-committed instrumented
+diagnostics artifact (`2026-08-24-historical-backtest-2025-pilot-c1-diagnostics.json`, whose
+`starterPointsByPosition`/`firstPickRoundByPosition` arrays cover b1 too) sufficed; new script
+`pipeline/analyze_engine_b1_positions.py` computes paired engine−b1 diffs offline. Interpretation
+rules were fixed in the script docstring BEFORE it ran (shippability-symmetry rule, skill-deficit
+rule, timing read, exploratory-only slot cross-tab). **Integrity self-checks passed**: paired
+c1−engine reproduces the committed +1.012 exactly (the check itself first FAILED on a sign error —
+the same label-flip the C1 entry disclosed — and was fixed before conclusions were drawn);
+engine−b1 matches the arm-summary delta (−0.836221); six-bucket sums reconcile with
+`perDraftMeanWeekly` (max gap 5.7e-14).
+
+**Paired engine−b1 by position bucket (pts/wk, n=240, FFToday context):**
+
+| Bucket | Diff | 95% CI | |
+|---|---|---|---|
+| QB | −0.982 | [−1.478, −0.487] | * |
+| RB | +3.210 | [+2.093, +4.327] | * |
+| WR | **−5.255** | [−6.298, −4.212] | * |
+| TE | −0.742 | [−1.263, −0.221] | * |
+| K | +2.501 | [+2.153, +2.850] | * |
+| DEF | +0.432 | [+0.239, +0.624] | * |
+| skill-only (QB+RB+WR) | **−3.027** | [−4.324, −1.731] | * |
+| K+TE+DEF | +2.191 | [+1.519, +2.863] | * |
+| all (inclusive) | −0.836 | [−2.253, +0.581] | |
+
+The inclusive diff is NOT significant at pilot size (consistent with the N=1008 record's
+−0.830 [−1.539, −0.121]; same mean, wider CI — disclosed).
+
+**Verdict: SKILL-DEFICIT (pre-declared rule 2 fired).** The deficit survives the streaming rule —
+it lives in WR/QB starter points, offset by RB and cap-slot gains. Timing read names the mechanism:
+the engine reaches for QB (mean first-pick round 4.06 vs b1's 9.57) and TE (7.64 vs 13.24) and lets
+WR slide (3.28 vs 1.59) relative to plain ADP order — i.e., its value logic deviates from the market
+exactly where the realized 2025 outcome punished it. The WR deficit is DIFFUSE: negative in all 12
+slots (−1.48 … −8.94), so it is not a slot artifact; per-slot inclusive diffs are mixed (slot 7
++9.35*, slot 1 −7.59*) because RB/K offsets vary by seat.
+
+**2025-conditionality caveat (recorded to prevent over-reading):** "WR-heavy early order wins" is
+one season, one outcome draw — the TE bucket alone shows non-monotonic timing value (b1's
+round-13.2 TE beat engine's 7.64 by +0.74, while c1's round-6.5 TE beat engine's by +3.92), which
+smells like player-specific outcomes rather than a stable law. The mechanism is therefore
+localized but NOT yet a fix candidate: whether deviating from market ordering is ever *good* is
+exactly the open question.
+
+**Step 2 — saturation dose-response sweep (rules fixed BEFORE any run):** test the standing
+hypothesis (2026-08-24 gating-record entry) that B1 is flattered because the opponent field shares
+FFC ADP priors. New opt-in knob `BACKTEST_OPPONENT_SHOCK_SCALE` (env → `buildBacktestContext`
+optional `opponentConfig` override; unset ⇒ byte-identical behavior; distinct report stem
+`-shockscale{S}` when set ≠ 1). Sweep `shockScale ∈ {0, 2, 4}` as fresh pilot-size runs (20 seeds ×
+12 slots; identical seed base, so scenarios stay comparable across scales); scale 1 comes from the
+committed diagnostics artifact (same code, same seeds). Paired engine−b1 meanDiff computed per
+scale; pairing holds WITHIN a scale only — cross-scale comparisons are means-level, never paired.
+
+**Pre-declared verdict rules:**
+1. **SATURATION-SUPPORT:** meanDiff(4) CI lower bound > 0 AND the four means are monotonically
+   non-decreasing in scale ⇒ the engine's edge is exploitation of field deviation; reframe claims
+   accordingly (engine ≈ ADP only in saturated fields).
+2. **DAMNING:** meanDiff CI upper < 0 at BOTH scale 2 and scale 4 ⇒ the deficit survives field
+   noise; the honest conclusion is that the production sort is worse than naive ADP here, period.
+3. **DIRECTIONAL-ONLY:** monotone improvement but scale-4 CI crosses zero ⇒ escalate the scale-4
+   cell to a larger-N run ONCE before concluding.
+4. **AMBIGUOUS:** anything else; no further 2025 spend.
+
+Layer C/D remain the human-containing tests regardless of outcome; layer D snapshot retention
+starts now (before the 2026 season) so the accuracy baseline exists.
+
+Artifacts: `pipeline/analyze_engine_b1_positions.py`,
+`benchmarks/reports/2026-08-24-engine-b1-attribution-analysis.json`.
+
+---
+
+## 2026-08-24 — Shock-scale sweep RESULT: mechanical verdict AMBIGUOUS per pre-declared rules; engine beats naive ADP at every scale except the default field
+
+**Runs:** three fresh pilot-size runs (`BACKTEST_OPPONENT_SHOCK_SCALE` ∈ {0, 2, 4}, 20 seeds × 12
+slots = 240 paired drafts/arm, FFToday context; scale 1 taken from the committed diagnostics
+artifact, same code and seeds). Scale 0 = deterministic ADP-order field (saturation limit); higher
+scales = progressively less ADP-like opponent priorities. Pairing holds within scale only.
+
+| shockScale | engine−B1 (pts/wk) | 95% CI | |
+|---|---|---|---|
+| 0 | **+1.784** | [+0.347, +3.221] | * |
+| 1 (default) | −0.836 | [−2.253, +0.581] | |
+| 2 | **+6.562** | [+4.973, +8.152] | * |
+| 4 | **+8.237** | [+7.686, +8.789] | * |
+
+Integrity: every artifact self-reports its shockScale/draftsPerArm (metadata added to reports);
+the scale-1 anchor reproduces the committed arm-means delta exactly; Spearman(scale, meanDiff)
+= 0.80.
+
+**Mechanical verdict: AMBIGUOUS** — rule 1 (SATURATION-SUPPORT) required monotonically
+non-decreasing means and the scale-1 dip breaks it; rules 2 and 3 do not fire either. Per the
+pre-declared consequence: no further 2025 sweep spend under these rules. Recorded as-is; no
+post-hoc rule bending.
+
+**Exploratory reading (NOT the verdict, labeled as such):**
+- The standing hypothesis ("B1 is flattered because the opponent field shares FFC ADP priors") is
+  REFUTED as stated: at true saturation — a deterministic ADP field — the engine significantly
+  BEATS B1, and at elevated noise it wins by +6.6 to +8.2 pts/wk. The only negative cell is the
+  default calibrated-noise level itself.
+- The default-field deficit is therefore real-but-small (significant only via the N=1008 gating
+  run, −0.830) and specific to that noise level, not a saturation artifact. Combined with the same
+  day's localization entry: its mechanism is the WR/QB construction shift under realistic noise.
+- Practical shape of the claim the evidence now supports: "engine vs naive ADP depends dramatically
+  on field character; on this 2025 grid the engine loses ~0.8 pts/wk only in the exact default
+  simulated field and wins elsewhere." Neither direction may be marketed from 2025 sims alone;
+  layers C/D (live mocks, projection tracking) remain the human-containing tests.
+
+**Incident disclosure:** an in-session smoke test left `BENCHMARK=1`, `BACKTEST_SEEDS=1`,
+`BACKTEST_OPPONENT_SHOCK_SCALE=0` ambient in the shell, so a later `npm test` executed the opt-in
+bench file (normally excluded) and overwrote the full scale-0 artifact with a 12-draft run. Caught
+immediately; the full run was re-executed solo (51 min) and deterministically reproduced the
+original numbers exactly (+1.784 [+0.347, +3.221]). Standing lesson: clear `BENCHMARK`/`BACKTEST_*`
+env before running `npm test`; the bench's BENCHMARK guard assumes a clean environment.
+
+Artifacts: `pipeline/analyze_shock_scale_sweep.py`,
+`benchmarks/reports/2026-08-24-shock-scale-sweep-analysis.json`,
+`benchmarks/reports/2026-08-24-historical-backtest-2025-pilot-shockscale{0,2,4}.{json,md}`.
+
+---
+
+## 2026-08-24 — Layer D stood up as git-vintage snapshots; no database
+
+**Decision:** satisfy evaluation layer D (dated projection/ADP retention for scoring engine
+recommendations against actual 2026 outcomes) with git history plus annotated tags rather than a
+database, and defer all persistence decisions until a real consumer exists.
+
+**Why:** the retention problem was already ~solved by accident — `.github/workflows/refresh-data.yml`
+commits the entire `data/` directory daily (FFC/Sleeper/ESPN ADP boards, FFToday/provider
+projections, weekly stats) with full provenance manifests and SHA-256 pins, so every daily commit is
+a dated vintage. What was missing was findability and failure-loudness, not storage. A database adds
+nothing for append-only JSON blobs; migrating dated files into any future DB is trivially reversible,
+while vintages not captured are unrecoverable — but the genuinely unrecoverable pre-kickoff 2026
+vintage was already frozen separately (`data/projections-providers.json`, `fetchedAt` 2026-08-22,
+per the projection-vintage audit), which removed the time-pressure argument for heavier machinery.
+
+**Implementation (all additive):**
+1. `refresh-data.yml`: successful data-changing Monday refreshes (and every manual dispatch) now
+   create an annotated `data-snapshots/YYYY-MM-DD` tag on the refresh commit; idempotent per day.
+   Weekly cadence chosen to keep the tag namespace readable while still capturing waiver-window
+   movement; daily granularity remains available in plain git history regardless.
+2. A failing refresh opens a GitHub issue (one per day, comments on repeats), because a silent cron
+   failure would punch permanent holes into the vintage record.
+3. `pipeline/retrieve_vintage.py` (`npm run snapshot:vintage`) lists or materializes any tagged
+   vintage into a directory and prints its manifest summary + manifest SHA-256; pure functions tested
+   in `pipeline/test_retrieve_vintage.py` against fixtures and the real committed manifest.
+
+**Scope note:** this stands up *retention* only. The layer D analysis (MAE/bias/rank correlation of
+projections vs actuals by position) stays open until in-season outcomes accumulate, and layer C
+(live mocks) is unchanged.
+
+Artifacts: `.github/workflows/refresh-data.yml`, `pipeline/retrieve_vintage.py`,
+`pipeline/test_retrieve_vintage.py`, `package.json`, `PLAN.md` layer D section, `CLAUDE.md` commands.
+
+---
+
 ## Handoff note for future agents
 
 When you make a decision that should outlive the current task â€” a rejected approach, a formula

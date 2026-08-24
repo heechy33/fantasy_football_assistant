@@ -14,7 +14,10 @@
     "fetch:sleeper-mock": "node scripts/fetch-sleeper-mock.mjs",
     "benchmark:availability": "node scripts/run-benchmark.mjs",
     "backtest": "node scripts/run-backtest.mjs",
-    "probe:simsort": "node scripts/run-simsort-probe.mjs"
+    "probe:simsort": "node scripts/run-simsort-probe.mjs",
+    "measure:sos": "python pipeline/measure_sos.py",
+    "screen:blend": "node scripts/run-blend-screen.mjs",
+    "snapshot:vintage": "python pipeline/retrieve_vintage.py"
   },
   "engines": {
     "node": ">=20.0.0"

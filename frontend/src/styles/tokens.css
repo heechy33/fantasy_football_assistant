@@ -229,12 +229,4 @@
   --heat-3: transparent;             /* p40-p60 */
   --heat-4: rgb(72 168 118 / .14);  /* p60-p80 */
   --heat-5: rgb(72 168 118 / .26);  /* p80-p100 */
-
-  /* Star ratings (StarRating) — status-toned because Upside/Bust/SOS genuinely mean good/bad/neutral,
-     not just three interchangeable categories; each row always carries its literal label alongside
-     the stars, so tone is never the sole signal. */
-  --star-off: var(--border-3);
-  --star-upside: var(--warn-text);
-  --star-bust: var(--danger-text);
-  --star-sos: var(--info-text);
 }

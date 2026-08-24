@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import type { AdpEntry, FantasyProsAdpArtifact, LeagueSettings, PlayerMeta, PlayerUsage, ProviderProjectionsArtifact } from '../../../shared/types';
+import type { AdpEntry, LeagueSettings, PlayerMeta, PlayerUsage, ProviderProjectionsArtifact } from '../../../shared/types';
 import { playerBioItems } from '../data/playerBio';
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { resolvePointsPerGame } from '../data/pprProduction';
@@ -55,8 +55,6 @@ export interface PlayerDetailDrawerProps {
    * tail players — and keeps the engine anchor visible even off-clock in market mode when
    * `recommendation` is null. */
   adpBoard?: readonly AdpEntry[];
-  /** Optional local-only per-site ADP decoration; null in production deploys. */
-  adpProvidersArtifact?: FantasyProsAdpArtifact | null;
   /** Committed multi-provider projections decoration (display-only). */
   providerProjectionsArtifact?: ProviderProjectionsArtifact | null;
   /** The connected draft's league settings â€” used to score provider projections
@@ -76,7 +74,6 @@ export function PlayerDetailDrawer({
   currentPick,
   weeklyStats,
   adpBoard,
-  adpProvidersArtifact,
   providerProjectionsArtifact,
   settings,
   depthRole,
@@ -202,8 +199,6 @@ export function PlayerDetailDrawer({
             />
           </div>
           <PlayerMarketComparison
-            adpArtifact={adpProvidersArtifact ?? null}
-            playerId={player.playerId}
             boardAdp={boardAdp}
             currentPick={currentPick}
             projectionsArtifact={providerProjectionsArtifact ?? null}

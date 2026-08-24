@@ -6,8 +6,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { PlayerMeta, PlayerWeeklyStatsArtifact, Position } from '../../../shared/types';
-import { optimizeLineup, optimizeLineupValue } from './eligibility';
+import { optimizeLineup, optimizeLineupStarters, optimizeLineupValue } from './eligibility';
 import {
+  BACKTEST_BOX_POSITIONS,
   buildBacktestContext,
   buildBacktestLeagueSettings,
   draftSeedFor,
@@ -21,6 +22,7 @@ import {
   replacementAdjustedPoints,
   resolveFfcRowSleeperId,
   scoreRosterWeekly,
+  scoreRosterWeeklyDetailed,
   simulateSchedules,
   verifyBacktestIntegrity,
   type BacktestInputs,
@@ -114,6 +116,64 @@ describe('optimizeLineupValue', () => {
 });
 
 // ---------------------------------------------------------------------------
+// optimizeLineupStarters — value bit-identical to the other two solvers + occupant identity
+// ---------------------------------------------------------------------------
+
+describe('optimizeLineupStarters', () => {
+  /** Deterministic LCG so the property suite is reproducible (no Math.random). */
+  function lcg(seed: number): () => number {
+    let state = seed >>> 0;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 2 ** 32;
+    };
+  }
+
+  it('matches optimizeLineupValue on the fixed diverse rosters', () => {
+    const fullPos: Record<string, Position> = {
+      qb1: 'QB', qb2: 'QB', rb1: 'RB', rb2: 'RB', rb3: 'RB', rb4: 'RB', rb5: 'RB',
+      wr1: 'WR', wr2: 'WR', wr3: 'WR', wr4: 'WR', wr5: 'WR', te1: 'TE', te2: 'TE', k1: 'K', def1: 'DEF',
+    };
+    const roster = Object.keys(fullPos).map((id) => player(id, fullPos[id]!));
+    const pts = { qb1: 30, rb1: 20, rb2: 15, wr1: 18, wr2: 12, te1: 10, rb3: 14, wr3: 22, k1: 5, def1: 6, rb4: 8, wr4: 9, qb2: 3, wr5: 7, te2: 4, rb5: 1 };
+    const weekPts = new Map(Object.entries(pts).map(([id, v]) => [id, v] as const));
+    const solved = optimizeLineupStarters(SETTINGS, roster, weekPts);
+    expect(solved.value).toBe(optimizeLineupValue(SETTINGS, roster, weekPts));
+    // Occupants sum to the optimum and no player starts twice.
+    const sum = solved.starters.reduce((total, id) => total + (id == null ? 0 : weekPts.get(id) ?? 0), 0);
+    expect(sum).toBe(solved.value);
+    const unique = new Set(solved.starters.filter((id): id is string => id != null));
+    expect(unique.size).toBe(unique.size === 0 ? 0 : solved.starters.filter((id) => id != null).length);
+  });
+
+  it('randomized property suite: exact value + legal disjoint starters across 40 cases', () => {
+    const rand = lcg(20260824);
+    const positions: Position[] = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+    for (let caseIndex = 0; caseIndex < 40; caseIndex += 1) {
+      const rosterSize = 6 + Math.floor(rand() * 25); // up to 30 scored players (fast-path ceiling)
+      const roster = Array.from({ length: rosterSize }, (_, i) =>
+        player(`p${i}`, positions[Math.floor(rand() * positions.length)]!));
+      const weekPts = new Map(roster.map((p) => [p.playerId, Math.round(rand() * 40 - 5)] as const));
+      const expectedValue = optimizeLineupValue(SETTINGS, roster, weekPts);
+      const canonicalValue = optimizeLineup(SETTINGS, roster, weekPts).value;
+      const solved = optimizeLineupStarters(SETTINGS, roster, weekPts);
+      // Value must match BOTH siblings exactly (bit-identical arithmetic in the fast path).
+      expect(solved.value).toBe(expectedValue);
+      expect(solved.value).toBe(canonicalValue);
+      // Starters are slot-shaped, disjoint, and their points re-sum to the optimum.
+      const slotCount = SETTINGS.startingSlots.filter((s) => s !== 'BN' && s !== 'IR').length;
+      expect(solved.starters.length).toBe(slotCount);
+      const used = solved.starters.filter((id): id is string => id != null);
+      expect(new Set(used).size).toBe(used.length);
+      const starterSum = used.reduce((total, id) => total + weekPts.get(id)!, 0);
+      expect(starterSum).toBe(solved.value);
+    }
+    // The canonical BigInt solver dominates this suite's cost; 40 cases already cover the
+    // tie/negative/zero/partial-roster space. Explicit timeout: default 5s is too tight.
+  }, 30_000);
+});
+
+// ---------------------------------------------------------------------------
 // scoreRosterWeekly — hand-computable optimum, zero-outcome players, coverage
 // ---------------------------------------------------------------------------
 
@@ -155,6 +215,51 @@ describe('scoreRosterWeekly', () => {
     expect(scored.coverage).toBe(0);
     // The optimizer fills the 8 dedicated slots (FLEX stays empty): 20+10+5+12+8+6+4+3.
     expect(scored.perWeek[0]).toBe(20 + 10 + 5 + 12 + 8 + 6 + 4 + 3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scoreRosterWeeklyDetailed — positional decomposition of the same exact optimum
+// ---------------------------------------------------------------------------
+
+describe('scoreRosterWeeklyDetailed', () => {
+  const positions: Record<string, Position> = {
+    qb1: 'QB', rb1: 'RB', rb2: 'RB', wr1: 'WR', wr2: 'WR', te1: 'TE', wr3: 'WR', k1: 'K', def1: 'DEF', rb3: 'RB',
+  };
+  const weeksByPlayer: Record<string, [number, number][]> = {
+    qb1: [[1, 20]], rb1: [[1, 10]], rb2: [[1, 5]], wr1: [[1, 12]], wr2: [[1, 8]],
+    te1: [[1, 6]], wr3: [[1, 15]], k1: [[1, 4]], def1: [[1, 3]], rb3: [[1, 2]],
+  };
+  const weekly = makeWeekly(positions, weeksByPlayer);
+  const roster = Object.keys(positions).map((id) => player(id, positions[id]!));
+
+  it('attributes FLEX points to the occupant\'s own position and sums to the weekly optimum', () => {
+    const scored = scoreRosterWeeklyDetailed(SETTINGS, roster, weekly, [1]);
+    // Same optimum as scoreRosterWeekly's hand value (wr3 starts at FLEX -> WR bucket).
+    expect(scored.perWeek).toEqual([83]);
+    expect(scored.meanByPosition).toEqual({ QB: 20, RB: 15, WR: 35, TE: 6, K: 4, DEF: 3 });
+  });
+
+  it('matches scoreRosterWeekly exactly and leaves zero-outcome players out of every bucket', () => {
+    const withZero = [...roster, player('zero', 'WR')]; // no weekly rows at all
+    const plain = scoreRosterWeekly(SETTINGS, withZero, weekly, [1]);
+    const detailed = scoreRosterWeeklyDetailed(SETTINGS, withZero, weekly, [1]);
+    expect(detailed.perWeek).toEqual(plain.perWeek); // bit-identical values
+    expect(detailed.coverage).toBe(plain.coverage);
+    const bucketSum = BACKTEST_BOX_POSITIONS.reduce((sum, pos) => sum + detailed.meanByPosition[pos], 0);
+    expect(bucketSum).toBeCloseTo(mean(detailed.perWeek), 9);
+    expect(detailed.meanByPosition.WR).toBe(35); // 'zero' contributes nothing anywhere
+  });
+
+  it('keeps empty-slot points out of every bucket when coverage cannot fill the lineup', () => {
+    const shortWeeks: Record<string, [number, number][]> = {
+      qb1: [[1, 20]], rb1: [[1, 10]], rb2: [[1, 5]], wr1: [[1, 12]], wr2: [[1, 8]],
+      te1: [[1, 6]], k1: [[1, 4]], def1: [[1, 3]],
+    }; // wr3 and rb3 did not play week 1: FLEX cannot be filled
+    const shortWeekly = makeWeekly(positions, shortWeeks);
+    const scored = scoreRosterWeeklyDetailed(SETTINGS, roster, shortWeekly, [1]);
+    expect(scored.perWeek[0]).toBe(20 + 10 + 5 + 12 + 8 + 6 + 4 + 3);
+    expect(scored.meanByPosition).toEqual({ QB: 20, RB: 15, WR: 20, TE: 6, K: 4, DEF: 3 });
   });
 });
 

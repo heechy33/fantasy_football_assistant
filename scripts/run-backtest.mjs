@@ -9,6 +9,8 @@
 // pilot and an N >= 1,000 gating run share the exact same code path:
 //   npm run backtest                              -> pilot, 12 slots x 20 seeds, non-gating
 //   $env:BACKTEST_SEEDS='84'; $env:BACKTEST_GATING='1'; npm run backtest
+// BACKTEST_OPPONENT_SHOCK_SCALE (2026-08-24 saturation sweep) passes through process.env untouched:
+//   $env:BACKTEST_OPPONENT_SHOCK_SCALE='2'; npm run backtest   -> -shockscale2 report stem
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 

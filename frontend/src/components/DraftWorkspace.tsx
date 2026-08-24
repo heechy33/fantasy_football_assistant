@@ -66,8 +66,6 @@ export function DraftWorkspace({
   const adpBoardKey = useMemo(() => adpBoardKeyFor(activeProvider, adpFormat), [activeProvider, adpFormat]);
   const {
     players, playersById, projections, adp, usage, usageLoadStatus, loadError, resolvedAdpKey,
-    fantasyProsArtifact = null,
-    adpProvidersArtifact = null,
     providerProjectionsArtifact = null,
   } = usePlayerBoardData(adpBoardKey, adpFormat);
   const availabilityByPlayer = useMemo(() => {
@@ -171,8 +169,6 @@ export function DraftWorkspace({
             adp={adp}
             usage={usage}
             loadError={loadError}
-            fantasyProsArtifact={fantasyProsArtifact}
-            adpProvidersArtifact={adpProvidersArtifact}
             providerProjectionsArtifact={providerProjectionsArtifact}
             depthRoleByPlayer={depthRoleByPlayer}
             availabilityByPlayer={availabilityByPlayer}

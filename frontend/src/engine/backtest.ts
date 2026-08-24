@@ -34,6 +34,7 @@ import { slotForOverall, userPickBoundaries } from '../adapters/draftOrder';
 import { buildGameLogRows } from '../data/weeklyGameLog';
 import {
   addPlayerToLineup,
+  optimizeLineupStarters,
   optimizeLineupValue,
   prepareLineup,
   type PreparedLineup,
@@ -213,8 +214,14 @@ export function ffcRowsToAdpEntries(rows: readonly FfcAdpRow[]): AdpEntry[] {
 }
 
 /** Builds the immutable per-run context from loaded inputs. `settings.scoring` drives B2 and the
- * engine's projection scoring exactly as `gates.md` mandates; `weekly` drives only outcomes. */
-export function buildBacktestContext(inputs: BacktestInputs): BacktestContext {
+ * engine's projection scoring exactly as `gates.md` mandates; `weekly` drives only outcomes.
+ * `options.opponentConfig` lets an opt-in experiment (e.g. the 2026-08-24 shock-scale sweep,
+ * `BACKTEST_OPPONENT_SHOCK_SCALE`) replace the default opponent-model config; the caller — never
+ * this pure module — reads the environment. Unset/omitted ⇒ byte-identical behavior. */
+export function buildBacktestContext(
+  inputs: BacktestInputs,
+  options: { opponentConfig?: OpponentModelConfig } = {},
+): BacktestContext {
   const settings = buildBacktestLeagueSettings();
   const playersById = new Map(inputs.players.map((player) => [player.playerId, player]));
   const scores = new Map<PlayerId, number>();
@@ -260,7 +267,8 @@ export function buildBacktestContext(inputs: BacktestInputs): BacktestContext {
     adpByPlayerId,
     weekly: inputs.weekly,
     slotToTeam,
-    opponentConfig: defaultOpponentModelConfig(BACKTEST_TEAMS, BACKTEST_ROUNDS),
+    opponentConfig: options.opponentConfig
+      ?? defaultOpponentModelConfig(BACKTEST_TEAMS, BACKTEST_ROUNDS),
     replacementLineupBaseline,
   };
 }
@@ -275,6 +283,9 @@ export interface DraftResult {
   arm: BacktestArm;
   subjectRoster: PlayerMeta[];
   rostersByTeam: Map<string, PlayerMeta[]>;
+  /** Round of the subject's FIRST pick at each position (absent = never drafted there).
+   * Diagnostics-only (2026-08-24 c1-attribution pre-declaration); feeds no gate. */
+  subjectFirstPickRound: Partial<Record<Position, number>>;
 }
 
 export function draftSeedFor(slot: number, seedIndex: number): Seed {
@@ -303,6 +314,7 @@ export function simulateDraft(
   const rostersByTeam = new Map<string, PlayerMeta[]>();
   const preparedByTeam = new Map<string, PreparedLineup>();
   let subjectRoster: PlayerMeta[] = [];
+  const subjectFirstPickRound: Partial<Record<Position, number>> = {};
 
   for (let overall = 1; overall <= BACKTEST_TEAMS * BACKTEST_ROUNDS; overall += 1) {
     const slotOf = slotForOverall('snake', BACKTEST_TEAMS, overall);
@@ -315,6 +327,9 @@ export function simulateDraft(
       subjectRoster = [...subjectRoster, player];
       if (!rostersByTeam.has(teamId)) rostersByTeam.set(teamId, []);
       rostersByTeam.get(teamId)!.push(player);
+      if (player.position != null && subjectFirstPickRound[player.position] == null) {
+        subjectFirstPickRound[player.position] = round;
+      }
     }
     picks.push({
       overall, round, slot: slotOf, teamId,
@@ -323,7 +338,7 @@ export function simulateDraft(
       providerPlayerName: player.name,
     });
   }
-  return { slot, seedIndex, arm, subjectRoster, rostersByTeam };
+  return { slot, seedIndex, arm, subjectRoster, rostersByTeam, subjectFirstPickRound };
 }
 
 /** Exported for `simSortProbe.ts`, which drives its own draft loop over the same opponent field
@@ -579,6 +594,63 @@ export function scoreRosterWeekly(
   return { perWeek, coverage: covered / weeks.length };
 }
 
+/** The six positions starter points are attributed to in the positional decomposition. FLEX points
+ * land in the occupant's own position, so per-week values across these six sum exactly to that
+ * week's `optimizeLineup*` optimum — no separate FLEX bucket, no reconciliation ambiguity. */
+export const BACKTEST_BOX_POSITIONS: readonly Position[] = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
+export interface WeeklyScoreByPosition extends WeeklyScore {
+  /** Mean over the scored weeks of exact-optimal starter points attributed to each starter's own
+   * position; the six values sum to `mean(perWeek)` up to float rounding. */
+  meanByPosition: Record<Position, number>;
+}
+
+/** `scoreRosterWeekly` plus the positional decomposition of the same exact optimum, via
+ * `optimizeLineupStarters`' bit-identical value + occupant identity. Used ONLY for the subject
+ * seat (`runBacktest`) — the H2H field keeps the value-only path. Zero-outcome semantics are
+ * inherited unchanged from `scoreRosterWeekly`: a drafted player with no weekly rows scores 0 and
+ * simply never accumulates bucket points. */
+export function scoreRosterWeeklyDetailed(
+  settings: LeagueSettings,
+  roster: readonly PlayerMeta[],
+  weekly: PlayerWeeklyStatsArtifact,
+  weeks: readonly number[] = BACKTEST_WEEKS,
+): WeeklyScoreByPosition {
+  const startSlotCount = settings.startingSlots.filter((slot) => slot !== 'BN' && slot !== 'IR').length;
+  const rowsByPlayer = roster.map((player) => ({
+    player,
+    byWeek: new Map(buildGameLogRows(weekly, player.playerId, player.position).map((row) => [row.week, row])),
+  }));
+  const positionByPlayer = new Map(roster.map((player) => [player.playerId, player.position]));
+  const perWeek: number[] = [];
+  const sumsByPosition = Object.fromEntries(
+    BACKTEST_BOX_POSITIONS.map((pos) => [pos, 0]),
+  ) as Record<Position, number>;
+  let covered = 0;
+  for (const week of weeks) {
+    const weekPts = new Map<PlayerId, number>();
+    const coveragePts = new Map<PlayerId, number>();
+    for (const { player, byWeek } of rowsByPlayer) {
+      const row = byWeek.get(week);
+      const played = row?.kind === 'played' && row.pts != null;
+      weekPts.set(player.playerId, played && row.pts != null ? row.pts : 0);
+      coveragePts.set(player.playerId, played ? 1 : 0);
+    }
+    const { value, starters } = optimizeLineupStarters(settings, roster, weekPts);
+    perWeek.push(value);
+    for (const starterId of starters) {
+      if (starterId == null) continue;
+      const pos = positionByPlayer.get(starterId);
+      if (pos != null) sumsByPosition[pos] += weekPts.get(starterId) ?? 0;
+    }
+    if (optimizeLineupValue(settings, roster, coveragePts) >= startSlotCount) covered += 1;
+  }
+  const meanByPosition = Object.fromEntries(
+    BACKTEST_BOX_POSITIONS.map((pos) => [pos, sumsByPosition[pos] / weeks.length]),
+  ) as Record<Position, number>;
+  return { perWeek, coverage: covered / weeks.length, meanByPosition };
+}
+
 /** Season total minus the positional replacement baseline for the 9 starting slots (the engine's
  * own replacement-level concept, zero-consumed season projections), so the number is comparable to
  * the board's replacement-adjusted values. `replacementLineupBaseline` is already a season-projection
@@ -722,6 +794,9 @@ export interface BacktestRunOptions {
    * never logs on its own; only the runner (`backtest.bench.ts`) supplies a logger, and the value
    * reported is wall-clock elapsed time, which never influences any computed metric. */
   onSlotComplete?: (slot: number, totalSlots: number, elapsedMs: number) => void;
+  /** Optional per-draft progress hook, fired after every (slot, seed) draft (all arms) completes —
+   * finer-grained than `onSlotComplete` so the runner can log at fixed percent thresholds. */
+  onDraftComplete?: (completed: number, total: number, elapsedMs: number) => void;
 }
 
 export interface ArmResult {
@@ -737,6 +812,13 @@ export interface ArmResult {
   meanPlayoffRate: number;
   /** Per-draft mean weekly points — the paired-sample unit for the primary-gate CI. */
   perDraftMeanWeekly: readonly number[];
+  /** Diagnostics-only (2026-08-24 c1-attribution pre-declaration): per-draft mean weekly starter
+   * points attributed to each position (`BACKTEST_BOX_POSITIONS` order), slot-major like
+   * `perDraftMeanWeekly`. Feeds no gate; sums to `perDraftMeanWeekly` up to float rounding. */
+  perDraftStarterPointsByPosition: Record<Position, readonly number[]>;
+  /** Diagnostics-only: round of the subject's first pick at each position, per draft (0 = never
+   * drafted there), slot-major like `perDraftMeanWeekly`. Feeds no gate. */
+  firstPickRoundByPosition: Record<Position, readonly number[]>;
 }
 
 export interface PairedStats {
@@ -853,10 +935,20 @@ export function runBacktest(ctx: BacktestContext, options: BacktestRunOptions): 
     coverage: number[];
     h2hWinRate: number[];
     playoffRate: number[];
+    starterPointsByPos: Record<Position, number[]>;
+    firstPickRoundByPos: Record<Position, number[]>;
   }>();
   for (const arm of BACKTEST_ARMS) {
     rawByArm.set(arm, {
       perDraftMeanWeekly: [], pooledWeekly: [], replacementAdjusted: [], coverage: [], h2hWinRate: [], playoffRate: [],
+      starterPointsByPos: BACKTEST_BOX_POSITIONS.reduce(
+        (acc, pos) => { acc[pos] = []; return acc; },
+        {} as Record<Position, number[]>,
+      ),
+      firstPickRoundByPos: BACKTEST_BOX_POSITIONS.reduce(
+        (acc, pos) => { acc[pos] = []; return acc; },
+        {} as Record<Position, number[]>,
+      ),
     });
   }
 
@@ -867,11 +959,17 @@ export function runBacktest(ctx: BacktestContext, options: BacktestRunOptions): 
       for (const arm of BACKTEST_ARMS) {
         const draft = simulateDraft(ctx, slot, seedIndex, arm, seed);
         const raw = rawByArm.get(arm)!;
-        const subject = scoreRosterWeekly(ctx.settings, draft.subjectRoster, ctx.weekly);
+        // Subject seat only: the positional decomposition needs occupant identity. The H2H field
+        // below stays on the value-only path.
+        const subject = scoreRosterWeeklyDetailed(ctx.settings, draft.subjectRoster, ctx.weekly);
         raw.perDraftMeanWeekly.push(mean(subject.perWeek));
         raw.pooledWeekly.push(...subject.perWeek);
         raw.replacementAdjusted.push(replacementAdjustedPoints(ctx, subject.perWeek));
         raw.coverage.push(subject.coverage);
+        for (const pos of BACKTEST_BOX_POSITIONS) {
+          raw.starterPointsByPos[pos].push(subject.meanByPosition[pos]);
+          raw.firstPickRoundByPos[pos].push(draft.subjectFirstPickRound[pos] ?? 0);
+        }
 
         // H2H / playoff across schedules — every drafted league needs all 12 rosters' week 1-14 totals.
         const weeklyByTeam = new Map<string, readonly number[]>();
@@ -884,6 +982,8 @@ export function runBacktest(ctx: BacktestContext, options: BacktestRunOptions): 
         raw.h2hWinRate.push(schedules.winRate);
         raw.playoffRate.push(schedules.playoffRate);
       }
+      const completed = (slot - 1) * options.seedCount + seedIndex + 1;
+      options.onDraftComplete?.(completed, BACKTEST_TEAMS * options.seedCount, Date.now() - startedAtMs);
     }
     options.onSlotComplete?.(slot, BACKTEST_TEAMS, Date.now() - startedAtMs);
   }
@@ -902,6 +1002,14 @@ export function runBacktest(ctx: BacktestContext, options: BacktestRunOptions): 
       meanH2hWinRate: mean(raw.h2hWinRate),
       meanPlayoffRate: mean(raw.playoffRate),
       perDraftMeanWeekly: raw.perDraftMeanWeekly,
+      perDraftStarterPointsByPosition: BACKTEST_BOX_POSITIONS.reduce(
+        (acc, pos) => { acc[pos] = raw.starterPointsByPos[pos]; return acc; },
+        {} as Record<Position, readonly number[]>,
+      ),
+      firstPickRoundByPosition: BACKTEST_BOX_POSITIONS.reduce(
+        (acc, pos) => { acc[pos] = raw.firstPickRoundByPos[pos]; return acc; },
+        {} as Record<Position, readonly number[]>,
+      ),
     };
   }
 

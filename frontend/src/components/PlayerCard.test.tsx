@@ -76,20 +76,8 @@ describe('PlayerCard with a recommendation', () => {
     expect(screen.queryByText('Sleeper')).not.toBeInTheDocument();
   });
 
-  it('prefers FantasyPros positional rank and falls back to ADP rank', () => {
-    const { rerender } = render(
-      <PlayerCard
-        playerId="rb2"
-        recommendation={baseRecommendation()}
-        player={player}
-        rank={2}
-        fantasyPros={{ rank: 2, tier: 1, upside: 3, bust: null, sos: 0, ecrVsAdp: null, positionRank: 'RB2' }}
-        adpBoard={[adpEntry('rb1', 10), adpEntry('rb2', 20)]}
-        onViewDetails={vi.fn()}
-      />,
-    );
-    expect(screen.getByText('RB2')).toBeInTheDocument();
-    rerender(
+  it('falls back to the ADP positional rank', () => {
+    render(
       <PlayerCard
         playerId="rb2"
         recommendation={baseRecommendation()}
@@ -99,6 +87,7 @@ describe('PlayerCard with a recommendation', () => {
         onViewDetails={vi.fn()}
       />,
     );
+    expect(screen.getByText('ADP RB2')).toBeInTheDocument();
     expect(screen.getByText('ADP RB2')).toBeInTheDocument();
   });
 
@@ -371,24 +360,42 @@ describe('PlayerCard with recommendation: null (market-only row)', () => {
     expect(screen.queryByText('999.0')).not.toBeInTheDocument();
   });
 
-  it('omits stars when fantasyPros is absent', () => {
+  it('omits the next-up chip when there is no next player', () => {
     render(<PlayerCard playerId="rb2" recommendation={baseRecommendation()} player={player} rank={2} onViewDetails={vi.fn()} />);
-    expect(screen.queryByRole('img', { name: /Upside:/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Next up')).not.toBeInTheDocument();
   });
 
-  it('renders stars only as display decoration, including a hollow unpublished field', () => {
+  it('renders the next-up chip with the next player name and no numeric headline', () => {
     render(
       <PlayerCard
         playerId="rb2"
         recommendation={baseRecommendation()}
         player={player}
         rank={2}
-        fantasyPros={{ rank: 2, tier: 1, upside: 3, bust: null, sos: 0, ecrVsAdp: null, positionRank: 'RB2' }}
+        nextUp={{ name: 'Kyren Williams', gap: 10.6, tierBoundaryGap: 10.6, nearTie: false }}
         onViewDetails={vi.fn()}
       />,
     );
-    expect(screen.getByRole('img', { name: 'Upside: 3 out of 5' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Bust: not published' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'SOS: 0 out of 5' })).toBeInTheDocument();
+    expect(screen.getByText('Next up')).toBeInTheDocument();
+    expect(screen.getByText('Kyren Williams')).toBeInTheDocument();
+    expect(screen.getByText('big drop-off after him')).toBeInTheDocument();
+    // The numeric gap is tooltip-only, never rendered as card text.
+    expect(screen.queryByText(/10\.6/)).not.toBeInTheDocument();
+    expect(screen.getByTitle(/projects 10\.6 points lower/)).toBeInTheDocument();
+  });
+
+  it('shows the near-tie qualifier instead of the drop-off when the engine flags a near tie', () => {
+    render(
+      <PlayerCard
+        playerId="rb2"
+        recommendation={baseRecommendation()}
+        player={player}
+        rank={2}
+        nextUp={{ name: 'De\u2019Von Achane', gap: 0.4, tierBoundaryGap: 0, nearTie: true }}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('near-identical to next')).toBeInTheDocument();
+    expect(screen.queryByText(/drop-off/)).not.toBeInTheDocument();
   });
 });

@@ -325,7 +325,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 .landing-beat h4 { margin: 0 0 .45rem; font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
 .landing-beat p { margin: 0; color: var(--text-2); font-size: .9rem; line-height: 1.55; }
 /* Chapter II — the live board: a staged Draft-Room feed beside two demo player cards built from
-   the REAL product faces (NextPickSurvivalMeter / StarRating). Show the app, don't describe it. */
+   the REAL product faces (NextPickSurvivalMeter / NextUpChip). Show the app, don't describe it. */
 .landing-board {
   display: grid;
   grid-template-columns: minmax(19rem, 27rem) auto;
@@ -1024,15 +1024,29 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
 .player-card-attributes div[data-role-basis="depth-chart"] dd {
   border-bottom: 2px dashed var(--text-2);
 }
-.player-card-stars {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
+/* "Next up" chip (NextUpChip): the next-best player at this position on the remaining board.
+   Names are the headline; the numeric gap lives in the tooltip only. The qualifier line speaks
+   only when there is urgency (near-tie / big drop-off) — silence is the no-urgency signal. */
+.next-up-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .3rem;
   margin: 0;
+  padding: .3rem .45rem;
+  border-radius: 6px;
+  background: var(--surface-3);
 }
-.player-card-stars .star-rating { flex-direction: column; align-items: flex-start; gap: .12rem; }
-.player-card-stars .star-rating-name { font-size: .58rem; }
-.player-card-stars .star-icon { width: 11px; height: 11px; }
+.next-up-label {
+  color: var(--text-3);
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.next-up-name { font-size: .8rem; font-weight: 700; }
+.next-up-note { font-size: .66rem; color: var(--text-2); }
+.next-up-note[data-kind='drop-off'] { color: var(--caution-text); font-weight: 600; }
 .survival-meter { display: grid; gap: .28rem; }
 .survival-meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .survival-meter-label {
@@ -1241,13 +1255,6 @@ button.my-team-row:hover, button.my-team-row:focus-visible { background: var(--s
 .drawer-panel[data-size="wide"] { width: min(880px, 96vw); }
 .drawer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
 
-.star-rating { display: flex; align-items: center; gap: .45rem; }
-.star-rating-name { color: var(--text-3); font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.star-rating-stars { display: inline-flex; gap: .12rem; }
-.star-icon { display: block; }
-.star-filled { fill: var(--warn-text); }
-.star-hollow { fill: none; stroke: var(--text-muted); stroke-width: 1.5; }
-.context-stars { display: grid; gap: .35rem; margin: .75rem 0 1rem; }
 .player-context-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
 
 .context-recommendation { margin-top: 1rem; padding: .85rem; border-radius: 9px; background: var(--surface-3); }

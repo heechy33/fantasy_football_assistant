@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import type {
-  FantasyProsAdpArtifact,
-  PlayerId,
   PlayerMeta,
   ProviderProjectionsArtifact,
   ScoringMap,
@@ -23,8 +21,6 @@ export interface FftodayAnchor {
 }
 
 interface PlayerMarketComparisonProps {
-  adpArtifact: FantasyProsAdpArtifact | null;
-  playerId: PlayerId;
   boardAdp?: BoardAdpAnchor | null;
   /** Current overall pick, shown as plain context next to Engine ADP. Undefined
    * when no draft is connected; the headline says n/a rather than guessing. */
@@ -42,14 +38,6 @@ interface ProjectionRow {
   stale: boolean;
 }
 
-interface AdpSourceRow {
-  key: string;
-  label: string;
-  value: number;
-  role: 'provider' | 'consensus' | 'engine';
-  brandKey: string;
-}
-
 function formatAdp(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
@@ -64,16 +52,14 @@ function brandLabel(key: string): string {
 }
 
 /**
- * ADP-by-source tiles plus a plain per-provider projections number tile grid
+ * The engine ADP headline plus a plain per-provider projections number tile grid
  * for the Overview tab. Display-only: never an engine input. Both sections are
  * read-at-a-glance grids of numbers — each provider is a compact tile (badge +
  * name above, value below) laid out horizontally with a wrapping responsive
  * grid, no dot plots or derived spread captions.
- * Renders nothing when neither artifact/anchor has a row.
+ * Renders nothing when neither anchor/artifact has a row.
  */
 export function PlayerMarketComparison({
-  adpArtifact,
-  playerId,
   boardAdp,
   currentPick,
   projectionsArtifact,
@@ -81,45 +67,23 @@ export function PlayerMarketComparison({
   scoring,
   fftoday,
 }: PlayerMarketComparisonProps) {
-  const adpRows = useMemo(() => buildAdpRows(adpArtifact, playerId), [adpArtifact, playerId]);
   const projectionBuild = useMemo(
     () => buildProjectionRows(projectionsArtifact, player, scoring, fftoday),
     [projectionsArtifact, player, scoring, fftoday],
   );
 
-  const hasAdp = adpRows.length > 0 || boardAdp != null;
+  const hasAdp = boardAdp != null;
   if (!hasAdp && projectionBuild.rows.length === 0 && projectionBuild.caption === '') return null;
 
   return (
     <section className="market-comparison" aria-label="Market comparison">
       {hasAdp && (
         <div className="adp-summary">
-          <h3>Market ADP{adpRows.length > 0 ? ' (FantasyPros)' : ''}</h3>
-          {boardAdp != null && (
-            <p className="adp-headline">
-              Engine ADP {formatAdp(boardAdp.adp)} · {boardAdp.source}
-              {currentPick != null ? <> · current pick {currentPick}</> : <> · current pick n/a</>}
-            </p>
-          )}
-          {adpRows.length > 0 && (
-            <dl className="market-tile-grid">
-              {adpRows.map((row) => (
-                <div key={row.key} className="market-tile" data-role={row.role}>
-                  <dt className="market-tile-label">
-                    <ProviderBadge brandKey={row.brandKey} size="sm" />
-                    <span className="market-tile-name">{row.label}</span>
-                  </dt>
-                  <dd className="market-tile-value">{formatAdp(row.value)}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {adpRows.length > 0 && (
-            <p className="muted market-adp-note">
-              Per-site ADP from FantasyPros' overall rankings — a separate snapshot from the engine
-              board (different source/method), not the live ADP the app tracks.
-            </p>
-          )}
+          <h3>Market ADP</h3>
+          <p className="adp-headline">
+            Engine ADP {formatAdp(boardAdp!.adp)} · {boardAdp!.source}
+            {currentPick != null ? <> · current pick {currentPick}</> : <> · current pick n/a</>}
+          </p>
         </div>
       )}
       {projectionBuild.hasScoring && projectionBuild.rows.length > 0 && (
@@ -151,29 +115,6 @@ export function PlayerMarketComparison({
       )}
     </section>
   );
-}
-
-function buildAdpRows(
-  artifact: FantasyProsAdpArtifact | null,
-  playerId: PlayerId,
-): AdpSourceRow[] {
-  const rows: AdpSourceRow[] = [];
-  const row = artifact?.players[playerId];
-  if (row?.adp) {
-    for (const [key, value] of Object.entries(row.adp)) {
-      rows.push({ key, label: brandLabel(key), value, role: 'provider', brandKey: key });
-    }
-    if (row.avg != null && rows.length > 0) {
-      rows.push({
-        key: 'fantasypros',
-        label: artifact!.consensus.label,
-        value: row.avg,
-        role: 'consensus',
-        brandKey: 'fantasypros',
-      });
-    }
-  }
-  return rows.sort((a, b) => a.value - b.value);
 }
 
 function buildProjectionRows(

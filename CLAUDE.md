@@ -62,8 +62,7 @@ deliberately — future work, not dead code to delete.
 - `api/src/functions/health.ts` — the only endpoint. `shared/types.d.ts` — the frontend/api
   contract, type-only.
 - `pipeline/` (`build_data.py`, `sources.py`, …) → `data/` — committed JSON consumed by the app
-  (incl. `weekly-ppr.json`); local-only `fantasypros-stars.json`/`fantasypros-adp.json` are
-  gitignored, display-only, never engine inputs.
+  (incl. `weekly-ppr.json`).
 - `fixtures/sleeper/` — **hand-authored** fixtures (not yet a real recorded draft; open item).
   `fixtures/espn/` — gitignored recon captures, not contract fixtures. `infra/main.bicep` —
   roadmap. `archive/` — completed-phase history + gitignored cursor-plan scratch.
@@ -134,6 +133,7 @@ npm run verify:artifact   # asserts frontend/dist/ contains the required config 
 npm run pipeline           # python pipeline/build_data.py — regenerates data/*.json
 npm run backtest            # opt-in 2025 historical draft-strategy backtest (5 arms); slow
 npm run probe:simsort       # opt-in Stage C sim-sort disagreement probe; cheap, non-gating
+npm run snapshot:vintage -- --date YYYY-MM-DD [--dest DIR]  # list/materialize layer D data vintages (git tags)
 ```
 
 Azure provisioning (`infra/main.bicep`) and `az login` are interactive, and not needed for the

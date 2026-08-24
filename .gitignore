@@ -77,14 +77,6 @@ pipeline/.cache/
 # from data/ at build time, not a second committed copy.
 frontend/public/data/
 
-# Local-only FantasyPros Upside/Bust/SOS decoration — display-only, never committed
-# or deployed; a clean checkout naturally lacks it. Source CSVs live locally via
-# --fantasypros-dir / FFA_FANTASYPROS_DIR (see pipeline/build_data.py).
-data/fantasypros-stars.json
-data/fantasypros-adp.json
-fantasypros/
-FantasyPros_*.csv
-
 # Opt-in benchmark harness output (npm run benchmark:availability) — generated
 # JSON/MD reports under benchmarks/reports/, not source fixtures.
 benchmarks/reports/

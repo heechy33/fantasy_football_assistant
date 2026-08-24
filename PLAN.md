@@ -127,9 +127,9 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
 
 - Empirical opponent-model calibration, two-turn rollouts, and real clock testing against a live
   mock (S5/S6) — the Web Worker itself shipped in `f821318`
-- Draft-experience polish still missing: board player search, tier-cliff visualization, manual
+- Draft-experience polish still missing: board player search, manual
   pin/avoid/custom-rank, and a consolidated source/freshness panel (S4) — engine/ADP board modes,
-  position tabs, cards/rows presentation, and data-health status are built
+  position tabs, cards/rows presentation, data-health status, and the card's next-up tier chip are built
 - Reliability/clock testing under real conditions (S5-S6) — the historical-out-of-sample edge
   validation (layer A) is implemented (`npm run backtest`); the remaining edge-gate work is layers
   B-D and the pending N ≥ 1,000 gating run
@@ -138,7 +138,9 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
 - The cross-adapter contract suite described in `CLAUDE.md`'s testing notes — each adapter is
   tested against its own recorded fixtures today, not one shared contract
 - The official FantasyPros projection/ECR API integration scoped in `DECISIONS.md`'s 2026-08-06
-  entry — FFToday remains the sole performance-projection source
+  entry — FFToday remains the sole performance-projection source. The local-only FantasyPros
+  CSV decoration (stars + per-site ADP) was removed entirely on 2026-08-23 (see `DECISIONS.md`'s
+  SOS-validation entry); the card's next-up chip replaces it with computed engine signals.
 
 ---
 
@@ -260,7 +262,8 @@ tier/availability/value/confidence fields (`NextPickSurvivalMeter.tsx`, `PlayerD
 and data-health status (`DataHealth.tsx`). Still missing:
 
 - Board player search
-- Tier-cliff visualization (`tiers.ts` computes `urgency`/`isTierLast`; only a text `<dd>` consumes it)
+- Tier-cliff visualization â€” partially shipped 2026-08-23 as the card's `NextUpChip`
+  (consumes `tierBoundaryGap`/`nearTie`, next-at-position name headline); a fuller tier view is still open
 - Manual pin/avoid/custom-rank override
 - A consolidated source/freshness panel
 
@@ -313,7 +316,9 @@ later in that season. Do not allow future information into the draft decision.
 It measures mean optimized weekly starter points (weeks 1-17, exact lineup DP over real 2025 `pts`),
 replacement-adjusted points, simulated H2H wins / playoff rate across schedules, and
 downside/fragility, against the pre-declared gates in `fixtures/backtest/2025/gates.md`. The 20-seed
-pilot is directional/non-gating; the N ≥ 1,000 gating run is pending review.
+pilot is directional/non-gating; the N = 1,008 gating run completed 2026-08-23 with **all three
+pre-declared gates PASS** (`DECISIONS.md`, 2026-08-24) — roadmap expansion still awaits the user
+review the passing criteria below require.
 
 **Sim-sort disagreement probe and C1 arm (2026-08-22, both pre-declared):** the pilot found
 `engine`/`b4` produce byte-identical picks — Stage C's simulated `lookaheadValue` never sorts the
@@ -324,8 +329,19 @@ disagreement (every round band above its threshold), clearing the pre-declared r
 was added. In the 240-draft pilot, C1 finished directionally ahead of engine (+1.002 pts/week, 95%
 CI [-0.151, 2.155] — not yet significant) with a notably higher coverage rate (0.750 vs 0.614);
 `DECISIONS.md`'s 2026-08-22 entries have the full numbers and the open coverage-mechanism question.
-Not promoted to production and not gated — reported only, pending a scoped gating run if pursued
-further.
+In the N = 1,008 gating run C1 vs engine was **+0.768 [0.231, 1.305]** — significant — but offline
+stratification showed the edge bimodal by draft slot, and the 2026-08-24 instrumented attribution
+run (`pipeline/analyze_c1_positions.py`, byte-identical integrity gate) settled the mechanism: the
+entire edge lives in cap-1 slots (**TE +3.92 of a +4.11 K+TE+DEF total**) while WR starter points
+are **−5.42** and skill positions net **−3.10**, with K/DEF drafted at identical rounds by both
+arms. Per the pre-declared shippability rule this is not promotable — **C1 is closed for 2025
+data**, reported-only (`DECISIONS.md`, 2026-08-24). The engine-vs-B1 question has since been closed out on
+2025 data (`DECISIONS.md`, 2026-08-24 "LOCALIZED" and "Shock-scale sweep RESULT" entries): the
+deficit is a diffuse skill-position construction shift (engine reaches QB/TE, lets WR slide)
+specific to the default simulated field — at any other tested opponent-noise level the engine beats
+naive ADP (+1.8 to +8.2 pts/wk). Mechanical sweep verdict: AMBIGUOUS per pre-declared rules; no
+further 2025 simulation work. The edge claim stays shelved pending layers C/D (2026 live mocks,
+projection accuracy tracking), which contain actual humans.
 
 #### B. Availability calibration
 
@@ -343,6 +359,17 @@ recommendation so failures can become fixtures.
 
 During the 2026 season, retain each dated projection snapshot and compare it with actuals by
 position. Track MAE, bias, rank correlation, and calibration of ranges once distributions exist.
+
+**Retention stood up (2026-08-24):** dated vintages are retained via git rather than a database —
+`refresh-data.yml` already commits the full `data/` directory daily with provenance manifests;
+successful Monday refreshes (and any manual dispatch) now additionally create an annotated
+`data-snapshots/YYYY-MM-DD` tag, and a failing refresh opens a tracking issue so missed days are
+loud rather than silent holes. `npm run snapshot:vintage -- --date YYYY-MM-DD [--dest DIR]`
+(`pipeline/retrieve_vintage.py`) lists/materializes vintages and prints a manifest summary with
+SHA-256. The pre-kickoff 2026 projection vintage was already frozen separately
+(`data/projections-providers.json`, `fetchedAt` 2026-08-22). The comparison analysis itself
+(MAE/bias/calibration vs actuals) remains open until in-season outcomes accumulate.
+
 
 ### Passing criteria
 

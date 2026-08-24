@@ -1,0 +1,32 @@
+﻿{
+    "schemaVersion":  1,
+    "frozenAt":  "2026-08-23T23:01:12-07:00",
+    "gitCommit":  "ec6927136040763839ca7d4831ae84582845c90f",
+    "purpose":  "Pre-kickoff freeze of all four projection sources for the prospective 2026 blend-vs-FFToday ladder (DECISIONS.md 2026-08-23, projection-blend ladder step 0). Evaluation input: do not regenerate.",
+    "leagueParams":  {
+                         "teams":  12,
+                         "season":  2026,
+                         "format":  "ppr"
+                     },
+    "inputs":  {
+                   "fftoday":  {
+                                   "path":  "data/projections-season.json",
+                                   "upstreamUpdatedAt":  "2026-08-20",
+                                   "fetchedAt":  "2026-08-22T09:23:43Z",
+                                   "rows":  414,
+                                   "sha256":  "29d69a3ab54c5dd58f0775011febb74fd7581922a6dd9eebfed5ae19403e95f3"
+                               },
+                   "providers":  {
+                                     "path":  "data/projections-providers.json",
+                                     "generatedAt":  "2026-08-22T09:23:24Z",
+                                     "sleeperRows":  637,
+                                     "espnRows":  551,
+                                     "cbsRows":  404,
+                                     "sha256":  "0051681f46fe6899e4efbbcb556afa3792072c547e58780b2f0cf5734955004d"
+                                 },
+                   "players":  {
+                                   "path":  "data/players.json",
+                                   "sha256":  "cf2de0fce919ed9795c5cc79b8ce5d2fb6dffbe8ed7ed72797f4ec839a5d6b7a"
+                               }
+               }
+}

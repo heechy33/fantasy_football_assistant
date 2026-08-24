@@ -4,8 +4,11 @@ import { teamLogoUrl } from '../data/playerPortrait';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
 import { formatBoardStat, type PlayerBoardFaceProps, boardFaceValues } from './playerBoardFace';
+import type { NextUpInfo } from './NextUpChip';
 
 export interface PlayerBoardRowProps extends PlayerBoardFaceProps {
+  /** Draft-state decoration: the next-best player at this position on the remaining board. */
+  nextUp?: NextUpInfo | null;
   selected?: boolean;
   onViewDetails: () => void;
 }

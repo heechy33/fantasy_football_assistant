@@ -11,7 +11,6 @@ export type ProviderBrandKey =
   | 'cbs'
   | 'rtsports'
   | 'fantrax'
-  | 'fantasypros'
   | 'fftoday';
 
 export interface ProviderBrand {
@@ -27,7 +26,6 @@ export const PROVIDER_BRANDS: Readonly<Record<ProviderBrandKey, ProviderBrand>> 
   cbs: { key: 'cbs', label: 'CBS', color: '#1d5dad', monogram: 'CBS' },
   rtsports: { key: 'rtsports', label: 'RTSports', color: '#7c4dff', monogram: 'RTS' },
   fantrax: { key: 'fantrax', label: 'Fantrax', color: '#f2991d', monogram: 'F' },
-  fantasypros: { key: 'fantasypros', label: 'FantasyPros', color: '#3560a0', monogram: 'FP' },
   fftoday: { key: 'fftoday', label: 'FFToday', color: '#2f9e44', monogram: 'FFT' },
 };
 

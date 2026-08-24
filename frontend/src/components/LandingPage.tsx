@@ -15,7 +15,7 @@ export type LandingActiveProvider = 'none' | 'sleeper' | 'espn';
 
 /** Spokes of the integrations map — every platform the product reads from or aligns with. The
  * two live providers come first; the rest render brand-colored monogram chips. */
-const INTEGRATION_KEYS = ['espn', 'sleeper', 'cbs', 'rtsports', 'fantrax', 'fantasypros'] as const;
+const INTEGRATION_KEYS = ['espn', 'sleeper', 'cbs', 'rtsports', 'fantrax', 'fftoday'] as const;
 
 export interface LandingPageProps {
   /** Which provider owns the current session, if any — derived by `App` from its `Session` union
@@ -141,7 +141,7 @@ export function LandingPage({ active, leagueName, onConnect, onStartEspn, onResu
                   player={demo.player}
                   rank={demo.rank}
                   adpSource="sleeper"
-                  fantasyPros={demo.fantasyPros}
+                  nextUp={demo.nextUp}
                   depthRole={demo.depthRole}
                   onViewDetails={() => undefined}
                 />

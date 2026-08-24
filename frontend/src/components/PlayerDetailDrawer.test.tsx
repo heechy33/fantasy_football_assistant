@@ -223,11 +223,10 @@ describe('PlayerDetailDrawer content', () => {
   });
 
 
-  it('shows age/exp/bye on Overview and never FantasyPros stars', () => {
+  it('shows age/exp/bye on Overview', () => {
     render(<PlayerDetailDrawer player={player} usage={undefined} feedStatus="ready" onClose={vi.fn()} />);
     expect(screen.getByText('24')).toBeInTheDocument();
     expect(screen.getByText('3 yrs')).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: /Upside:/ })).not.toBeInTheDocument();
   });
 
   it('renders height, weight, college, and NFL draft on Overview when present', () => {

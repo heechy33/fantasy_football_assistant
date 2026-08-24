@@ -1,14 +1,14 @@
 ﻿import type { CSSProperties } from 'react';
-import type { AdpEntry, FantasyProsStars, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
+import type { AdpEntry, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
-import { adpPositionalRank, displayPositionalRank } from '../data/positionalRank';
+import { adpPositionalRank } from '../data/positionalRank';
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { teamLogoUrl } from '../data/playerPortrait';
 import type { Recommendation } from '../engine/recommend';
+import { NextUpChip, type NextUpInfo } from './NextUpChip';
 import { NextPickSurvivalMeter } from './NextPickSurvivalMeter';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
-import { StarRating } from './StarRating';
 import { boardFaceValues, boardUsageStat, formatBoardStat } from './playerBoardFace';
 
 export interface PlayerCardProps {
@@ -20,12 +20,14 @@ export interface PlayerCardProps {
   rank: number;
   /** Market ADP for an ADP-mode row with no engine recommendation. */
   adp?: number | null;
-  /** Full ADP board for the positional-rank fallback when FantasyPros is absent. */
+  /** Full ADP board for the positional-rank face label. */
   adpBoard?: readonly AdpEntry[];
   /** Per-player ADP provenance for the honest face label (see boardFaceValues). */
   adpSource?: AdpEntry['adpSource'] | null;
-  /** Display-only FantasyPros decoration; omitted when the optional artifact is absent. */
-  fantasyPros?: FantasyProsStars;
+  /** Draft-state decoration: the next-best player at this position on the remaining board.
+   * Computed by the caller (RecommendationBoard) from the same rows it renders. Omitted when
+   * there is no next player or no board data — hidden, never a placeholder. */
+  nextUp?: NextUpInfo | null;
   /** Prior-season usage for the single role-volume cell; omitted when missing. */
   usage?: PlayerUsage;
   /** Team-depth role for the Role tile â€” teamDepthRole.ts's display-only derivation. */
@@ -68,16 +70,13 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 /** Compact card face: labeled 2Ã—2 stats, small headshot beside the name, contained team logo watermark. */
 export function PlayerCard(props: PlayerCardProps) {
   const {
-    playerId, recommendation, player, rank, adpBoard, fantasyPros, usage, depthRole, avgPointsPerGame, onViewDetails,
+    playerId, recommendation, player, rank, adpBoard, nextUp, usage, depthRole, avgPointsPerGame, onViewDetails,
   } = props;
   const values = boardFaceValues(props);
   const name = player?.name ?? playerId;
   const { first, last } = splitName(name);
   const { projectionValue, adpValue, availabilityValue, adpSourceLabel: adpSource } = values;
-  const positionalRank = displayPositionalRank(
-    fantasyPros?.positionRank,
-    adpPositionalRank(playerId, player?.position, adpBoard),
-  );
+  const positionalRank = adpPositionalRank(playerId, player?.position, adpBoard);
   const usageStat = cardUsageStat(player?.position, usage);
   const statusTag = player ? playerStatusTag(player, usage) : null;
   const logoUrl = teamLogoUrl(player?.team);
@@ -147,13 +146,7 @@ export function PlayerCard(props: PlayerCardProps) {
 
       <NextPickSurvivalMeter probability={availabilityValue} />
 
-      {fantasyPros && (
-        <div className="context-stars player-card-stars">
-          <StarRating label="Upside" value={fantasyPros.upside} />
-          <StarRating label="Bust" value={fantasyPros.bust} />
-          <StarRating label="SOS" value={fantasyPros.sos} />
-        </div>
-      )}
+      {nextUp && <NextUpChip nextUp={nextUp} referencePoints={projectionValue} />}
 
     </article>
   );

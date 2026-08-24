@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-08-23T23:33:59.063979+00:00",
+  "gitCommit": "ec6927136040763839ca7d4831ae84582845c90f",
+  "purpose": "Step A/A2 freeze for the blend-vs-FFToday backtest ladder (fixtures/backtest/2025/gates-blend-addendum.md sections 1-2). Verbatim retrievable 2025 source bytes + raw weekly outcomes. Evaluation input: do not regenerate; do not re-fetch silently.",
+  "vintageStatus": "UNVERIFIED - both projection sources FAILED the 2026-08-23 audit's pre-declared vintage rule. This freeze pins today's post-resync bytes; it cannot recover August-2025 values. Proceeding only under the addendum's asymmetric decision rule.",
+  "vintageCaveatsFromAudit": {
+    "auditReport": "benchmarks/reports/2026-08-23-projection-vintage-audit.json",
+    "sleeper": "every row bulk re-synced last_modified = 2026-01-04T09:21Z (~20 s spread, one batch); rows carry 2025 rosters (Kyler Murray team=ARI) and gp=18; r=0.786 vs actuals (n=567)",
+    "espn": "payload carries no as-of field of any kind; r=0.794 vs half-PPR actuals (n=478)"
+  },
+  "inputs": {
+    "sleeperProjections": {
+      "file": "sleeper-projections-2025.raw.json",
+      "url": "https://api.sleeper.app/projections/nfl/2025",
+      "request": "GET params=[('season_type','regular'), ('position[]',p) for p in QB/RB/WR/TE/K/DEF]; User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_adp shape)",
+      "bytes": 2989973,
+      "rows": 3304,
+      "sha256": "5b2ec10a3e0bc49a3ab324e57f8d0713eb57d4575bf5847232240f9c899f9f53"
+    },
+    "espnLeaguedefaults": {
+      "file": "espn-leaguedefaults-2025.raw.json",
+      "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2025/segments/0/leaguedefaults/3",
+      "request": "GET params={'view':'kona_player_info'}; header x-fantasy-filter={\"players\":{\"filterSlotIds\":{\"value\":[0,2,4,6,17,16]},\"limit\":1500,\"sortPercOwned\":{\"sortAsc\":false,\"sortPriority\":100}}} (pipeline/espn_projections.py::fetch_espn_projections shape); canonical-key-sorted re-serialization of the parsed payload production consumes",
+      "bytes": 11057397,
+      "rows": 1090,
+      "sha256": "c75be58bd6fb59e505e70575ab7487c468b267df26455dc9835c9504dfd17b0f",
+      "playersReturned": 1090,
+      "entriesWithSeasonProjection": 1052
+    },
+    "weeklyStats": {
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "files": [
+        {
+          "file": "sleeper-weekly-stats-2025-week-01.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/1",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 570155,
+          "rows": 2312,
+          "sha256": "2a905191c4d8bb5e09b557d578745c32b42440ca69f2aeccf59c4a8f8b9bae4f"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-02.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/2",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 581710,
+          "rows": 2332,
+          "sha256": "d3c60bae9f66bbd937b9d41d3a221f4e0ecf065780b2b5600fcf453a12fa2926"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-03.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/3",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 574299,
+          "rows": 2360,
+          "sha256": "678838b80797ecd4c55ba8ba49d81b19a55207f3596e0162e61a07077a4d2a76"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-04.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/4",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 576939,
+          "rows": 2379,
+          "sha256": "d398c0ae34d6c1cbfaa59e8a27a39102db0d8352fed3fd11474c5686e6e96a14"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-05.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/5",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 508687,
+          "rows": 2102,
+          "sha256": "6ed7bc239c3773936b80ec9a693a7df9f9efd4ad9fd826b1d6d0f70614a04543"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-06.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/6",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 537179,
+          "rows": 2245,
+          "sha256": "58b93bf57b37813cf4fb730726526ec096d2fe2e8f64ca4c41cb328f819bd089"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-07.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/7",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 540461,
+          "rows": 2252,
+          "sha256": "2a199da7c23428638de113a8d7641e0b03a24647c8a1ef46755aa7913e06b512"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-08.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/8",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 471653,
+          "rows": 1954,
+          "sha256": "cfb94c0630d719db29914825c0092876b47c8e7187c929784421c84edcc927e5"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-09.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/9",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 507537,
+          "rows": 2105,
+          "sha256": "45d6721e1e0ed483749ac7f793fd8079d87b9d322ed0f184e182896d98cee010"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-10.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/10",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 505703,
+          "rows": 2109,
+          "sha256": "bb88367b5920da65a83ad4c9ef58b176fcacaebe01dac2d4d8a6abc3c9095b16"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-11.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/11",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 542084,
+          "rows": 2274,
+          "sha256": "41657ca55e5097861e8a39abc3bbe7eea9304ed42c0733fa3931e4e8f2887be8"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-12.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/12",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 507399,
+          "rows": 2122,
+          "sha256": "0114249bfb6d6f4d603246040b0e765cce7d4d0a1bd4935224f9efa88bb1da52"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-13.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/13",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 575108,
+          "rows": 2436,
+          "sha256": "653e9a6b5540b5b0e239576661492e948660b079f96d4dd2bd89d35b4240da0e"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-14.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/14",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 512524,
+          "rows": 2142,
+          "sha256": "0dfe8f6464e109ccb2f19d1b094af660ce4b3e4e9ad4ebfaef25f790cf950324"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-15.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/15",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 573859,
+          "rows": 2460,
+          "sha256": "a07786f0b8d81aae7269b9dc22529f16f854a34935bd0f3ff5c423236d9aa2df"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-16.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/16",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 586405,
+          "rows": 2468,
+          "sha256": "86d8c5e99e963c0df56792adeeaacc0605f44f2e42ae7f01c9f885f7b5597d69"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-17.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/17",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 581043,
+          "rows": 2476,
+          "sha256": "2fab59764ffc2cafe8ebac8cb925512abd13237bd5c979f6ab5286fd762a1ee9"
+        },
+        {
+          "file": "sleeper-weekly-stats-2025-week-18.raw.json",
+          "url": "https://api.sleeper.app/v1/stats/nfl/regular/2025/18",
+          "request": "User-Agent='fantasy-football-assistant-pipeline/1.0 (+https://github.com/)' (pipeline/sources.py::fetch_sleeper_weekly_stats shape)",
+          "bytes": 479749,
+          "rows": 2489,
+          "sha256": "7c8ee77a1c596db1786e030666e956c824b932582bb85ce55460f7ad52bf933f"
+        }
+      ]
+    }
+  }
+}

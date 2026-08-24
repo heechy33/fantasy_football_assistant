@@ -1,0 +1,6291 @@
+{
+ "schemaVersion": 1,
+ "season": "2025",
+ "source": "sleeper-frozen-2025",
+ "scoringKeys": [
+  "pass_yd",
+  "pass_td",
+  "pass_int",
+  "pass_2pt",
+  "rush_yd",
+  "rush_td",
+  "rush_2pt",
+  "rec",
+  "rec_yd",
+  "rec_td",
+  "rec_2pt",
+  "fum_lost",
+  "fgm",
+  "xpm",
+  "sack",
+  "int",
+  "fum_rec",
+  "def_td",
+  "def_kr_td"
+ ],
+ "builtAt": "2026-08-23T23:49:20.303445+00:00",
+ "note": "Derived from frozen bytes only (fixtures/projection-freeze/2025-retrievable/). Stats restricted to BACKTEST_SCORING keys; scoring happens in TS via the real scoreProjection \u2014 this file carries raw stat values only.",
+ "keyCoverage": {
+  "def_kr_td": 9,
+  "fum_lost": 204,
+  "fum_rec": 32,
+  "int": 32,
+  "pass_2pt": 34,
+  "pass_int": 74,
+  "pass_td": 74,
+  "pass_yd": 75,
+  "rec": 468,
+  "rec_2pt": 26,
+  "rec_td": 295,
+  "rec_yd": 471,
+  "rush_2pt": 21,
+  "rush_td": 148,
+  "rush_yd": 372,
+  "sack": 32,
+  "xpm": 53
+ },
+ "projections": [
+  {
+   "playerId": "10212",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 31.0
+   }
+  },
+  {
+   "playerId": "10213",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 25.0,
+    "rec_td": 2.0,
+    "rec_yd": 310.0,
+    "rush_yd": 27.0
+   }
+  },
+  {
+   "playerId": "10214",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "10218",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 21.0
+   }
+  },
+  {
+   "playerId": "10219",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 59.0,
+    "rush_td": 3.0,
+    "rush_yd": 305.0
+   }
+  },
+  {
+   "playerId": "10220",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 19.0
+   }
+  },
+  {
+   "playerId": "10222",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 41.0,
+    "rec_td": 4.0,
+    "rec_yd": 496.0,
+    "rush_td": 1.0,
+    "rush_yd": 55.0
+   }
+  },
+  {
+   "playerId": "10223",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "def_kr_td": 1.0,
+    "fum_lost": 1.0,
+    "rec": 2.0,
+    "rec_yd": 15.0,
+    "rush_yd": 29.0
+   }
+  },
+  {
+   "playerId": "10226",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 35.0,
+    "rec_td": 4.0,
+    "rec_yd": 425.0
+   }
+  },
+  {
+   "playerId": "10227",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_td": 1.0,
+    "rec_yd": 78.0
+   }
+  },
+  {
+   "playerId": "10228",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 21.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "10229",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 74.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 842.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "10231",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 155.0
+   }
+  },
+  {
+   "playerId": "10232",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 45.0,
+    "rec_td": 4.0,
+    "rec_yd": 532.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "10234",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "def_kr_td": 1.0,
+    "fum_lost": 1.0,
+    "rec": 2.0,
+    "rec_yd": 22.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "10235",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 23.0,
+    "rec_td": 1.0,
+    "rec_yd": 162.0,
+    "rush_td": 2.0,
+    "rush_yd": 213.0
+   }
+  },
+  {
+   "playerId": "10236",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 59.0,
+    "rec_td": 4.0,
+    "rec_yd": 610.0
+   }
+  },
+  {
+   "playerId": "10444",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 50.0,
+    "rec_td": 4.0,
+    "rec_yd": 660.0,
+    "rush_yd": 7.0
+   }
+  },
+  {
+   "playerId": "10859",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 71.0,
+    "rec_td": 6.0,
+    "rec_yd": 774.0
+   }
+  },
+  {
+   "playerId": "10867",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 13.0,
+    "rec_td": 1.0,
+    "rec_yd": 157.0
+   }
+  },
+  {
+   "playerId": "10871",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 140.0
+   }
+  },
+  {
+   "playerId": "10937",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 44.0
+   }
+  },
+  {
+   "playerId": "10955",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 34.0
+   }
+  },
+  {
+   "playerId": "11008",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "11034",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 56.0
+   }
+  },
+  {
+   "playerId": "11058",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 31.0
+   }
+  },
+  {
+   "playerId": "11068",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 35.0
+   }
+  },
+  {
+   "playerId": "11157",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 34.0,
+    "rec_td": 4.0,
+    "rec_yd": 422.0
+   }
+  },
+  {
+   "playerId": "11168",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 2.0,
+    "rec_yd": 22.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11186",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 30.0
+   }
+  },
+  {
+   "playerId": "11199",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 57.0,
+    "rush_yd": 62.0
+   }
+  },
+  {
+   "playerId": "11201",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "11210",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 38.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "11256",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 197.0,
+    "rush_yd": 22.0
+   }
+  },
+  {
+   "playerId": "11261",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 31.0
+   }
+  },
+  {
+   "playerId": "11299",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_yd": 40.0
+   }
+  },
+  {
+   "playerId": "11306",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 4.0,
+    "rec_yd": 44.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "11311",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 14.0
+   }
+  },
+  {
+   "playerId": "11320",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 13.0
+   }
+  },
+  {
+   "playerId": "11370",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 58.0,
+    "rush_td": 1.0,
+    "rush_yd": 145.0
+   }
+  },
+  {
+   "playerId": "11371",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 13.0,
+    "rec_td": 1.0,
+    "rec_yd": 125.0
+   }
+  },
+  {
+   "playerId": "11377",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 35.0
+   }
+  },
+  {
+   "playerId": "11435",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 16.0,
+    "rec_td": 1.0,
+    "rec_yd": 118.0,
+    "rush_td": 2.0,
+    "rush_yd": 250.0
+   }
+  },
+  {
+   "playerId": "11439",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 8.0,
+    "rec_yd": 56.0,
+    "rush_td": 1.0,
+    "rush_yd": 162.0
+   }
+  },
+  {
+   "playerId": "11510",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 34.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "11520",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 58.0
+   }
+  },
+  {
+   "playerId": "11533",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 38.0
+   }
+  },
+  {
+   "playerId": "11539",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 47.0
+   }
+  },
+  {
+   "playerId": "11557",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 210.0,
+    "rush_yd": 23.0
+   }
+  },
+  {
+   "playerId": "11559",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 13.0,
+    "pass_td": 23.0,
+    "pass_yd": 3656.0,
+    "rush_td": 2.0,
+    "rush_yd": 198.0
+   }
+  },
+  {
+   "playerId": "11560",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 24.0,
+    "pass_yd": 3753.0,
+    "rush_td": 4.0,
+    "rush_yd": 384.0
+   }
+  },
+  {
+   "playerId": "11562",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 8.0,
+    "pass_td": 11.0,
+    "pass_yd": 2208.0,
+    "rush_td": 1.0,
+    "rush_yd": 186.0
+   }
+  },
+  {
+   "playerId": "11563",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 27.0,
+    "pass_yd": 3832.0,
+    "rush_td": 4.0,
+    "rush_yd": 412.0
+   }
+  },
+  {
+   "playerId": "11564",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 13.0,
+    "pass_td": 25.0,
+    "pass_yd": 3750.0,
+    "rush_td": 4.0,
+    "rush_yd": 465.0
+   }
+  },
+  {
+   "playerId": "11565",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 2.0,
+    "pass_int": 12.0,
+    "pass_td": 15.0,
+    "pass_yd": 2789.0,
+    "rush_td": 4.0,
+    "rush_yd": 298.0
+   }
+  },
+  {
+   "playerId": "11566",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 26.0,
+    "pass_yd": 3799.0,
+    "rush_td": 6.0,
+    "rush_yd": 775.0
+   }
+  },
+  {
+   "playerId": "11569",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 6.0,
+    "rec_yd": 44.0,
+    "rush_td": 2.0,
+    "rush_yd": 232.0
+   }
+  },
+  {
+   "playerId": "11570",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 8.0,
+    "rush_yd": 45.0
+   }
+  },
+  {
+   "playerId": "11571",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 37.0,
+    "rush_td": 1.0,
+    "rush_yd": 162.0
+   }
+  },
+  {
+   "playerId": "11574",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 29.0,
+    "rush_yd": 42.0
+   }
+  },
+  {
+   "playerId": "11575",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 17.0,
+    "rec_td": 1.0,
+    "rec_yd": 131.0,
+    "rush_td": 5.0,
+    "rush_yd": 550.0
+   }
+  },
+  {
+   "playerId": "11576",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 18.0,
+    "rec_td": 1.0,
+    "rec_yd": 135.0,
+    "rush_td": 3.0,
+    "rush_yd": 323.0
+   }
+  },
+  {
+   "playerId": "11577",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 16.0,
+    "rec_td": 1.0,
+    "rec_yd": 120.0,
+    "rush_td": 2.0,
+    "rush_yd": 305.0
+   }
+  },
+  {
+   "playerId": "11579",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 20.0
+   }
+  },
+  {
+   "playerId": "11581",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 36.0,
+    "rush_td": 1.0,
+    "rush_yd": 124.0
+   }
+  },
+  {
+   "playerId": "11582",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "11584",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 47.0,
+    "rec_td": 2.0,
+    "rec_yd": 357.0,
+    "rush_td": 8.0,
+    "rush_yd": 1094.0
+   }
+  },
+  {
+   "playerId": "11586",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 11.0,
+    "rec_yd": 80.0,
+    "rush_td": 2.0,
+    "rush_yd": 251.0
+   }
+  },
+  {
+   "playerId": "11589",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 24.0,
+    "rec_td": 1.0,
+    "rec_yd": 178.0,
+    "rush_td": 4.0,
+    "rush_yd": 568.0
+   }
+  },
+  {
+   "playerId": "11593",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 115.0
+   }
+  },
+  {
+   "playerId": "11595",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "11596",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 21.0,
+    "rec_td": 2.0,
+    "rec_yd": 219.0
+   }
+  },
+  {
+   "playerId": "11597",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 47.0,
+    "rec_td": 3.0,
+    "rec_yd": 490.0
+   }
+  },
+  {
+   "playerId": "11599",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 24.0,
+    "rec_td": 2.0,
+    "rec_yd": 236.0
+   }
+  },
+  {
+   "playerId": "11600",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 51.0,
+    "rec_td": 3.0,
+    "rec_yd": 498.0
+   }
+  },
+  {
+   "playerId": "11603",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 33.0,
+    "rec_td": 2.0,
+    "rec_yd": 311.0
+   }
+  },
+  {
+   "playerId": "11604",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 101.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1062.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "11605",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 100.0
+   }
+  },
+  {
+   "playerId": "11608",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 14.0
+   }
+  },
+  {
+   "playerId": "11610",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "def_kr_td": 1.0,
+    "fum_lost": 1.0,
+    "rec": 38.0,
+    "rec_td": 2.0,
+    "rec_yd": 385.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "11616",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "11617",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 29.0,
+    "rush_yd": 2.0
+   }
+  },
+  {
+   "playerId": "11618",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 19.0,
+    "rec_td": 2.0,
+    "rec_yd": 237.0,
+    "rush_yd": 7.0
+   }
+  },
+  {
+   "playerId": "11620",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 67.0,
+    "rec_td": 6.0,
+    "rec_yd": 896.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11623",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 41.0,
+    "rec_td": 3.0,
+    "rec_yd": 452.0,
+    "rush_yd": 28.0
+   }
+  },
+  {
+   "playerId": "11624",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 68.0,
+    "rec_td": 7.0,
+    "rec_yd": 840.0,
+    "rush_td": 1.0,
+    "rush_yd": 92.0
+   }
+  },
+  {
+   "playerId": "11625",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 29.0,
+    "rec_td": 2.0,
+    "rec_yd": 388.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11626",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 54.0,
+    "rec_td": 4.0,
+    "rec_yd": 665.0,
+    "rush_yd": 26.0
+   }
+  },
+  {
+   "playerId": "11627",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 33.0,
+    "rec_td": 3.0,
+    "rec_yd": 433.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11628",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 80.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1112.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "11629",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_td": 1.0,
+    "rec_yd": 106.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11630",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 29.0,
+    "rec_td": 3.0,
+    "rec_yd": 387.0
+   }
+  },
+  {
+   "playerId": "11631",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 95.0,
+    "rec_2pt": 1.0,
+    "rec_td": 8.0,
+    "rec_yd": 1290.0,
+    "rush_yd": 18.0
+   }
+  },
+  {
+   "playerId": "11632",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 102.0,
+    "rec_td": 8.0,
+    "rec_yd": 1278.0,
+    "rush_yd": 35.0
+   }
+  },
+  {
+   "playerId": "11633",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 26.0,
+    "rec_td": 2.0,
+    "rec_yd": 280.0
+   }
+  },
+  {
+   "playerId": "11635",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 89.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1075.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "11637",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 53.0,
+    "rec_td": 5.0,
+    "rec_yd": 749.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "11638",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 65.0,
+    "rec_td": 6.0,
+    "rec_yd": 861.0,
+    "rush_yd": 58.0
+   }
+  },
+  {
+   "playerId": "11640",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 19.0,
+    "rec_td": 3.0,
+    "rec_yd": 255.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "11643",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 19.0,
+    "rec_td": 1.0,
+    "rec_yd": 141.0,
+    "rush_td": 3.0,
+    "rush_yd": 338.0
+   }
+  },
+  {
+   "playerId": "11646",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 39.0,
+    "rec_td": 3.0,
+    "rec_yd": 441.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "11647",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 25.0
+   }
+  },
+  {
+   "playerId": "11650",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 14.0,
+    "rec_td": 1.0,
+    "rec_yd": 131.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11651",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 60.0,
+    "rush_td": 2.0,
+    "rush_yd": 263.0
+   }
+  },
+  {
+   "playerId": "11653",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "11655",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 5.0,
+    "rec": 37.0,
+    "fum_lost": 1.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 795.0,
+    "rec_yd": 275.0
+   }
+  },
+  {
+   "playerId": "1166",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 231.0,
+    "rush_yd": 2.0
+   }
+  },
+  {
+   "playerId": "11716",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 49.0
+   }
+  },
+  {
+   "playerId": "11729",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 9.0
+   }
+  },
+  {
+   "playerId": "11762",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 29.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11773",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "11783",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 82.0
+   }
+  },
+  {
+   "playerId": "11786",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 37.0
+   }
+  },
+  {
+   "playerId": "11789",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 34.0
+   }
+  },
+  {
+   "playerId": "11792",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 37.0
+   }
+  },
+  {
+   "playerId": "11806",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 130.0
+   }
+  },
+  {
+   "playerId": "11808",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 1.0,
+    "rec_yd": 15.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11820",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_td": 1.0,
+    "rec_yd": 77.0
+   }
+  },
+  {
+   "playerId": "11821",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 26.0
+   }
+  },
+  {
+   "playerId": "11834",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 33.0,
+    "rec_td": 2.0,
+    "rec_yd": 355.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "11897",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 21.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "11949",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 7.0
+   }
+  },
+  {
+   "playerId": "11994",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0
+   }
+  },
+  {
+   "playerId": "12015",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "12048",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 29.0,
+    "rush_td": 1.0,
+    "rush_yd": 158.0
+   }
+  },
+  {
+   "playerId": "12062",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 19.0
+   }
+  },
+  {
+   "playerId": "12171",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 2.0,
+    "rush_yd": 32.0
+   }
+  },
+  {
+   "playerId": "12185",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 33.0
+   }
+  },
+  {
+   "playerId": "1234",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 7.0,
+    "pass_td": 14.0,
+    "pass_yd": 2555.0,
+    "rush_td": 2.0,
+    "rush_yd": 195.0
+   }
+  },
+  {
+   "playerId": "12385",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "12412",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "12455",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 17.0,
+    "rec_td": 1.0,
+    "rec_yd": 129.0,
+    "rush_td": 1.0,
+    "rush_yd": 154.0
+   }
+  },
+  {
+   "playerId": "12457",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 27.0,
+    "rec_td": 1.0,
+    "rec_yd": 205.0,
+    "rush_td": 3.0,
+    "rush_yd": 552.0
+   }
+  },
+  {
+   "playerId": "12462",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "12467",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "12469",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 21.0,
+    "rec_td": 1.0,
+    "rec_yd": 155.0,
+    "rush_td": 4.0,
+    "rush_yd": 528.0
+   }
+  },
+  {
+   "playerId": "12470",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 2.0,
+    "pass_td": 2.0,
+    "pass_yd": 358.0,
+    "rush_td": 1.0,
+    "rush_yd": 38.0
+   }
+  },
+  {
+   "playerId": "12471",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_yd": 111.0,
+    "rush_td": 3.0,
+    "rush_yd": 335.0
+   }
+  },
+  {
+   "playerId": "12473",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_yd": 60.0
+   }
+  },
+  {
+   "playerId": "12474",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 20.0,
+    "rec_td": 1.0,
+    "rec_yd": 148.0,
+    "rush_td": 1.0,
+    "rush_yd": 197.0
+   }
+  },
+  {
+   "playerId": "12476",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 110.0,
+    "rush_td": 2.0,
+    "rush_yd": 310.0
+   }
+  },
+  {
+   "playerId": "12478",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 35.0
+   }
+  },
+  {
+   "playerId": "12481",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 3.0,
+    "rec": 25.0,
+    "fum_lost": 1.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 473.0,
+    "rec_yd": 191.0
+   }
+  },
+  {
+   "playerId": "12482",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 9.0,
+    "rec_td": 1.0,
+    "rec_yd": 105.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "12483",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 33.0,
+    "rec_td": 2.0,
+    "rec_yd": 391.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "12484",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 54.0,
+    "rec_td": 5.0,
+    "rec_yd": 710.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "12485",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 39.0
+   }
+  },
+  {
+   "playerId": "12486",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 13.0,
+    "pass_td": 13.0,
+    "pass_yd": 2880.0,
+    "rush_td": 1.0,
+    "rush_yd": 150.0
+   }
+  },
+  {
+   "playerId": "12487",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 22.0,
+    "rec_td": 2.0,
+    "rec_yd": 226.0
+   }
+  },
+  {
+   "playerId": "12489",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 43.0,
+    "rec_td": 2.0,
+    "rec_yd": 315.0,
+    "rush_td": 6.0,
+    "rush_yd": 795.0
+   }
+  },
+  {
+   "playerId": "12490",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 22.0,
+    "rec_td": 1.0,
+    "rec_yd": 164.0,
+    "rush_td": 3.0,
+    "rush_yd": 431.0
+   }
+  },
+  {
+   "playerId": "12492",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 34.0,
+    "rec_td": 3.0,
+    "rec_yd": 408.0
+   }
+  },
+  {
+   "playerId": "12493",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 24.0,
+    "rec_td": 2.0,
+    "rec_yd": 240.0
+   }
+  },
+  {
+   "playerId": "12495",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 9.0,
+    "rec_yd": 66.0,
+    "rush_td": 4.0,
+    "rush_yd": 385.0
+   }
+  },
+  {
+   "playerId": "12496",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 120.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "12497",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 39.0,
+    "rec_td": 3.0,
+    "rec_yd": 530.0,
+    "rush_yd": 15.0
+   }
+  },
+  {
+   "playerId": "12498",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 54.0,
+    "rec_td": 3.0,
+    "rec_yd": 545.0
+   }
+  },
+  {
+   "playerId": "12499",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 45.0,
+    "rec_td": 3.0,
+    "rec_yd": 550.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "12500",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 200.0,
+    "rush_yd": 14.0
+   }
+  },
+  {
+   "playerId": "12501",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 68.0,
+    "rec_td": 6.0,
+    "rec_yd": 925.0,
+    "rush_yd": 24.0
+   }
+  },
+  {
+   "playerId": "12502",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 20.0,
+    "rec_td": 1.0,
+    "rec_yd": 190.0
+   }
+  },
+  {
+   "playerId": "12503",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 24.0,
+    "rec_td": 2.0,
+    "rec_yd": 304.0
+   }
+  },
+  {
+   "playerId": "12504",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 7.0,
+    "rec": 25.0,
+    "fum_lost": 1.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 840.0,
+    "rec_yd": 185.0
+   }
+  },
+  {
+   "playerId": "12505",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 24.0,
+    "rec_td": 2.0,
+    "rec_yd": 271.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "12506",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 37.0,
+    "rec_td": 2.0,
+    "rec_yd": 375.0
+   }
+  },
+  {
+   "playerId": "12507",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 10.0,
+    "rec": 37.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1068.0,
+    "rec_yd": 281.0
+   }
+  },
+  {
+   "playerId": "12508",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 4.0,
+    "pass_td": 4.0,
+    "pass_yd": 875.0,
+    "rush_td": 1.0,
+    "rush_yd": 80.0
+   }
+  },
+  {
+   "playerId": "12509",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 48.0,
+    "rec_td": 4.0,
+    "rec_yd": 641.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "12510",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_2pt": 1.0,
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 185.0,
+    "rush_td": 1.0,
+    "rush_yd": 53.0
+   }
+  },
+  {
+   "playerId": "12512",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 14.0,
+    "rec_td": 1.0,
+    "rec_yd": 106.0,
+    "rush_td": 4.0,
+    "rush_yd": 588.0
+   }
+  },
+  {
+   "playerId": "12514",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 70.0,
+    "rec_td": 6.0,
+    "rec_yd": 875.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "12516",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 29.0,
+    "rush_td": 1.0,
+    "rush_yd": 125.0
+   }
+  },
+  {
+   "playerId": "12517",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 62.0,
+    "rec_td": 4.0,
+    "rec_yd": 638.0
+   }
+  },
+  {
+   "playerId": "12518",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 60.0,
+    "rec_td": 5.0,
+    "rec_yd": 615.0,
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "12519",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 47.0,
+    "rec_td": 4.0,
+    "rec_yd": 540.0,
+    "rush_td": 1.0,
+    "rush_yd": 47.0
+   }
+  },
+  {
+   "playerId": "12520",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_td": 1.0,
+    "rec_yd": 40.0,
+    "rush_yd": 2.0
+   }
+  },
+  {
+   "playerId": "12521",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 45.0,
+    "rec_td": 3.0,
+    "rec_yd": 475.0
+   }
+  },
+  {
+   "playerId": "12522",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 15.0,
+    "pass_td": 21.0,
+    "pass_yd": 3640.0,
+    "rush_td": 3.0,
+    "rush_yd": 312.0
+   }
+  },
+  {
+   "playerId": "12523",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 148.0
+   }
+  },
+  {
+   "playerId": "12524",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 3.0,
+    "pass_td": 3.0,
+    "pass_yd": 650.0,
+    "rush_yd": 24.0
+   }
+  },
+  {
+   "playerId": "12526",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 84.0,
+    "rec_td": 7.0,
+    "rec_yd": 1044.0,
+    "rush_yd": 28.0
+   }
+  },
+  {
+   "playerId": "12527",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 10.0,
+    "rec": 49.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1255.0,
+    "rec_yd": 373.0
+   }
+  },
+  {
+   "playerId": "12529",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 41.0,
+    "rec_td": 2.0,
+    "rec_yd": 312.0,
+    "rush_td": 6.0,
+    "rush_yd": 840.0
+   }
+  },
+  {
+   "playerId": "12530",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 6.0,
+    "rec": 71.0,
+    "rush_yd": 28.0,
+    "rec_yd": 892.0
+   }
+  },
+  {
+   "playerId": "12531",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_yd": 50.0,
+    "rush_td": 1.0,
+    "rush_yd": 147.0
+   }
+  },
+  {
+   "playerId": "12533",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 112.0,
+    "rush_td": 5.0,
+    "rush_yd": 587.0
+   }
+  },
+  {
+   "playerId": "12534",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 58.0,
+    "rush_td": 4.0,
+    "rush_yd": 419.0
+   }
+  },
+  {
+   "playerId": "12535",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 36.0,
+    "rec_td": 3.0,
+    "rec_yd": 490.0
+   }
+  },
+  {
+   "playerId": "12536",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 31.0,
+    "rec_td": 2.0,
+    "rec_yd": 349.0,
+    "rush_yd": 26.0
+   }
+  },
+  {
+   "playerId": "12538",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 3.0,
+    "pass_td": 2.0,
+    "pass_yd": 489.0,
+    "rush_yd": 14.0
+   }
+  },
+  {
+   "playerId": "12539",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 18.0,
+    "rec_td": 1.0,
+    "rec_yd": 221.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "12540",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 24.0,
+    "rec_td": 2.0,
+    "rec_yd": 290.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "12541",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 36.0,
+    "rec_td": 3.0,
+    "rec_yd": 514.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "12542",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "12543",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 8.0,
+    "rec_yd": 59.0,
+    "rush_td": 2.0,
+    "rush_yd": 251.0
+   }
+  },
+  {
+   "playerId": "12544",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_td": 1.0,
+    "rush_yd": 42.0
+   }
+  },
+  {
+   "playerId": "12545",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 6.0,
+    "pass_td": 8.0,
+    "pass_yd": 1585.0,
+    "rush_td": 1.0,
+    "rush_yd": 136.0
+   }
+  },
+  {
+   "playerId": "12547",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 34.0,
+    "rec_td": 3.0,
+    "rec_yd": 480.0,
+    "rush_yd": 14.0
+   }
+  },
+  {
+   "playerId": "12634",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 15.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "1264",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 6.0
+   }
+  },
+  {
+   "playerId": "12641",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 28.0,
+    "rec_td": 2.0,
+    "rec_yd": 305.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "12658",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 42.0
+   }
+  },
+  {
+   "playerId": "1266",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "12670",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 137.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "12690",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 15.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "12699",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 24.0
+   }
+  },
+  {
+   "playerId": "12711",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 45.0
+   }
+  },
+  {
+   "playerId": "12713",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 35.0
+   }
+  },
+  {
+   "playerId": "12718",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_td": 1.0,
+    "rec_yd": 69.0
+   }
+  },
+  {
+   "playerId": "12738",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_td": 1.0,
+    "rush_yd": 123.0
+   }
+  },
+  {
+   "playerId": "12775",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 2.0,
+    "pass_td": 3.0,
+    "pass_yd": 422.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "12787",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 11.0,
+    "rush_yd": 35.0
+   }
+  },
+  {
+   "playerId": "12860",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 49.0
+   }
+  },
+  {
+   "playerId": "12889",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0
+   }
+  },
+  {
+   "playerId": "12897",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 5.0,
+    "rush_yd": 66.0
+   }
+  },
+  {
+   "playerId": "12961",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 32.0
+   }
+  },
+  {
+   "playerId": "12969",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "13066",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "13079",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 8.0
+   }
+  },
+  {
+   "playerId": "13211",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 11.0
+   }
+  },
+  {
+   "playerId": "1339",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 51.0,
+    "rec_td": 4.0,
+    "rec_yd": 489.0
+   }
+  },
+  {
+   "playerId": "1348",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 7.0
+   }
+  },
+  {
+   "playerId": "1352",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 120.0
+   }
+  },
+  {
+   "playerId": "1373",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 22.0,
+    "pass_yd": 3780.0,
+    "rush_td": 2.0,
+    "rush_yd": 225.0
+   }
+  },
+  {
+   "playerId": "1379",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 95.0,
+    "rush_yd": 20.0
+   }
+  },
+  {
+   "playerId": "1426",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 31.0,
+    "rec_td": 3.0,
+    "rec_yd": 383.0
+   }
+  },
+  {
+   "playerId": "1433",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 36.0
+   }
+  },
+  {
+   "playerId": "1466",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 74.0,
+    "rec_td": 5.0,
+    "rec_yd": 728.0,
+    "rush_yd": 1.0
+   }
+  },
+  {
+   "playerId": "1479",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 49.0,
+    "rec_td": 4.0,
+    "rec_yd": 532.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "1535",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "1689",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 39.0,
+    "rec_td": 3.0,
+    "rec_yd": 426.0,
+    "rush_yd": 3.0
+   }
+  },
+  {
+   "playerId": "17",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 11.0
+   }
+  },
+  {
+   "playerId": "1837",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 2.0,
+    "pass_yd": 222.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "19",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_int": 9.0,
+    "pass_td": 14.0,
+    "pass_yd": 2382.0,
+    "rush_td": 1.0,
+    "rush_yd": 35.0
+   }
+  },
+  {
+   "playerId": "1945",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 34.0
+   }
+  },
+  {
+   "playerId": "2020",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 31.0
+   }
+  },
+  {
+   "playerId": "2133",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 82.0,
+    "rec_2pt": 1.0,
+    "rec_td": 8.0,
+    "rec_yd": 1040.0
+   }
+  },
+  {
+   "playerId": "2152",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 204.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "2197",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 191.0
+   }
+  },
+  {
+   "playerId": "2216",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 72.0,
+    "rec_2pt": 1.0,
+    "rec_td": 9.0,
+    "rec_yd": 1041.0
+   }
+  },
+  {
+   "playerId": "2306",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 2.0,
+    "pass_td": 3.0,
+    "pass_yd": 450.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "2307",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 215.0,
+    "rush_yd": 25.0
+   }
+  },
+  {
+   "playerId": "2325",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0
+   }
+  },
+  {
+   "playerId": "2374",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 42.0,
+    "rec_td": 2.0,
+    "rec_yd": 445.0
+   }
+  },
+  {
+   "playerId": "2410",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_yd": 3.0
+   }
+  },
+  {
+   "playerId": "2449",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 70.0,
+    "rec_td": 6.0,
+    "rec_yd": 785.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "2505",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 49.0,
+    "rec_td": 3.0,
+    "rec_yd": 525.0
+   }
+  },
+  {
+   "playerId": "2747",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 33.0
+   }
+  },
+  {
+   "playerId": "2749",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 9.0,
+    "rec_yd": 66.0,
+    "rush_td": 1.0,
+    "rush_yd": 188.0
+   }
+  },
+  {
+   "playerId": "2750",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 6.0,
+    "rec_yd": 60.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "3048",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "3163",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 28.0,
+    "pass_yd": 4221.0,
+    "rush_td": 1.0,
+    "rush_yd": 63.0
+   }
+  },
+  {
+   "playerId": "3164",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "3198",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 14.0,
+    "rec": 15.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1542.0,
+    "rec_yd": 130.0
+   }
+  },
+  {
+   "playerId": "3200",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 48.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "3202",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 21.0,
+    "rec_td": 2.0,
+    "rec_yd": 205.0
+   }
+  },
+  {
+   "playerId": "3214",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 53.0,
+    "rec_td": 4.0,
+    "rec_yd": 564.0
+   }
+  },
+  {
+   "playerId": "3225",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 115.0
+   }
+  },
+  {
+   "playerId": "3257",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 2.0,
+    "pass_int": 7.0,
+    "pass_td": 19.0,
+    "pass_yd": 2580.0,
+    "rush_td": 2.0,
+    "rush_yd": 191.0
+   }
+  },
+  {
+   "playerId": "3258",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "3271",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 38.0,
+    "rec_td": 3.0,
+    "rec_yd": 360.0
+   }
+  },
+  {
+   "playerId": "3286",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 18.0,
+    "rec_td": 2.0,
+    "rec_yd": 237.0
+   }
+  },
+  {
+   "playerId": "3294",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 13.0,
+    "pass_td": 27.0,
+    "pass_yd": 4195.0,
+    "rush_td": 2.0,
+    "rush_yd": 159.0
+   }
+  },
+  {
+   "playerId": "3321",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 89.0,
+    "rec_2pt": 1.0,
+    "rec_td": 8.0,
+    "rec_yd": 1194.0,
+    "rush_yd": 35.0
+   }
+  },
+  {
+   "playerId": "3357",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 195.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "3451",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 37.0
+   }
+  },
+  {
+   "playerId": "3634",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 13.0,
+    "rec_td": 1.0,
+    "rec_yd": 161.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "3678",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 36.0
+   }
+  },
+  {
+   "playerId": "3832",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 29.0,
+    "rush_yd": 9.0
+   }
+  },
+  {
+   "playerId": "3976",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 205.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "4017",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 200.0,
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "4018",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 5.0,
+    "rec": 20.0,
+    "fum_lost": 1.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 524.0,
+    "rec_yd": 195.0
+   }
+  },
+  {
+   "playerId": "4033",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 69.0,
+    "rec_td": 4.0,
+    "rec_yd": 685.0
+   }
+  },
+  {
+   "playerId": "4034",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 62.0,
+    "rec_td": 3.0,
+    "rec_yd": 505.0,
+    "rush_td": 8.0,
+    "rush_yd": 995.0
+   }
+  },
+  {
+   "playerId": "4035",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 59.0,
+    "rec_td": 2.0,
+    "rec_yd": 438.0,
+    "rush_td": 5.0,
+    "rush_yd": 875.0
+   }
+  },
+  {
+   "playerId": "4037",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 63.0,
+    "rec_td": 5.0,
+    "rec_yd": 734.0,
+    "rush_yd": 9.0
+   }
+  },
+  {
+   "playerId": "4039",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 67.0,
+    "rec_td": 5.0,
+    "rec_yd": 719.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "4040",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 108.0
+   }
+  },
+  {
+   "playerId": "4046",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 32.0,
+    "pass_yd": 4188.0,
+    "rush_td": 2.0,
+    "rush_yd": 335.0
+   }
+  },
+  {
+   "playerId": "4054",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "4066",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 72.0,
+    "rec_td": 5.0,
+    "rec_yd": 691.0
+   }
+  },
+  {
+   "playerId": "4080",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 129.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "4082",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 19.0,
+    "rec_td": 2.0,
+    "rec_yd": 205.0,
+    "rush_yd": 24.0
+   }
+  },
+  {
+   "playerId": "4089",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 32.0
+   }
+  },
+  {
+   "playerId": "4098",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 25.0,
+    "rec_td": 1.0,
+    "rec_yd": 180.0,
+    "rush_td": 3.0,
+    "rush_yd": 381.0
+   }
+  },
+  {
+   "playerId": "4137",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 8.0,
+    "rec": 40.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 951.0,
+    "rec_yd": 304.0
+   }
+  },
+  {
+   "playerId": "4144",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 55.0,
+    "rec_td": 3.0,
+    "rec_yd": 555.0,
+    "rush_yd": 3.0
+   }
+  },
+  {
+   "playerId": "4147",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 16.0,
+    "rec_td": 1.0,
+    "rec_yd": 115.0,
+    "rush_td": 1.0,
+    "rush_yd": 165.0
+   }
+  },
+  {
+   "playerId": "4171",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 40.0,
+    "rec_td": 3.0,
+    "rec_yd": 505.0
+   }
+  },
+  {
+   "playerId": "4177",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 9.0,
+    "rec_td": 1.0,
+    "rec_yd": 115.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "4179",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 205.0,
+    "rush_yd": 26.0
+   }
+  },
+  {
+   "playerId": "4189",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 39.0
+   }
+  },
+  {
+   "playerId": "4195",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 44.0
+   }
+  },
+  {
+   "playerId": "4199",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 4.0,
+    "rec": 38.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 782.0,
+    "rec_yd": 280.0
+   }
+  },
+  {
+   "playerId": "421",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 10.0,
+    "pass_td": 30.0,
+    "pass_yd": 4005.0,
+    "rush_td": 1.0,
+    "rush_yd": 48.0
+   }
+  },
+  {
+   "playerId": "4217",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 71.0,
+    "rec_td": 7.0,
+    "rec_yd": 970.0
+   }
+  },
+  {
+   "playerId": "4219",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 24.0,
+    "rush_td": 1.0,
+    "rush_yd": 80.0
+   }
+  },
+  {
+   "playerId": "4227",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 43.0
+   }
+  },
+  {
+   "playerId": "4233",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 9.0
+   }
+  },
+  {
+   "playerId": "4234",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 27.0,
+    "rec_td": 2.0,
+    "rec_yd": 350.0
+   }
+  },
+  {
+   "playerId": "4274",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 156.0
+   }
+  },
+  {
+   "playerId": "4314",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 106.0
+   }
+  },
+  {
+   "playerId": "4351",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 139.0
+   }
+  },
+  {
+   "playerId": "4353",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_td": 1.0,
+    "rec_yd": 30.0
+   }
+  },
+  {
+   "playerId": "4381",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 40.0,
+    "rush_td": 1.0,
+    "rush_yd": 50.0
+   }
+  },
+  {
+   "playerId": "4443",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 50.0
+   }
+  },
+  {
+   "playerId": "4454",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "4464",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 224.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "4574",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 202.0,
+    "rush_yd": 10.0
+   }
+  },
+  {
+   "playerId": "4602",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "4663",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 4.0,
+    "rec": 40.0,
+    "def_kr_td": 1.0,
+    "fum_lost": 1.0,
+    "rush_yd": 505.0,
+    "rec_yd": 315.0
+   }
+  },
+  {
+   "playerId": "4666",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 33.0
+   }
+  },
+  {
+   "playerId": "4718",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_yd": 43.0,
+    "rush_yd": 61.0
+   }
+  },
+  {
+   "playerId": "4866",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 39.0,
+    "rec_td": 2.0,
+    "rec_yd": 305.0,
+    "rush_td": 11.0,
+    "rush_yd": 1590.0
+   }
+  },
+  {
+   "playerId": "4881",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 9.0,
+    "pass_td": 30.0,
+    "pass_yd": 3671.0,
+    "rush_td": 4.0,
+    "rush_yd": 832.0
+   }
+  },
+  {
+   "playerId": "4892",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 13.0,
+    "pass_td": 31.0,
+    "pass_yd": 4000.0,
+    "rush_td": 3.0,
+    "rush_yd": 285.0
+   }
+  },
+  {
+   "playerId": "4943",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 20.0,
+    "pass_yd": 3433.0,
+    "rush_td": 2.0,
+    "rush_yd": 187.0
+   }
+  },
+  {
+   "playerId": "4950",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 56.0,
+    "rec_td": 4.0,
+    "rec_yd": 660.0,
+    "rush_yd": 9.0
+   }
+  },
+  {
+   "playerId": "4951",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 14.0
+   }
+  },
+  {
+   "playerId": "4972",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 205.0,
+    "rush_yd": 9.0
+   }
+  },
+  {
+   "playerId": "4981",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 73.0,
+    "rec_td": 6.0,
+    "rec_yd": 1031.0,
+    "rush_yd": 33.0
+   }
+  },
+  {
+   "playerId": "4983",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 80.0,
+    "rec_2pt": 1.0,
+    "rec_td": 6.0,
+    "rec_yd": 989.0,
+    "rush_yd": 46.0
+   }
+  },
+  {
+   "playerId": "4984",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 26.0,
+    "pass_yd": 3716.0,
+    "rush_2pt": 1.0,
+    "rush_td": 11.0,
+    "rush_yd": 504.0
+   }
+  },
+  {
+   "playerId": "4988",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 111.0,
+    "rush_td": 5.0,
+    "rush_yd": 545.0
+   }
+  },
+  {
+   "playerId": "4992",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "4993",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 50.0,
+    "rec_td": 4.0,
+    "rec_yd": 505.0
+   }
+  },
+  {
+   "playerId": "4995",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 29.0
+   }
+  },
+  {
+   "playerId": "5001",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 40.0,
+    "rec_td": 3.0,
+    "rec_yd": 400.0
+   }
+  },
+  {
+   "playerId": "5008",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 30.0
+   }
+  },
+  {
+   "playerId": "5010",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 26.0,
+    "rec_td": 2.0,
+    "rec_yd": 255.0
+   }
+  },
+  {
+   "playerId": "5012",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 55.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 681.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "5022",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 61.0,
+    "rec_td": 4.0,
+    "rec_yd": 648.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "503",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 29.0
+   }
+  },
+  {
+   "playerId": "5032",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 28.0
+   }
+  },
+  {
+   "playerId": "5045",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 76.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1018.0
+   }
+  },
+  {
+   "playerId": "5086",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_td": 1.0,
+    "rec_yd": 112.0,
+    "rush_yd": 2.0
+   }
+  },
+  {
+   "playerId": "5095",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 34.0
+   }
+  },
+  {
+   "playerId": "5096",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 28.0,
+    "rec_td": 2.0,
+    "rec_yd": 285.0,
+    "rush_yd": 43.0
+   }
+  },
+  {
+   "playerId": "5110",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 30.0
+   }
+  },
+  {
+   "playerId": "5113",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "5119",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 27.0
+   }
+  },
+  {
+   "playerId": "5121",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 19.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "5133",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 26.0,
+    "rec_td": 2.0,
+    "rec_yd": 245.0
+   }
+  },
+  {
+   "playerId": "5154",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0
+   }
+  },
+  {
+   "playerId": "5185",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_td": 1.0,
+    "rec_yd": 187.0
+   }
+  },
+  {
+   "playerId": "5189",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 9.0
+   }
+  },
+  {
+   "playerId": "5230",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 28.0
+   }
+  },
+  {
+   "playerId": "5248",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 29.0
+   }
+  },
+  {
+   "playerId": "5272",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 5.0
+   }
+  },
+  {
+   "playerId": "5284",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "5347",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 5.0,
+    "rec_yd": 28.0,
+    "rush_yd": 20.0
+   }
+  },
+  {
+   "playerId": "5374",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0
+   }
+  },
+  {
+   "playerId": "5409",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 18.0
+   }
+  },
+  {
+   "playerId": "5695",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_yd": 3.0
+   }
+  },
+  {
+   "playerId": "5773",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 152.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "5844",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 74.0,
+    "rec_td": 5.0,
+    "rec_yd": 740.0
+   }
+  },
+  {
+   "playerId": "5846",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 80.0,
+    "rec_td": 7.0,
+    "rec_yd": 1141.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "5848",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 46.0,
+    "rec_td": 4.0,
+    "rec_yd": 608.0
+   }
+  },
+  {
+   "playerId": "5849",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 24.0,
+    "pass_yd": 3699.0,
+    "rush_td": 5.0,
+    "rush_yd": 549.0
+   }
+  },
+  {
+   "playerId": "5850",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 11.0,
+    "rec": 39.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1188.0,
+    "rec_yd": 295.0
+   }
+  },
+  {
+   "playerId": "5854",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 200.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "5857",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 29.0,
+    "rec_td": 2.0,
+    "rec_yd": 285.0
+   }
+  },
+  {
+   "playerId": "5859",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 86.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1255.0
+   }
+  },
+  {
+   "playerId": "5870",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_int": 8.0,
+    "pass_td": 13.0,
+    "pass_yd": 2171.0,
+    "rush_td": 3.0,
+    "rush_yd": 318.0
+   }
+  },
+  {
+   "playerId": "5872",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 67.0,
+    "rec_td": 5.0,
+    "rec_yd": 856.0,
+    "rush_td": 1.0,
+    "rush_yd": 120.0
+   }
+  },
+  {
+   "playerId": "5880",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 21.0
+   }
+  },
+  {
+   "playerId": "5892",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 29.0,
+    "rec_td": 1.0,
+    "rec_yd": 225.0,
+    "rush_td": 8.0,
+    "rush_yd": 786.0
+   }
+  },
+  {
+   "playerId": "5906",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 21.0,
+    "rec_td": 2.0,
+    "rec_yd": 237.0
+   }
+  },
+  {
+   "playerId": "5927",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 80.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1121.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "5937",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 125.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "5938",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 44.0
+   }
+  },
+  {
+   "playerId": "5947",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 5.0,
+    "rec": 76.0,
+    "fum_lost": 1.0,
+    "pass_yd": 14.0,
+    "rush_yd": 11.0,
+    "rec_yd": 875.0
+   }
+  },
+  {
+   "playerId": "5955",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 17.0,
+    "rec_td": 1.0,
+    "rec_yd": 168.0
+   }
+  },
+  {
+   "playerId": "5967",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 44.0,
+    "rec_td": 1.0,
+    "rec_yd": 320.0,
+    "rush_td": 6.0,
+    "rush_yd": 960.0
+   }
+  },
+  {
+   "playerId": "5970",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 34.0,
+    "rec_td": 2.0,
+    "rec_yd": 335.0,
+    "rush_yd": 37.0
+   }
+  },
+  {
+   "playerId": "5973",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 113.0
+   }
+  },
+  {
+   "playerId": "5985",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 16.0,
+    "rec_td": 1.0,
+    "rec_yd": 155.0
+   }
+  },
+  {
+   "playerId": "5995",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 31.0,
+    "rec_td": 2.0,
+    "rec_yd": 234.0,
+    "rush_td": 1.0,
+    "rush_yd": 165.0
+   }
+  },
+  {
+   "playerId": "6001",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 92.0
+   }
+  },
+  {
+   "playerId": "6011",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 215.0,
+    "rush_yd": 13.0
+   }
+  },
+  {
+   "playerId": "6012",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 15.0,
+    "rush_yd": 22.0
+   }
+  },
+  {
+   "playerId": "6039",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 14.0,
+    "rec_td": 1.0,
+    "rec_yd": 108.0,
+    "rush_td": 1.0,
+    "rush_yd": 189.0
+   }
+  },
+  {
+   "playerId": "6083",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 44.0
+   }
+  },
+  {
+   "playerId": "6109",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_td": 1.0,
+    "rec_yd": 41.0,
+    "rush_yd": 10.0
+   }
+  },
+  {
+   "playerId": "6111",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 214.0,
+    "rush_yd": 15.0
+   }
+  },
+  {
+   "playerId": "6130",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_yd": 74.0,
+    "rush_td": 2.0,
+    "rush_yd": 282.0
+   }
+  },
+  {
+   "playerId": "6136",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 205.0,
+    "rush_yd": 10.0
+   }
+  },
+  {
+   "playerId": "6144",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 9.0,
+    "rush_yd": 19.0
+   }
+  },
+  {
+   "playerId": "6149",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 40.0,
+    "rec_td": 3.0,
+    "rec_yd": 595.0
+   }
+  },
+  {
+   "playerId": "6151",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 9.0,
+    "rec_yd": 60.0,
+    "rush_td": 1.0,
+    "rush_yd": 188.0
+   }
+  },
+  {
+   "playerId": "6219",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 9.0
+   }
+  },
+  {
+   "playerId": "6234",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rush_yd": 1.0
+   }
+  },
+  {
+   "playerId": "6268",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 7.0
+   }
+  },
+  {
+   "playerId": "6271",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 115.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "6290",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 36.0
+   }
+  },
+  {
+   "playerId": "6386",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_yd": 49.0
+   }
+  },
+  {
+   "playerId": "6427",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "650",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 33.0
+   }
+  },
+  {
+   "playerId": "6528",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 29.0
+   }
+  },
+  {
+   "playerId": "6598",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "6650",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 42.0
+   }
+  },
+  {
+   "playerId": "6659",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 14.0,
+    "rush_yd": 42.0
+   }
+  },
+  {
+   "playerId": "6694",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "6699",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 42.0
+   }
+  },
+  {
+   "playerId": "6768",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 26.0,
+    "pass_yd": 3975.0,
+    "rush_td": 1.0,
+    "rush_yd": 96.0
+   }
+  },
+  {
+   "playerId": "6770",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 34.0,
+    "pass_yd": 4506.0,
+    "rush_td": 2.0,
+    "rush_yd": 180.0
+   }
+  },
+  {
+   "playerId": "6783",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 80.0,
+    "rec_2pt": 1.0,
+    "rec_td": 5.0,
+    "rec_yd": 1039.0,
+    "rush_yd": 18.0
+   }
+  },
+  {
+   "playerId": "6786",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 8.0,
+    "rush_td": 1.0,
+    "rec_2pt": 1.0,
+    "rec": 108.0,
+    "fum_lost": 1.0,
+    "rush_yd": 81.0,
+    "rec_yd": 1324.0
+   }
+  },
+  {
+   "playerId": "6790",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 6.0,
+    "rec": 33.0,
+    "fum_lost": 1.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 866.0,
+    "rec_yd": 238.0
+   }
+  },
+  {
+   "playerId": "6794",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 102.0,
+    "rec_2pt": 1.0,
+    "rec_td": 9.0,
+    "rec_yd": 1407.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "6797",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 10.0,
+    "pass_td": 26.0,
+    "pass_yd": 3835.0,
+    "rush_td": 3.0,
+    "rush_yd": 234.0
+   }
+  },
+  {
+   "playerId": "6801",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 82.0,
+    "rec_2pt": 1.0,
+    "rec_td": 8.0,
+    "rec_yd": 1047.0
+   }
+  },
+  {
+   "playerId": "6803",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 44.0,
+    "rec_td": 4.0,
+    "rec_yd": 630.0
+   }
+  },
+  {
+   "playerId": "6804",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 27.0,
+    "pass_yd": 3907.0,
+    "rush_td": 2.0,
+    "rush_yd": 166.0
+   }
+  },
+  {
+   "playerId": "6806",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 38.0,
+    "rec_td": 2.0,
+    "rec_yd": 275.0,
+    "rush_td": 5.0,
+    "rush_yd": 590.0
+   }
+  },
+  {
+   "playerId": "6813",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 10.0,
+    "rec": 34.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1320.0,
+    "rec_yd": 255.0
+   }
+  },
+  {
+   "playerId": "6819",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 68.0,
+    "rec_td": 4.0,
+    "rec_yd": 785.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "6826",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 24.0,
+    "rec_td": 2.0,
+    "rec_yd": 240.0
+   }
+  },
+  {
+   "playerId": "6828",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_td": 1.0,
+    "rush_yd": 147.0
+   }
+  },
+  {
+   "playerId": "6843",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 40.0
+   }
+  },
+  {
+   "playerId": "6847",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 2.0,
+    "rec_yd": 21.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "6850",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 9.0
+   }
+  },
+  {
+   "playerId": "6853",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 131.0
+   }
+  },
+  {
+   "playerId": "6865",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 100.0
+   }
+  },
+  {
+   "playerId": "6869",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 115.0
+   }
+  },
+  {
+   "playerId": "6904",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 9.0,
+    "pass_td": 22.0,
+    "pass_yd": 3475.0,
+    "rush_td": 14.0,
+    "rush_yd": 535.0
+   }
+  },
+  {
+   "playerId": "6931",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "6938",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "6943",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 17.0,
+    "rec_td": 2.0,
+    "rec_yd": 242.0
+   }
+  },
+  {
+   "playerId": "6945",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 15.0,
+    "rec_yd": 110.0,
+    "rush_td": 1.0,
+    "rush_yd": 167.0
+   }
+  },
+  {
+   "playerId": "6960",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_yd": 80.0
+   }
+  },
+  {
+   "playerId": "6963",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "6996",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "7002",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 50.0,
+    "rec_td": 3.0,
+    "rec_yd": 505.0
+   }
+  },
+  {
+   "playerId": "7021",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 29.0,
+    "rec_td": 1.0,
+    "rec_yd": 208.0,
+    "rush_td": 3.0,
+    "rush_yd": 373.0
+   }
+  },
+  {
+   "playerId": "7042",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 48.0
+   }
+  },
+  {
+   "playerId": "7049",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 59.0,
+    "rec_td": 5.0,
+    "rec_yd": 744.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7075",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 98.0
+   }
+  },
+  {
+   "playerId": "7083",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 2.0,
+    "pass_td": 2.0,
+    "pass_yd": 401.0,
+    "rush_td": 1.0,
+    "rush_yd": 95.0
+   }
+  },
+  {
+   "playerId": "7090",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 58.0,
+    "rec_td": 4.0,
+    "rec_yd": 795.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7233",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 33.0
+   }
+  },
+  {
+   "playerId": "7496",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 30.0,
+    "rec_td": 3.0,
+    "rec_yd": 393.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7523",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 13.0,
+    "pass_td": 26.0,
+    "pass_yd": 4055.0,
+    "rush_td": 3.0,
+    "rush_yd": 255.0
+   }
+  },
+  {
+   "playerId": "7525",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 81.0,
+    "rec_td": 6.0,
+    "rec_yd": 952.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7526",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 75.0,
+    "rec_td": 6.0,
+    "rec_yd": 980.0,
+    "rush_yd": 23.0
+   }
+  },
+  {
+   "playerId": "7527",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 211.0,
+    "rush_yd": 7.0
+   }
+  },
+  {
+   "playerId": "7528",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 20.0,
+    "rec_td": 1.0,
+    "rec_yd": 142.0,
+    "rush_td": 3.0,
+    "rush_yd": 448.0
+   }
+  },
+  {
+   "playerId": "7535",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 19.0
+   }
+  },
+  {
+   "playerId": "7536",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 19.0
+   }
+  },
+  {
+   "playerId": "7537",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 44.0
+   }
+  },
+  {
+   "playerId": "7538",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 200.0,
+    "rush_yd": 14.0
+   }
+  },
+  {
+   "playerId": "7543",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 39.0,
+    "rec_td": 2.0,
+    "rec_yd": 290.0,
+    "rush_td": 4.0,
+    "rush_yd": 582.0
+   }
+  },
+  {
+   "playerId": "7547",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 104.0,
+    "rec_2pt": 1.0,
+    "rec_td": 8.0,
+    "rec_yd": 1210.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "7553",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 50.0,
+    "rec_td": 4.0,
+    "rec_yd": 628.0
+   }
+  },
+  {
+   "playerId": "7559",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7561",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 29.0,
+    "rush_td": 1.0,
+    "rush_yd": 100.0
+   }
+  },
+  {
+   "playerId": "7562",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 34.0,
+    "rec_td": 2.0,
+    "rec_yd": 431.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "7564",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 113.0,
+    "rec_2pt": 1.0,
+    "rec_td": 11.0,
+    "rec_yd": 1470.0,
+    "rush_yd": 23.0
+   }
+  },
+  {
+   "playerId": "7567",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 14.0,
+    "rec_td": 1.0,
+    "rec_yd": 102.0,
+    "rush_td": 2.0,
+    "rush_yd": 232.0
+   }
+  },
+  {
+   "playerId": "7569",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 92.0,
+    "rec_2pt": 1.0,
+    "rec_td": 9.0,
+    "rec_yd": 1285.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "7571",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 45.0,
+    "rec_td": 5.0,
+    "rec_yd": 679.0
+   }
+  },
+  {
+   "playerId": "7585",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 199.0,
+    "rush_yd": 7.0
+   }
+  },
+  {
+   "playerId": "7587",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 35.0,
+    "rec_td": 3.0,
+    "rec_yd": 444.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "7588",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 33.0,
+    "rec_td": 1.0,
+    "rec_yd": 238.0,
+    "rush_td": 4.0,
+    "rush_yd": 545.0
+   }
+  },
+  {
+   "playerId": "7591",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 5.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 14.0,
+    "pass_yd": 2736.0,
+    "rush_td": 5.0,
+    "rush_yd": 660.0
+   }
+  },
+  {
+   "playerId": "7593",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "7594",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 7.0,
+    "rec": 38.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1050.0,
+    "rec_yd": 268.0
+   }
+  },
+  {
+   "playerId": "7595",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_td": 1.0,
+    "rec_yd": 84.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7596",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 110.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "7600",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 50.0,
+    "rec_td": 3.0,
+    "rec_yd": 475.0
+   }
+  },
+  {
+   "playerId": "7602",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 9.0
+   }
+  },
+  {
+   "playerId": "7607",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 22.0,
+    "rush_yd": 42.0
+   }
+  },
+  {
+   "playerId": "7608",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "7610",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 185.0,
+    "rush_yd": 31.0
+   }
+  },
+  {
+   "playerId": "7611",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 24.0,
+    "rec_td": 1.0,
+    "rec_yd": 172.0,
+    "rush_td": 4.0,
+    "rush_yd": 540.0
+   }
+  },
+  {
+   "playerId": "7612",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7670",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 48.0,
+    "rec_td": 5.0,
+    "rec_yd": 696.0
+   }
+  },
+  {
+   "playerId": "7694",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 14.0,
+    "rec_td": 1.0,
+    "rec_yd": 130.0
+   }
+  },
+  {
+   "playerId": "7716",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_td": 1.0,
+    "rec_yd": 74.0
+   }
+  },
+  {
+   "playerId": "7809",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "7828",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 31.0,
+    "rec_td": 3.0,
+    "rec_yd": 314.0,
+    "rush_yd": 1.0
+   }
+  },
+  {
+   "playerId": "7839",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 43.0
+   }
+  },
+  {
+   "playerId": "7842",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_yd": 55.0
+   }
+  },
+  {
+   "playerId": "7891",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_td": 1.0,
+    "rec_yd": 80.0
+   }
+  },
+  {
+   "playerId": "7922",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 13.0
+   }
+  },
+  {
+   "playerId": "7946",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 30.0
+   }
+  },
+  {
+   "playerId": "7989",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 30.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "8076",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 46.0
+   }
+  },
+  {
+   "playerId": "8089",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 10.0,
+    "rec_td": 1.0,
+    "rec_yd": 119.0
+   }
+  },
+  {
+   "playerId": "8110",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 63.0,
+    "rec_td": 4.0,
+    "rec_yd": 600.0
+   }
+  },
+  {
+   "playerId": "8111",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 46.0,
+    "rec_td": 4.0,
+    "rec_yd": 462.0
+   }
+  },
+  {
+   "playerId": "8112",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 100.0,
+    "rec_2pt": 1.0,
+    "rec_td": 8.0,
+    "rec_yd": 1253.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "8116",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 15.0,
+    "rush_yd": 25.0
+   }
+  },
+  {
+   "playerId": "8117",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 33.0,
+    "rec_td": 3.0,
+    "rec_yd": 388.0
+   }
+  },
+  {
+   "playerId": "8118",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 42.0
+   }
+  },
+  {
+   "playerId": "8119",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 21.0,
+    "rec_td": 2.0,
+    "rec_yd": 255.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "8121",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 49.0,
+    "rec_td": 4.0,
+    "rec_yd": 615.0
+   }
+  },
+  {
+   "playerId": "8122",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "8123",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 9.0,
+    "rec_yd": 65.0,
+    "rush_td": 1.0,
+    "rush_yd": 166.0
+   }
+  },
+  {
+   "playerId": "8125",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 35.0,
+    "rec_td": 2.0,
+    "rec_yd": 400.0,
+    "rush_yd": 14.0
+   }
+  },
+  {
+   "playerId": "8126",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 63.0,
+    "rec_td": 3.0,
+    "rec_yd": 585.0,
+    "rush_yd": 23.0
+   }
+  },
+  {
+   "playerId": "8127",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 43.0,
+    "rush_yd": 1.0
+   }
+  },
+  {
+   "playerId": "8129",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 8.0,
+    "rec_yd": 60.0,
+    "rush_td": 2.0,
+    "rush_yd": 250.0
+   }
+  },
+  {
+   "playerId": "8130",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 102.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1031.0,
+    "rush_yd": 3.0
+   }
+  },
+  {
+   "playerId": "8131",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 37.0,
+    "rec_td": 4.0,
+    "rec_yd": 440.0
+   }
+  },
+  {
+   "playerId": "8132",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 14.0,
+    "rec_td": 1.0,
+    "rec_yd": 103.0,
+    "rush_td": 4.0,
+    "rush_yd": 636.0
+   }
+  },
+  {
+   "playerId": "8134",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 71.0,
+    "rec_td": 4.0,
+    "rec_yd": 777.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "8136",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 28.0,
+    "rec_td": 1.0,
+    "rec_yd": 213.0,
+    "rush_td": 3.0,
+    "rush_yd": 355.0
+   }
+  },
+  {
+   "playerId": "8137",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 71.0,
+    "rec_2pt": 1.0,
+    "rec_td": 7.0,
+    "rec_yd": 1028.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "8138",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 8.0,
+    "rec": 33.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1035.0,
+    "rec_yd": 257.0
+   }
+  },
+  {
+   "playerId": "8139",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_yd": 51.0,
+    "rush_td": 2.0,
+    "rush_yd": 230.0
+   }
+  },
+  {
+   "playerId": "8142",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 30.0,
+    "rec_td": 3.0,
+    "rec_yd": 490.0
+   }
+  },
+  {
+   "playerId": "8143",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 36.0,
+    "rec_td": 1.0,
+    "rec_yd": 266.0,
+    "rush_td": 2.0,
+    "rush_yd": 375.0
+   }
+  },
+  {
+   "playerId": "8144",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 77.0,
+    "rec_td": 5.0,
+    "rec_yd": 997.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "8145",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 110.0
+   }
+  },
+  {
+   "playerId": "8146",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 89.0,
+    "rec_2pt": 1.0,
+    "rec_td": 6.0,
+    "rec_yd": 1115.0,
+    "rush_yd": 37.0
+   }
+  },
+  {
+   "playerId": "8147",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 7.0,
+    "rec_yd": 72.0
+   }
+  },
+  {
+   "playerId": "8148",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 68.0,
+    "rec_td": 7.0,
+    "rec_yd": 1013.0,
+    "rush_td": 1.0,
+    "rush_yd": 67.0
+   }
+  },
+  {
+   "playerId": "8150",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 11.0,
+    "rec": 30.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1170.0,
+    "rec_yd": 211.0
+   }
+  },
+  {
+   "playerId": "8151",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 32.0,
+    "rec_td": 1.0,
+    "rec_yd": 235.0,
+    "rush_td": 6.0,
+    "rush_yd": 880.0
+   }
+  },
+  {
+   "playerId": "8154",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 11.0,
+    "rec_td": 1.0,
+    "rec_yd": 79.0,
+    "rush_td": 3.0,
+    "rush_yd": 380.0
+   }
+  },
+  {
+   "playerId": "8155",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 43.0,
+    "rec_td": 2.0,
+    "rec_yd": 339.0,
+    "rush_td": 5.0,
+    "rush_yd": 989.0
+   }
+  },
+  {
+   "playerId": "8160",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 2.0,
+    "pass_td": 3.0,
+    "pass_yd": 558.0,
+    "rush_yd": 39.0
+   }
+  },
+  {
+   "playerId": "8161",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 191.0,
+    "rush_yd": 39.0
+   }
+  },
+  {
+   "playerId": "8162",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 2.0,
+    "pass_yd": 215.0,
+    "rush_yd": 14.0
+   }
+  },
+  {
+   "playerId": "8167",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 18.0,
+    "rec_td": 2.0,
+    "rec_yd": 293.0
+   }
+  },
+  {
+   "playerId": "8168",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 21.0
+   }
+  },
+  {
+   "playerId": "8170",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 33.0
+   }
+  },
+  {
+   "playerId": "8172",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "8177",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_td": 1.0,
+    "rec_yd": 90.0
+   }
+  },
+  {
+   "playerId": "8180",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 16.0,
+    "rec_td": 1.0,
+    "rec_yd": 199.0,
+    "rush_yd": 2.0
+   }
+  },
+  {
+   "playerId": "8183",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 27.0,
+    "pass_yd": 4163.0,
+    "rush_td": 4.0,
+    "rush_yd": 272.0
+   }
+  },
+  {
+   "playerId": "8188",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 9.0,
+    "rec_td": 1.0,
+    "rec_yd": 139.0
+   }
+  },
+  {
+   "playerId": "8194",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 30.0
+   }
+  },
+  {
+   "playerId": "8195",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "8202",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 28.0
+   }
+  },
+  {
+   "playerId": "8204",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rec": 9.0,
+    "rush_yd": 22.0,
+    "rec_yd": 125.0
+   }
+  },
+  {
+   "playerId": "8205",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 7.0,
+    "rec": 33.0,
+    "fum_lost": 1.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 865.0,
+    "rec_yd": 243.0
+   }
+  },
+  {
+   "playerId": "8207",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 58.0,
+    "rush_yd": 41.0
+   }
+  },
+  {
+   "playerId": "8208",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 21.0
+   }
+  },
+  {
+   "playerId": "8210",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 59.0,
+    "rec_td": 4.0,
+    "rec_yd": 605.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "8220",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 25.0
+   }
+  },
+  {
+   "playerId": "8225",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 109.0
+   }
+  },
+  {
+   "playerId": "8228",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 45.0,
+    "rec_td": 1.0,
+    "rec_yd": 340.0,
+    "rush_td": 4.0,
+    "rush_yd": 690.0
+   }
+  },
+  {
+   "playerId": "8230",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 8.0,
+    "rec_yd": 58.0,
+    "rush_td": 1.0,
+    "rush_yd": 130.0
+   }
+  },
+  {
+   "playerId": "8249",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 33.0
+   }
+  },
+  {
+   "playerId": "8253",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_yd": 2.0,
+    "rush_yd": 1.0
+   }
+  },
+  {
+   "playerId": "8254",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 29.0,
+    "rush_td": 1.0,
+    "rush_yd": 125.0
+   }
+  },
+  {
+   "playerId": "8255",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "def_kr_td": 1.0,
+    "fum_lost": 1.0,
+    "rec": 1.0,
+    "rec_yd": 6.0,
+    "rush_yd": 4.0
+   }
+  },
+  {
+   "playerId": "8258",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 8.0
+   }
+  },
+  {
+   "playerId": "8259",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 39.0
+   }
+  },
+  {
+   "playerId": "827",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "pass_int": 1.0,
+    "pass_td": 2.0,
+    "pass_yd": 401.0,
+    "rush_yd": 25.0
+   }
+  },
+  {
+   "playerId": "829",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 207.0,
+    "rush_yd": 8.0
+   }
+  },
+  {
+   "playerId": "8408",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 20.0,
+    "rec_td": 1.0,
+    "rec_yd": 140.0,
+    "rush_td": 5.0,
+    "rush_yd": 715.0
+   }
+  },
+  {
+   "playerId": "8413",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 2.0,
+    "pass_td": 2.0,
+    "pass_yd": 345.0,
+    "rush_yd": 12.0
+   }
+  },
+  {
+   "playerId": "8489",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 39.0
+   }
+  },
+  {
+   "playerId": "8500",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 17.0,
+    "rec_td": 1.0,
+    "rec_yd": 163.0
+   }
+  },
+  {
+   "playerId": "8527",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 55.0
+   }
+  },
+  {
+   "playerId": "8583",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 3.0,
+    "rec_yd": 31.0
+   }
+  },
+  {
+   "playerId": "8670",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 7.0
+   }
+  },
+  {
+   "playerId": "8676",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 57.0,
+    "rec_td": 5.0,
+    "rec_yd": 815.0,
+    "rush_yd": 43.0
+   }
+  },
+  {
+   "playerId": "8698",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 21.0,
+    "rec_td": 1.0,
+    "rec_yd": 195.0
+   }
+  },
+  {
+   "playerId": "8799",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 20.0
+   }
+  },
+  {
+   "playerId": "8800",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 11.0,
+    "rush_yd": 27.0
+   }
+  },
+  {
+   "playerId": "8849",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 17.0,
+    "rec_td": 1.0,
+    "rec_yd": 155.0
+   }
+  },
+  {
+   "playerId": "8885",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 4.0,
+    "rec_yd": 39.0
+   }
+  },
+  {
+   "playerId": "8917",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 1.0,
+    "rec": 28.0,
+    "def_kr_td": 1.0,
+    "fum_lost": 1.0,
+    "rush_yd": 77.0,
+    "rec_yd": 341.0
+   }
+  },
+  {
+   "playerId": "8932",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "xpm": 5.0
+   }
+  },
+  {
+   "playerId": "9221",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 12.0,
+    "rec": 56.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1204.0,
+    "rec_yd": 449.0
+   }
+  },
+  {
+   "playerId": "9224",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 8.0,
+    "rec": 53.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1013.0,
+    "rec_yd": 395.0
+   }
+  },
+  {
+   "playerId": "9225",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 17.0,
+    "rec_yd": 122.0,
+    "rush_td": 4.0,
+    "rush_yd": 478.0
+   }
+  },
+  {
+   "playerId": "9226",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "rec": 67.0,
+    "rec_td": 3.0,
+    "rec_yd": 508.0,
+    "rush_td": 7.0,
+    "rush_yd": 931.0
+   }
+  },
+  {
+   "playerId": "9228",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 4.0,
+    "pass_2pt": 1.0,
+    "pass_int": 12.0,
+    "pass_td": 22.0,
+    "pass_yd": 3613.0,
+    "rush_td": 4.0,
+    "rush_yd": 297.0
+   }
+  },
+  {
+   "playerId": "9229",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 6.0,
+    "pass_td": 7.0,
+    "pass_yd": 1380.0,
+    "rush_2pt": 1.0,
+    "rush_td": 3.0,
+    "rush_yd": 355.0
+   }
+  },
+  {
+   "playerId": "9230",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 215.0,
+    "rush_yd": 13.0
+   }
+  },
+  {
+   "playerId": "9479",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 13.0,
+    "rec_td": 1.0,
+    "rec_yd": 132.0
+   }
+  },
+  {
+   "playerId": "9480",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 52.0,
+    "rec_td": 3.0,
+    "rec_yd": 510.0
+   }
+  },
+  {
+   "playerId": "9481",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 18.0,
+    "rec_td": 1.0,
+    "rec_yd": 192.0
+   }
+  },
+  {
+   "playerId": "9482",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 26.0,
+    "rec_td": 2.0,
+    "rec_yd": 260.0
+   }
+  },
+  {
+   "playerId": "9484",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 62.0,
+    "rec_td": 5.0,
+    "rec_yd": 645.0
+   }
+  },
+  {
+   "playerId": "9486",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 20.0,
+    "rec_td": 2.0,
+    "rec_yd": 255.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "9487",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 28.0,
+    "rec_td": 2.0,
+    "rec_yd": 285.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "9488",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 87.0,
+    "rec_2pt": 1.0,
+    "rec_td": 6.0,
+    "rec_yd": 1007.0,
+    "rush_yd": 43.0
+   }
+  },
+  {
+   "playerId": "9490",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 21.0,
+    "rush_yd": 5.0
+   }
+  },
+  {
+   "playerId": "9492",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 6.0,
+    "rec_yd": 74.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "9493",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 7.0,
+    "rush_td": 1.0,
+    "rec_2pt": 1.0,
+    "rec": 98.0,
+    "fum_lost": 1.0,
+    "rush_yd": 71.0,
+    "rec_yd": 1237.0
+   }
+  },
+  {
+   "playerId": "9494",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 55.0,
+    "rec_td": 5.0,
+    "rec_yd": 682.0,
+    "rush_yd": 48.0
+   }
+  },
+  {
+   "playerId": "9497",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 170.0
+   }
+  },
+  {
+   "playerId": "9500",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 67.0,
+    "rec_td": 4.0,
+    "rec_yd": 740.0,
+    "rush_yd": 17.0
+   }
+  },
+  {
+   "playerId": "9501",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 58.0,
+    "rec_td": 3.0,
+    "rec_yd": 616.0,
+    "rush_yd": 44.0
+   }
+  },
+  {
+   "playerId": "9502",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 2.0,
+    "rec_yd": 22.0
+   }
+  },
+  {
+   "playerId": "9504",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 32.0,
+    "rec_td": 3.0,
+    "rec_yd": 427.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "9505",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 1.0,
+    "rec_yd": 7.0,
+    "rush_yd": 31.0
+   }
+  },
+  {
+   "playerId": "9506",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 1.0,
+    "rush_td": 2.0,
+    "rec": 11.0,
+    "def_kr_td": 2.0,
+    "fum_lost": 2.0,
+    "rush_yd": 299.0,
+    "rec_yd": 81.0
+   }
+  },
+  {
+   "playerId": "9508",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 28.0,
+    "rec_td": 1.0,
+    "rec_yd": 211.0,
+    "rush_td": 2.0,
+    "rush_yd": 318.0
+   }
+  },
+  {
+   "playerId": "9509",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec_td": 2.0,
+    "rush_td": 11.0,
+    "rec": 56.0,
+    "fum_lost": 2.0,
+    "rush_2pt": 1.0,
+    "rush_yd": 1334.0,
+    "rec_yd": 427.0
+   }
+  },
+  {
+   "playerId": "9511",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 12.0,
+    "rec_td": 1.0,
+    "rec_yd": 91.0,
+    "rush_td": 2.0,
+    "rush_yd": 277.0
+   }
+  },
+  {
+   "playerId": "96",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 2.0,
+    "pass_2pt": 1.0,
+    "pass_int": 10.0,
+    "pass_td": 22.0,
+    "pass_yd": 3656.0,
+    "rush_td": 1.0,
+    "rush_yd": 101.0
+   }
+  },
+  {
+   "playerId": "9753",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 39.0,
+    "rec_td": 1.0,
+    "rec_yd": 285.0,
+    "rush_td": 5.0,
+    "rush_yd": 601.0
+   }
+  },
+  {
+   "playerId": "9754",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 29.0,
+    "rec_td": 3.0,
+    "rec_yd": 361.0,
+    "rush_yd": 11.0
+   }
+  },
+  {
+   "playerId": "9756",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 61.0,
+    "rec_td": 6.0,
+    "rec_yd": 831.0,
+    "rush_yd": 6.0
+   }
+  },
+  {
+   "playerId": "9757",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "rec": 14.0,
+    "rec_yd": 101.0,
+    "rush_td": 2.0,
+    "rush_yd": 295.0
+   }
+  },
+  {
+   "playerId": "9758",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 3.0,
+    "pass_2pt": 1.0,
+    "pass_int": 11.0,
+    "pass_td": 27.0,
+    "pass_yd": 4035.0,
+    "rush_td": 2.0,
+    "rush_yd": 196.0
+   }
+  },
+  {
+   "playerId": "9997",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_lost": 1.0,
+    "rec": 70.0,
+    "rec_td": 5.0,
+    "rec_yd": 919.0,
+    "rush_yd": 43.0
+   }
+  },
+  {
+   "playerId": "9998",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "pass_int": 1.0,
+    "pass_td": 1.0,
+    "pass_yd": 210.0,
+    "rush_yd": 16.0
+   }
+  },
+  {
+   "playerId": "ARI",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 40.0
+   }
+  },
+  {
+   "playerId": "ATL",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 11.0,
+    "sack": 37.0
+   }
+  },
+  {
+   "playerId": "BAL",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 15.0,
+    "sack": 45.0
+   }
+  },
+  {
+   "playerId": "BUF",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 13.0,
+    "sack": 45.0
+   }
+  },
+  {
+   "playerId": "CAR",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 10.0,
+    "sack": 35.0
+   }
+  },
+  {
+   "playerId": "CHI",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 40.0
+   }
+  },
+  {
+   "playerId": "CIN",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 41.0
+   }
+  },
+  {
+   "playerId": "CLE",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 11.0,
+    "sack": 40.0
+   }
+  },
+  {
+   "playerId": "DAL",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "def_kr_td": 1.0,
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 37.0
+   }
+  },
+  {
+   "playerId": "DEN",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 14.0,
+    "sack": 46.0
+   }
+  },
+  {
+   "playerId": "DET",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 13.0,
+    "sack": 44.0
+   }
+  },
+  {
+   "playerId": "GB",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 13.0,
+    "sack": 47.0
+   }
+  },
+  {
+   "playerId": "HOU",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 14.0,
+    "sack": 46.0
+   }
+  },
+  {
+   "playerId": "IND",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 40.0
+   }
+  },
+  {
+   "playerId": "JAX",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 11.0,
+    "sack": 38.0
+   }
+  },
+  {
+   "playerId": "KC",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 13.0,
+    "sack": 43.0
+   }
+  },
+  {
+   "playerId": "LAC",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "def_kr_td": 1.0,
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 39.0
+   }
+  },
+  {
+   "playerId": "LAR",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 12.0,
+    "sack": 45.0
+   }
+  },
+  {
+   "playerId": "LV",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 11.0,
+    "sack": 37.0
+   }
+  },
+  {
+   "playerId": "MIA",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 12.0,
+    "sack": 42.0
+   }
+  },
+  {
+   "playerId": "MIN",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 14.0,
+    "sack": 45.0
+   }
+  },
+  {
+   "playerId": "NE",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 40.0
+   }
+  },
+  {
+   "playerId": "NO",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 7.0,
+    "int": 10.0,
+    "sack": 35.0
+   }
+  },
+  {
+   "playerId": "NYG",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 12.0,
+    "sack": 41.0
+   }
+  },
+  {
+   "playerId": "NYJ",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 12.0,
+    "sack": 39.0
+   }
+  },
+  {
+   "playerId": "PHI",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 16.0,
+    "sack": 45.0
+   }
+  },
+  {
+   "playerId": "PIT",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 10.0,
+    "int": 14.0,
+    "sack": 45.0
+   }
+  },
+  {
+   "playerId": "SEA",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 13.0,
+    "sack": 42.0
+   }
+  },
+  {
+   "playerId": "SF",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 13.0,
+    "sack": 42.0
+   }
+  },
+  {
+   "playerId": "TB",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 12.0,
+    "sack": 42.0
+   }
+  },
+  {
+   "playerId": "TEN",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 8.0,
+    "int": 10.0,
+    "sack": 34.0
+   }
+  },
+  {
+   "playerId": "WAS",
+   "source": "sleeper-frozen-2025",
+   "stats": {
+    "fum_rec": 9.0,
+    "int": 13.0,
+    "sack": 42.0
+   }
+  }
+ ]
+}

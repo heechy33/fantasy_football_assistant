@@ -197,6 +197,93 @@ export function optimizeLineupValue(
   return solve(0, fullMask);
 }
 
+export interface LineupStarters {
+  /** Exact optimal total — bit-identical to `optimizeLineupValue` on the same inputs. */
+  value: number;
+  /** `starters[slotIndex]` = playerId occupying that starting slot (settings order), or null when
+   * left empty. Sum of the starters' projected points equals `value`. */
+  starters: readonly (PlayerId | null)[];
+}
+
+/**
+ * Value AND occupant identity for one exact solve, at near-`optimizeLineupValue` cost. Exists for
+ * the historical backtest's positional decomposition (`backtest.ts`'s
+ * `scoreRosterWeeklyDetailed`, 2026-08-24 c1-attribution diagnostics): callers need WHO started,
+ * not just the total, but cannot afford `optimizeLineup`'s BigInt/string-memo solve at ~185
+ * (team, week) cells per draft.
+ *
+ * Same integer-mask DP as `optimizeLineupValue` with one extension: the memo caches the picked
+ * indices alongside the scalar value (exactly what `solveIndexed` tracks), so occupant identity
+ * comes from the same recursion instead of a second solve. Arithmetic order is identical to
+ * `optimizeLineupValue`, so `value` is bit-identical, not merely equal.
+ *
+ * Tie-break divergence, documented: on an exact-value tie this picks the FIRST (lowest input-index)
+ * equal-value player (strict `>` below), while `solveIndexed` breaks ties by assignment count.
+ * The optimum's VALUE is tie-break-independent either way; only WHICH equal-value assignment is
+ * reported can differ. Verified against both siblings by the property suite in `backtest.test.ts`.
+ *
+ * Beyond 30 scored players it falls back to `solveIndexed` (same threshold and rationale as
+ * `optimizeLineupValue`'s 32-bit mask limit).
+ */
+export function optimizeLineupStarters(
+  settings: LeagueSettings,
+  players: readonly PlayerMeta[],
+  projectedPoints: ReadonlyMap<PlayerId, number>,
+): LineupStarters {
+  const slots = settings.startingSlots.filter((slot) => slot !== 'BN' && slot !== 'IR');
+  const playerById = new Map(players.map((player) => [player.playerId, player]));
+  const ids = players.filter((player) => projectedPoints.has(player.playerId)).map((player) => player.playerId);
+  if (ids.length > 30 || ids.some((id) => !playerById.get(id))) {
+    const solved = solveIndexed(settings, players as PlayerMeta[], projectedPoints);
+    return {
+      value: solved.value,
+      starters: solved.picks.map((pick) => (pick == null ? null : solved.ids[pick] ?? null)),
+    };
+  }
+
+  const points = ids.map((id) => projectedPoints.get(id) ?? 0);
+  const slotEligibilityMask = slots.map((slot) => {
+    let mask = 0;
+    ids.forEach((id, index) => {
+      const player = playerById.get(id);
+      if (player && accepts(slot, player)) mask |= 1 << index;
+    });
+    return mask;
+  });
+  const fullMask = ids.length ? (1 << ids.length) - 1 : 0;
+  const slotCount = slots.length;
+  const memo = new Map<number, { value: number; picks: (number | null)[] }>();
+
+  function solve(slotIndex: number, remainingMask: number): { value: number; picks: (number | null)[] } {
+    if (slotIndex >= slotCount) return { value: 0, picks: [] };
+    const key = remainingMask * (slotCount + 1) + slotIndex;
+    const cached = memo.get(key);
+    if (cached !== undefined) return cached;
+    // Leaving a slot empty is legal for partial rosters (same contract as optimizeLineupValue).
+    let best = solve(slotIndex + 1, remainingMask);
+    let bestPick: number | null = null;
+    const eligible = (slotEligibilityMask[slotIndex] ?? 0) & remainingMask;
+    for (let index = 0; index < ids.length; index += 1) {
+      const bit = 1 << index;
+      if (!(eligible & bit)) continue;
+      const sub = solve(slotIndex + 1, remainingMask & ~bit);
+      const value = (points[index] ?? 0) + sub.value;
+      if (value > best.value) {
+        best = { value, picks: sub.picks };
+        bestPick = index;
+      }
+    }
+    const result = { value: best.value, picks: [bestPick, ...best.picks] };
+    memo.set(key, result);
+    return result;
+  }
+
+  const solved = solve(0, fullMask);
+  return {
+    value: solved.value,
+    starters: solved.picks.map((pick) => (pick == null ? null : ids[pick] ?? null)),
+  };
+}
 
 export function slotEligibility(slot: RosterSlot, player: PlayerMeta): boolean {
   return accepts(slot, player);

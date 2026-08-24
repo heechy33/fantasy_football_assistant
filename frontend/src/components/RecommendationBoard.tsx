@@ -3,8 +3,6 @@ import type {
   AdpEntry,
   DataManifest,
   DraftInit,
-  FantasyProsAdpArtifact,
-  FantasyProsArtifact,
   OnTheClock,
   Pick,
   PlayerId,
@@ -16,9 +14,9 @@ import type {
 } from '../../../shared/types';
 import type { UserPickBoundaries } from '../adapters/draftOrder';
 import { picksMade } from '../adapters/draftOrder';
-import { fantasyProsStarsForPlayer } from '../data/fantasyProsStars';
 import type { AdpBoardKey } from '../data/adpBoard';
 import type { AdpFormat } from '../data/loadPlayerPool';
+import type { NextUpInfo } from './NextUpChip';
 import { pointsPerGame } from '../data/pprProduction';
 import { buildSparklinePoints } from '../data/weeklyGameLog';
 import type { TeamDepthRole } from '../data/teamDepthRole';
@@ -53,6 +51,38 @@ const POSITION_TABS: ReadonlyArray<{ label: string; position: Position | null }>
   { label: 'D/ST', position: 'DEF' },
 ];
 
+/**
+ * Draft-state decoration for the card face: the next-best player at the same position on the rows
+ * this board is about to render. In engine mode that's engine order; in market mode it's ADP
+ * order — either way "next up" means the next card the user scrolls past at this position.
+ * Pure display computed from the already-rendered rows; never a ranking term.
+ */
+function nextUpAt(
+  rows: ReadonlyArray<{ playerId: PlayerId; recommendation?: Recommendation | null }>,
+  index: number,
+  playersById: ReadonlyMap<PlayerId, PlayerMeta>,
+): NextUpInfo | null {
+  const current = rows[index];
+  if (!current) return null;
+  const position = playersById.get(current.playerId)?.position ?? null;
+  if (position == null) return null;
+  for (let j = index + 1; j < rows.length; j += 1) {
+    const candidate = rows[j]!;
+    if (playersById.get(candidate.playerId)?.position !== position) continue;
+    const name = playersById.get(candidate.playerId)?.name;
+    if (name == null) return null;
+    const mine = current.recommendation?.projectedPoints ?? null;
+    const theirs = candidate.recommendation?.projectedPoints ?? null;
+    return {
+      name,
+      gap: mine != null && theirs != null ? Math.max(0, mine - theirs) : null,
+      tierBoundaryGap: current.recommendation?.tierBoundaryGap ?? 0,
+      nearTie: current.recommendation?.nearTie ?? false,
+    };
+  }
+  return null;
+}
+
 export type RecommendationBoardKind = 'loading' | 'ready' | 'waiting' | 'complete' | 'no-seat' | 'no-user-picks';
 
 export interface RecommendationBoardProps {
@@ -76,8 +106,6 @@ export interface RecommendationBoardProps {
   adp: AdpEntry[];
   usage: PlayerUsageArtifact;
   loadError: string | null;
-  fantasyProsArtifact: FantasyProsArtifact | null;
-  adpProvidersArtifact: FantasyProsAdpArtifact | null;
   providerProjectionsArtifact: ProviderProjectionsArtifact | null;
   depthRoleByPlayer: ReadonlyMap<PlayerId, TeamDepthRole>;
   availabilityByPlayer: ReadonlyMap<PlayerId, number>;
@@ -108,8 +136,6 @@ export function RecommendationBoard({
   adp,
   usage,
   loadError,
-  fantasyProsArtifact,
-  adpProvidersArtifact,
   providerProjectionsArtifact,
   depthRoleByPlayer,
   availabilityByPlayer,
@@ -151,7 +177,6 @@ export function RecommendationBoard({
   const effectivePresentation: BoardPresentation = isNarrow ? 'cards' : boardPresentation;
   const effectiveBoardMode: BoardMode = isMyTurn ? boardMode : 'adp';
   const cardsPerPage = isNarrow ? 1 : 3;
-  const fantasyProsFor = (playerId: PlayerId) => fantasyProsStarsForPlayer(fantasyProsArtifact, playerId);
 
   useEffect(() => {
     setCardsVisibleCount(PAGE_SIZES[0]);
@@ -513,7 +538,7 @@ export function RecommendationBoard({
                     label="Recommendation players"
                   >
                     {effectiveBoardMode === 'engine'
-                      ? rankedRecommendations.map((recommendation) => (
+                      ? rankedRecommendations.map((recommendation, index) => (
                           <PlayerBoardRow
                             key={recommendation.playerId}
                             playerId={recommendation.playerId}
@@ -527,12 +552,12 @@ export function RecommendationBoard({
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
-                            fantasyPros={fantasyProsFor(recommendation.playerId) ?? undefined}
+                            nextUp={nextUpAt(rankedRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             selected={selectedPlayerId === recommendation.playerId}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
                           />
                         ))
-                      : marketRows.map((row) => (
+                      : marketRows.map((row, index) => (
                           <PlayerBoardRow
                             key={row.playerId}
                             playerId={row.playerId}
@@ -547,7 +572,7 @@ export function RecommendationBoard({
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
-                            fantasyPros={fantasyProsFor(row.playerId) ?? undefined}
+                            nextUp={nextUpAt(marketRows, index, playersById)}
                             selected={selectedPlayerId === row.playerId}
                             onViewDetails={() => onViewDetails(row.playerId)}
                           />
@@ -566,7 +591,7 @@ export function RecommendationBoard({
                     resetKey={filmstripResetKey}
                   >
                     {effectiveBoardMode === 'engine'
-                      ? cardRecommendations.map((recommendation) => (
+                      ? cardRecommendations.map((recommendation, index) => (
                           <PlayerCard
                             key={recommendation.playerId}
                             playerId={recommendation.playerId}
@@ -580,11 +605,11 @@ export function RecommendationBoard({
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
-                            fantasyPros={fantasyProsFor(recommendation.playerId) ?? undefined}
+                            nextUp={nextUpAt(cardRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
                           />
                         ))
-                      : visibleMarketRows.map((row) => (
+                      : visibleMarketRows.map((row, index) => (
                           <PlayerCard
                             key={row.playerId}
                             playerId={row.playerId}
@@ -599,7 +624,7 @@ export function RecommendationBoard({
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
-                            fantasyPros={fantasyProsFor(row.playerId) ?? undefined}
+                            nextUp={nextUpAt(visibleMarketRows, index, playersById)}
                             onViewDetails={() => onViewDetails(row.playerId)}
                           />
                         ))}
@@ -621,7 +646,6 @@ export function RecommendationBoard({
           currentPick={currentOverall}
           weeklyStats={weeklyStats}
           adpBoard={adp}
-          adpProvidersArtifact={adpProvidersArtifact}
           providerProjectionsArtifact={providerProjectionsArtifact}
           settings={draftInit.settings}
           depthRole={selectedPlayerId ? depthRoleByPlayer.get(selectedPlayerId) ?? null : null}

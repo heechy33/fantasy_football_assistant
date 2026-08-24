@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-08-23T23:49:20.303445+00:00",
+  "addendum": "fixtures/backtest/2025/gates-blend-addendum.md",
+  "inputsSha256": {
+    "sleeper-projections-2025.raw.json": "5b2ec10a3e0bc49a3ab324e57f8d0713eb57d4575bf5847232240f9c899f9f53",
+    "espn-leaguedefaults-2025.raw.json": "c75be58bd6fb59e505e70575ab7487c468b267df26455dc9835c9504dfd17b0f",
+    "fftoday-fixture": "1c95fae3c2dd71ff337a6b9f9fd617a657d5ec0984afd334dcb334b8333dbe1f",
+    "players.json": "cf2de0fce919ed9795c5cc79b8ce5d2fb6dffbe8ed7ed72797f4ec839a5d6b7a"
+  },
+  "outputs": {
+    "projections-sleeper.json": {
+      "sha256": "6000e6b2895bc104cfe80482484ddb3088ed27d090ff751fd741340e81dcc076",
+      "rows": 637
+    },
+    "projections-espn.json": {
+      "sha256": "f5cb33f26a6bc916b1987f0bfbfbcc79e0d1ddc468e6b63dc03c9996186270d8",
+      "rows": 527
+    },
+    "projections-pavg.json": {
+      "sha256": "6449d173790716d20a048045df9dedc10022e6aae8e83e48aa8d06e73df07d06",
+      "rows": 660
+    },
+    "outcomes-weekly-full.json": {
+      "sha256": "86ad3cee34fa9b64ff4d0b99605699b1ab0af25191c5b001cd4476bbc938554a",
+      "players": 938
+    }
+  },
+  "gates": {
+    "espnIdentity": {
+      "matched": 527,
+      "unmatchedCount": 4,
+      "rate": 0.9925,
+      "threshold": 0.97,
+      "ok": true,
+      "unmatchedSample": [
+        "Commanders D/ST (DEF)",
+        "Jimmy Horn Jr. (WR) [no scoring keys]",
+        "Kameron Johnson (WR) [no scoring keys]",
+        "LaJohntay Wester (WR) [no scoring keys]"
+      ],
+      "emptyProjectionEntriesExcluded": 520,
+      "gateDenominatorNote": "identity gate measures crosswalk success among entries that carry any stat content; empty-projection rows are recorded separately and excluded from both numerator and denominator"
+    },
+    "zeroOutcomeVerified": {
+      "poolSize": 660,
+      "count": 76,
+      "verification": "full frozen weekly feed weeks 1-18 contains no pts_ppr row for these ids \u2014 genuine absence by construction of the freeze",
+      "sample": [
+        "10223",
+        "11008",
+        "11186",
+        "11311",
+        "11520",
+        "11569",
+        "11581",
+        "11582",
+        "11605",
+        "11616",
+        "11640",
+        "11645",
+        "11773",
+        "11808",
+        "11897",
+        "11949",
+        "12462",
+        "12467",
+        "12478",
+        "1264",
+        "12656",
+        "1266",
+        "12690",
+        "12700",
+        "12969"
+      ]
+    }
+  }
+}

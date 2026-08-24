@@ -1,14 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
-import { __resetFantasyProsAdpCache } from './data/fantasyProsAdp';
-import { __resetFantasyProsStarsCache } from './data/fantasyProsStars';
 import { __resetWeeklyScoringCache } from './data/loadWeeklyScoring';
 import { __resetWeeklyStatsCache } from './data/loadWeeklyStats';
 import { __resetProviderProjectionsCache } from './data/providerProjections';
 
 afterEach(() => {
-  __resetFantasyProsAdpCache();
-  __resetFantasyProsStarsCache();
   __resetProviderProjectionsCache();
   __resetWeeklyScoringCache();
   __resetWeeklyStatsCache();

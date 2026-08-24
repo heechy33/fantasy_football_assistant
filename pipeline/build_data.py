@@ -13,26 +13,24 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
 
 import match
 import context
 import cbs_projections
 import espn_adp
 import espn_projections
-import fantasypros
-import fantasypros_adp
 import history
 import nflverse_source
 import provider_projections
+import requests
 import sources
 import transform
+import underdog_adp
 import weekly_stats
 from fftoday import FFTodayProjectionProvider, validate_projection_gates
 
@@ -52,6 +50,20 @@ SLEEPER_ADP_MIN_ROWS = 250
 # detected censor cutoff is ~168 rows. Below this many honest head rows the
 # ESPN board is not shipped and adp-ppr.json stays the only engine input.
 ESPN_ADP_MIN_ROWS = 120
+
+# Underdog's best-ball ADP is a SEPARATE LANE, never blended into the redraft
+# composites above: its own artifact / board key (half-PPR TE-premium), used
+# for display/decoration and as raw market-spread material only — never an
+# engine input. The endpoint is community-discovered and undocumented (and
+# currently bot-guarded against this UA), so the gate below is deliberately
+# strict: any drift or shortfall fails open and leaves the prior committed
+# board byte-identical.
+UNDERDOG_ADP_URL = "https://api.underdogfantasy.com/beta/draft_boards/nfl-best-ball"
+UNDERDOG_BOARD_FILENAME = "adp-underdog-bestball.json"
+# A real Underdog best-ball draft is ~20 rounds x 12+ teams of distinct
+# players; below this many crosswalk-matched rows the payload is considered
+# degenerate (drift / truncated response), not merely sparse.
+UNDERDOG_ADP_MIN_ROWS = 150
 
 # Bumped whenever a source's manifest entry shape changes (fields added/removed/
 # retyped) so consumers can detect a manifest from an older pipeline version
@@ -310,163 +322,6 @@ def _write_json(path: Path, obj: Any) -> int:
     return len(payload.encode("utf-8"))
 
 
-def _run_optional_local_csv_artifact(
-    source_dir: str | None,
-    filename: str,
-    artifact_path: Path,
-    *,
-    label: str,
-    dir_flag: str,
-    dir_token: str,
-    build_artifact: Callable[[str], dict[str, Any]],
-) -> None:
-    """Best-effort optional local artifact (gitignored, display-only) from a
-    user-supplied CSV. Never affects core data selection, coverage metrics, or
-    manifest source provenance.
-
-    Failure handling splits by what went wrong:
-    - The source file cannot be *read* (missing file, missing directory, or an
-      I/O error): warn and leave any prior artifact untouched — a run that
-      couldn't look at the source must not wipe the developer's last good
-      local decoration.
-    - The source was read but failed to *parse* (malformed CSV, schema drift,
-      bad cells): warn and remove only the explicit output path, so a stale
-      artifact can't look current against a source that is present but unusable.
-
-    `build_artifact(csv_text)` does the actual parse+assemble and returns the
-    self-describing artifact dict (its `source` block must carry rows/matched/
-    unmatched for the [ok] summary). The source directory and CSV path are
-    scrubbed from diagnostics here — Windows OSError messages embed paths via
-    repr(), doubling backslashes, and these CSVs usually live outside the repo.
-    """
-    if not source_dir:
-        print(f"[skip] {label}: no {dir_flag}")
-        return
-
-    csv_path = Path(source_dir) / filename
-    artifact_path = artifact_path.resolve()
-
-    def _diagnostic(error: BaseException) -> str:
-        # _sanitized_diagnostic only replaces Path.cwd()/URLs; the source CSV
-        # usually lives outside the repo, so scrub those local paths explicitly
-        # before printing. Windows OSError messages embed the path via repr(),
-        # so backslashes are doubled in the message text — replace both the raw
-        # and repr-escaped forms.
-        message = _sanitized_diagnostic(error)
-        dir_path = Path(source_dir)
-        scrubbed_csv = f"[{dir_token}]/{csv_path.name}"
-
-        def _scrub(message: str, raw: Path, replacement: str) -> str:
-            variants = {str(raw)}
-            try:
-                variants.add(str(raw.resolve()))
-            except OSError:
-                pass
-            for variant in variants:
-                message = message.replace(variant, replacement)
-                message = message.replace(repr(variant)[1:-1], replacement)
-            return message
-
-        message = _scrub(message, csv_path, scrubbed_csv)
-        message = _scrub(message, dir_path, f"[{dir_token}]")
-        return message
-
-    try:
-        text = csv_path.read_text(encoding="utf-8-sig")
-    except OSError as error:
-        # Source unreadable/absent: keep any prior artifact (fail-open) so a
-        # missing CSV never deletes the developer's last good decoration.
-        print(f"[warn] {label}: {_diagnostic(error)}")
-        return
-
-    try:
-        artifact = build_artifact(text)
-    except Exception as error:
-        print(f"[warn] {label}: {_diagnostic(error)}")
-        artifact_path.unlink(missing_ok=True)
-        return
-
-    _write_json(artifact_path, artifact)
-    print(
-        f"[ok] {label}: matched {artifact['source']['matched']}, "
-        f"unmatched {artifact['source']['unmatched']} (of {artifact['source']['rows']} rows)"
-    )
-
-
-def _run_optional_fantasypros_stars(
-    fantasypros_dir: str | None,
-    season: str,
-    sleeper_players: dict[str, dict[str, Any]],
-    out_dir: Path,
-    generated_at: str,
-) -> None:
-    """Best-effort local-only decoration step. Never affects core data
-    selection, coverage metrics, or manifest source provenance — see
-    FRONTEND_OVERHAUL_PHASE_1_REVISED_PLAN.md section 5's behavior matrix.
-    """
-    filename = f"FantasyPros_{season}_Draft_ALL_Rankings.csv"
-    sleeper_index = match.build_sleeper_match_index(sleeper_players)
-
-    def build_artifact(csv_text: str) -> dict[str, Any]:
-        rows, parse_diagnostics = fantasypros.parse_rankings_csv(csv_text)
-        return fantasypros.build_stars_artifact(
-            rows,
-            sleeper_index,
-            season=int(season),
-            source_file=filename,
-            generated_at=generated_at,
-            dropped_non_rank_rows=parse_diagnostics["droppedNonRankRows"],
-        )
-
-    _run_optional_local_csv_artifact(
-        fantasypros_dir,
-        filename,
-        out_dir / "fantasypros-stars.json",
-        label="FantasyPros stars",
-        dir_flag="--fantasypros-dir",
-        dir_token="fantasypros-dir",
-        build_artifact=build_artifact,
-    )
-
-
-def _run_optional_fantasypros_adp(
-    fantasypros_dir: str | None,
-    season: str,
-    sleeper_players: dict[str, dict[str, Any]],
-    valid_player_ids: set[str],
-    out_dir: Path,
-    generated_at: str,
-) -> None:
-    """Best-effort local-only per-site ADP decoration step (gitignored, display-only).
-    Same failure contract as the stars step: never fails the build, never touches
-    core data selection, coverage metrics, or manifest source provenance.
-    """
-    filename = f"FantasyPros_{season}_Overall_ADP_Rankings.csv"
-    sleeper_index = match.build_sleeper_match_index(sleeper_players)
-
-    def build_artifact(csv_text: str) -> dict[str, Any]:
-        rows, empty_columns = fantasypros_adp.parse_adp_csv(csv_text)
-        return fantasypros_adp.build_adp_artifact(
-            rows,
-            sleeper_index,
-            valid_player_ids=valid_player_ids,
-            season=int(season),
-            source_file=filename,
-            generated_at=generated_at,
-            empty_columns=empty_columns,
-        )
-
-    _run_optional_local_csv_artifact(
-        fantasypros_dir,
-        filename,
-        out_dir / "fantasypros-adp.json",
-        label="FantasyPros ADP",
-        dir_flag="--fantasypros-dir",
-        dir_token="fantasypros-dir",
-        build_artifact=build_artifact,
-    )
-
-
 def _run_provider_projections(
     sleeper_adp_rows: list[dict[str, Any]],
     valid_player_ids: set[str],
@@ -660,6 +515,75 @@ def _build_espn_adp_board(
     return entries, diagnostics
 
 
+def _fetch_underdog_adp(url: str = UNDERDOG_ADP_URL) -> dict[str, Any]:
+    """CLI-boundary fetch for the Underdog best-ball ADP payload.
+
+    Lives here (not in sources.py) because this is the only consumer, the
+    endpoint is undocumented/community-maintained, and keeping the URL next
+    to the gate that polices it makes the fragility explicit. One GET, no
+    retries — the strict fail-open below is cheaper than hammering a
+    bot-guarded host.
+    """
+    resp = requests.get(url, headers={"User-Agent": sources.USER_AGENT}, timeout=sources.TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _build_underdog_adp_board(
+    payload: dict[str, Any] | None,
+    payload_error: str | None,
+    *,
+    sleeper_index: dict[Any, str],
+    valid_player_ids: set[str],
+    cv_bands: tuple[tuple[float, float], ...],
+) -> tuple[list[transform.AdpEntry] | None, dict[str, Any]]:
+    """Build the Underdog best-ball ADP board, or fail open with (None, diagnostics).
+
+    Never raises: fetch error, schema drift, or fewer than
+    UNDERDOG_ADP_MIN_ROWS crosswalk-matched rows all return None so the caller
+    leaves any prior data/adp-underdog-bestball.json BYTE-IDENTICAL. Unlike
+    the ESPN lane (which deletes its stale board), nothing downstream treats
+    the Underdog board as current-by-default — it is display/decoration and
+    market-spread raw material only — so retaining the last good snapshot
+    beats leaving consumers with no disclosure at all.
+
+    On success returns (entries, diagnostics); diagnostics always carries
+    `upstreamUpdatedAt` (None when the payload publishes no freshness stamp).
+    """
+    if payload_error is not None:
+        return None, {
+            "diagnostic": payload_error,
+            "upstreamUpdatedAt": None,
+            "rawRows": 0,
+            "matchedRows": 0,
+        }
+    try:
+        rows = underdog_adp.parse_underdog_adp_rows(payload)
+        upstream_updated_at = underdog_adp.extract_upstream_updated_at(payload)
+        entries, diagnostics = underdog_adp.build_underdog_adp_entries(
+            rows,
+            sleeper_index=sleeper_index,
+            valid_player_ids=valid_player_ids,
+            cv_bands=cv_bands,
+        )
+    except ValueError as error:
+        return None, {
+            "diagnostic": f"ValueError: {error}",
+            "upstreamUpdatedAt": None,
+            "rawRows": 0,
+            "matchedRows": 0,
+        }
+    if diagnostics["matchedRows"] < UNDERDOG_ADP_MIN_ROWS:
+        return None, {
+            **diagnostics,
+            "upstreamUpdatedAt": upstream_updated_at,
+            "diagnostic": (
+                f"matchedRows {diagnostics['matchedRows']} < UNDERDOG_ADP_MIN_ROWS {UNDERDOG_ADP_MIN_ROWS}"
+            ),
+        }
+    return entries, {**diagnostics, "upstreamUpdatedAt": upstream_updated_at}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--season", default=DEFAULT_SEASON)
@@ -670,11 +594,6 @@ def main() -> int:
         type=float,
         default=COVERAGE_GATE_THRESHOLD,
         help="Fail the run if top-300 ADP crosswalk match rate drops below this",
-    )
-    parser.add_argument(
-        "--fantasypros-dir",
-        default=os.environ.get("FFA_FANTASYPROS_DIR") or None,
-        help="Local directory containing FantasyPros_<season>_Draft_ALL_Rankings.csv and/or FantasyPros_<season>_Overall_ADP_Rankings.csv; optional and never committed",
     )
     args = parser.parse_args()
 
@@ -866,6 +785,39 @@ def main() -> int:
         if stale.exists():
             stale.unlink()
 
+    # Underdog best-ball ADP — the separate best-ball lane. Parsed into its
+    # own artifact / board key and deliberately NEVER added to adp_by_format,
+    # so it cannot leak into the redraft composites, the coverage-gate ADP
+    # sample below, or history.append_snapshot. Fail-open with a byte-identical
+    # prior artifact (see _build_underdog_adp_board).
+    try:
+        underdog_payload = _fetch_underdog_adp()
+        underdog_payload_error: str | None = None
+    except Exception as error:
+        underdog_payload = None
+        underdog_payload_error = _sanitized_diagnostic(error)
+    underdog_entries, underdog_diag = _build_underdog_adp_board(
+        underdog_payload,
+        underdog_payload_error,
+        sleeper_index=sleeper_index,
+        valid_player_ids=set(players),
+        cv_bands=transform.fit_adp_cv_bands(ffc_entries_by_format["half-ppr"]),
+    )
+    if underdog_entries is not None:
+        transform.apply_player_bye_weeks_to_adp(underdog_entries, players)
+        manifest_sources["underdog_bestball"] = {
+            **_source_entry(UNDERDOG_ADP_URL, len(underdog_entries), fetched_at),
+            "sourceUrls": [UNDERDOG_ADP_URL],
+            **underdog_diag,
+        }
+    else:
+        print(f"[warn] underdog adp: {underdog_diag['diagnostic']}")
+        manifest_sources["underdog_bestball"] = {
+            **_source_entry(UNDERDOG_ADP_URL, 0, fetched_at, status="error"),
+            "sourceUrls": [UNDERDOG_ADP_URL],
+            **underdog_diag,
+        }
+
     # Coverage-gate ADP entries double as the projection provider's top-ADP
     # sample, so a rookie/traded player who is highly drafted but silently
     # unmatched by FFToday fails loudly instead of just vanishing from boards.
@@ -963,13 +915,6 @@ def main() -> int:
         )
         return 1
 
-    _run_optional_fantasypros_stars(
-        args.fantasypros_dir, args.season, sleeper_players, out_dir, fetched_at,
-    )
-    _run_optional_fantasypros_adp(
-        args.fantasypros_dir, args.season, sleeper_players, set(players), out_dir, fetched_at,
-    )
-
     # Committed, deployed, display-only. After the gate so a gate failure
     # (return above) preserves the previous projections-providers.json untouched.
     print("[8/9] Building multi-provider projections (Sleeper, ESPN, CBS)...")
@@ -1000,6 +945,12 @@ def main() -> int:
     }
     for fmt, entries in adp_by_format.items():
         sizes[f"adp-{fmt}.json"] = _write_json(out_dir / f"adp-{fmt}.json", entries)
+
+    # Underdog best-ball lane: written OUTSIDE the redraft loop above. Only a
+    # successful build touches the file — on any failure path the prior
+    # committed artifact stays byte-identical (no write, no delete).
+    if underdog_entries is not None:
+        sizes[UNDERDOG_BOARD_FILENAME] = _write_json(out_dir / UNDERDOG_BOARD_FILENAME, underdog_entries)
 
     sleeper_upstream = history.sleeper_upstream_updated_at(sleeper_adp_rows)
     for fmt in sources.ADP_FORMATS:

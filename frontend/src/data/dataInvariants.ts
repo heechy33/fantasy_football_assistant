@@ -220,253 +220,6 @@ export function validateWeeklyStats(artifact: unknown, draftSeason: number): Val
   return issues;
 }
 
-/** Validate the optional local-only FantasyPros decoration if it is present. */
-export function validateFantasyProsStars(artifact: unknown): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  if (!isRecord(artifact)) return [issue('fantasypros-artifact-object', 'artifact is not an object')];
-
-  if (!Number.isInteger(artifact.schemaVersion) || (artifact.schemaVersion as number) <= 0) {
-    issues.push(issue('fantasypros-schema-version', 'schemaVersion is invalid: ' + String(artifact.schemaVersion)));
-  }
-  if (!Number.isInteger(artifact.season)) {
-    issues.push(issue('fantasypros-season', 'season is invalid: ' + String(artifact.season)));
-  }
-
-  const source = artifact.source;
-  const sourceRecord = isRecord(source) ? source : null;
-  if (!sourceRecord) {
-    issues.push(issue('fantasypros-source-object', 'source is not an object'));
-  }
-  const players = artifact.players;
-  const playerRecord = isRecord(players) ? players : null;
-  if (!playerRecord) {
-    issues.push(issue('fantasypros-players-object', 'players is not an object'));
-  }
-  const unmatched = artifact.unmatched;
-  if (!Array.isArray(unmatched)) {
-    issues.push(issue('fantasypros-unmatched-array', 'unmatched is not an array'));
-  }
-
-  if (sourceRecord) {
-    for (const field of ['rows', 'droppedNonRankRows', 'matched', 'unmatched'] as const) {
-      const value = sourceRecord[field];
-      if (!Number.isInteger(value) || (value as number) < 0) {
-        issues.push(issue('fantasypros-source-count', 'source.' + field + ' is invalid: ' + String(value)));
-      }
-    }
-    if (sourceRecord.status !== 'ok') {
-      issues.push(issue('fantasypros-source-status', 'source.status is not ok: ' + String(sourceRecord.status)));
-    }
-    if (playerRecord && sourceRecord.matched !== Object.keys(playerRecord).length) {
-      issues.push(issue('fantasypros-matched-count', 'source.matched does not equal players count'));
-    }
-    if (
-      typeof sourceRecord.matched === 'number'
-      && typeof sourceRecord.unmatched === 'number'
-      && typeof sourceRecord.rows === 'number'
-      && sourceRecord.matched + sourceRecord.unmatched !== sourceRecord.rows
-    ) {
-      issues.push(issue('fantasypros-source-reconciliation', 'source.matched + source.unmatched does not equal source.rows'));
-    }
-    if (Array.isArray(unmatched) && typeof sourceRecord.unmatched === 'number' && sourceRecord.unmatched !== unmatched.length) {
-      issues.push(issue('fantasypros-unmatched-count', 'source.unmatched does not equal unmatched length'));
-    }
-  }
-
-  if (playerRecord) {
-    for (const [playerId, value] of Object.entries(playerRecord)) {
-      if (!isRecord(value)) {
-        issues.push(issue('fantasypros-player-value', playerId + ' is not an object'));
-        continue;
-      }
-      if (!Number.isInteger(value.rank) || (value.rank as number) <= 0) {
-        issues.push(issue('fantasypros-player-rank', playerId + ' has invalid rank ' + String(value.rank)));
-      }
-      if (value.tier !== null && (!Number.isInteger(value.tier) || (value.tier as number) <= 0)) {
-        issues.push(issue('fantasypros-player-tier', playerId + ' has invalid tier ' + String(value.tier)));
-      }
-      if (typeof value.positionRank !== 'string' || !value.positionRank.trim()) {
-        issues.push(issue('fantasypros-player-position-rank', playerId + ' has invalid positionRank'));
-      }
-      for (const field of ['upside', 'bust'] as const) {
-        const stars = value[field];
-        if (stars !== null && (!Number.isInteger(stars) || (stars as number) < 1 || (stars as number) > 5)) {
-          issues.push(issue('fantasypros-' + field + '-range', playerId + ' has invalid ' + field + ' ' + String(stars)));
-        }
-      }
-      const sos = value.sos;
-      if (sos !== null && (!Number.isInteger(sos) || (sos as number) < 0 || (sos as number) > 5)) {
-        issues.push(issue('fantasypros-sos-range', playerId + ' has invalid sos ' + String(sos)));
-      }
-      if (value.ecrVsAdp !== null && !Number.isInteger(value.ecrVsAdp)) {
-        issues.push(issue('fantasypros-ecr-integer', playerId + ' has invalid ecrVsAdp ' + String(value.ecrVsAdp)));
-      }
-    }
-  }
-
-  if (Array.isArray(unmatched)) {
-    for (const [index, value] of unmatched.entries()) {
-      if (!isRecord(value)) {
-        issues.push(issue('fantasypros-unmatched-row', 'unmatched[' + index + '] is not an object'));
-        continue;
-      }
-      if (!Number.isInteger(value.rank) || (value.rank as number) <= 0) {
-        issues.push(issue('fantasypros-unmatched-rank', 'unmatched[' + index + '] has invalid rank'));
-      }
-      if (typeof value.name !== 'string' || !value.name.trim()) {
-        issues.push(issue('fantasypros-unmatched-name', 'unmatched[' + index + '] has invalid name'));
-      }
-      if (value.team !== null && typeof value.team !== 'string') {
-        issues.push(issue('fantasypros-unmatched-team', 'unmatched[' + index + '] has invalid team'));
-      }
-      if (typeof value.position !== 'string' || !value.position.trim()) {
-        issues.push(issue('fantasypros-unmatched-position', 'unmatched[' + index + '] has invalid position'));
-      }
-    }
-  }
-  return issues;
-}
-
-/** Validate the optional local-only FantasyPros per-site ADP decoration if present. */
-export function validateFantasyProsAdp(artifact: unknown): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  if (!isRecord(artifact)) return [issue('fantasypros-adp-object', 'artifact is not an object')];
-
-  if (!Number.isInteger(artifact.schemaVersion) || (artifact.schemaVersion as number) <= 0) {
-    issues.push(issue('fantasypros-adp-schema-version', 'schemaVersion is invalid: ' + String(artifact.schemaVersion)));
-  }
-  if (!Number.isInteger(artifact.season)) {
-    issues.push(issue('fantasypros-adp-season', 'season is invalid: ' + String(artifact.season)));
-  }
-
-  const source = artifact.source;
-  const sourceRecord = isRecord(source) ? source : null;
-  if (!sourceRecord) {
-    issues.push(issue('fantasypros-adp-source-object', 'source is not an object'));
-  }
-  const players = artifact.players;
-  const playerRecord = isRecord(players) ? players : null;
-  if (!playerRecord) {
-    issues.push(issue('fantasypros-adp-players-object', 'players is not an object'));
-  }
-  const unmatched = artifact.unmatched;
-  if (!Array.isArray(unmatched)) {
-    issues.push(issue('fantasypros-adp-unmatched-array', 'unmatched is not an array'));
-  }
-  const providers = artifact.providers;
-  if (!Array.isArray(providers)) {
-    issues.push(issue('fantasypros-adp-providers-array', 'providers is not an array'));
-  }
-
-  if (sourceRecord) {
-    for (const field of ['rows', 'matched', 'unmatched'] as const) {
-      const value = sourceRecord[field];
-      if (!Number.isInteger(value) || (value as number) < 0) {
-        issues.push(issue('fantasypros-adp-source-count', 'source.' + field + ' is invalid: ' + String(value)));
-      }
-    }
-    if (!Array.isArray(sourceRecord.emptyColumns)) {
-      issues.push(issue('fantasypros-adp-empty-columns', 'source.emptyColumns is not an array'));
-    }
-    if (sourceRecord.status !== 'ok') {
-      issues.push(issue('fantasypros-adp-source-status', 'source.status is not ok: ' + String(sourceRecord.status)));
-    }
-    if (
-      typeof sourceRecord.matched === 'number'
-      && typeof sourceRecord.unmatched === 'number'
-      && typeof sourceRecord.rows === 'number'
-      && sourceRecord.matched + sourceRecord.unmatched !== sourceRecord.rows
-    ) {
-      issues.push(issue('fantasypros-adp-source-reconciliation', 'source.matched + source.unmatched does not equal source.rows'));
-    }
-    if (playerRecord && sourceRecord.matched !== Object.keys(playerRecord).length) {
-      issues.push(issue('fantasypros-adp-matched-count', 'source.matched does not equal players count'));
-    }
-    if (Array.isArray(unmatched) && typeof sourceRecord.unmatched === 'number' && sourceRecord.unmatched !== unmatched.length) {
-      issues.push(issue('fantasypros-adp-unmatched-count', 'source.unmatched does not equal unmatched length'));
-    }
-  }
-
-  if (Array.isArray(providers)) {
-    const providerKeys = new Set<string>();
-    for (const [index, value] of providers.entries()) {
-      if (!isRecord(value) || typeof value.key !== 'string' || typeof value.label !== 'string') {
-        issues.push(issue('fantasypros-adp-provider-shape', 'providers[' + index + '] is malformed'));
-        continue;
-      }
-      if (providerKeys.has(value.key)) {
-        issues.push(issue('fantasypros-adp-provider-duplicate', 'duplicate provider key ' + value.key));
-      }
-      providerKeys.add(value.key);
-      for (const field of ['rows', 'matchedRows'] as const) {
-        const count = value[field];
-        if (!Number.isInteger(count) || (count as number) < 0) {
-          issues.push(issue('fantasypros-adp-provider-count', 'providers[' + index + '] ' + field + ' is invalid'));
-        }
-      }
-    }
-  }
-
-  if (playerRecord) {
-    for (const [playerId, value] of Object.entries(playerRecord)) {
-      if (!isRecord(value)) {
-        issues.push(issue('fantasypros-adp-player-value', playerId + ' is not an object'));
-        continue;
-      }
-      if (!Number.isInteger(value.rank) || (value.rank as number) <= 0) {
-        issues.push(issue('fantasypros-adp-player-rank', playerId + ' has invalid rank ' + String(value.rank)));
-      }
-      if (typeof value.positionRank !== 'string' || !value.positionRank.trim()) {
-        issues.push(issue('fantasypros-adp-player-position-rank', playerId + ' has invalid positionRank'));
-      }
-      const adp = value.adp;
-      if (adp !== undefined) {
-        if (!isRecord(adp)) {
-          issues.push(issue('fantasypros-adp-player-adp-object', playerId + ' adp is not an object'));
-        } else {
-          for (const [key, adpValue] of Object.entries(adp)) {
-            if (typeof adpValue !== 'number' || !Number.isFinite(adpValue) || adpValue < 0) {
-              issues.push(issue('fantasypros-adp-player-adp-value', playerId + ' adp.' + key + ' is invalid'));
-            }
-          }
-        }
-      }
-      const avg = value.avg;
-      if (avg !== undefined && (typeof avg !== 'number' || !Number.isFinite(avg) || avg < 0)) {
-        issues.push(issue('fantasypros-adp-player-avg', playerId + ' has invalid avg'));
-      }
-      const realTime = value.realTime;
-      if (realTime !== undefined) {
-        if (
-          !isRecord(realTime)
-          || typeof realTime.rank !== 'number' || !Number.isInteger(realTime.rank)
-          || (realTime.delta !== null && typeof realTime.delta !== 'number')
-        ) {
-          issues.push(issue('fantasypros-adp-player-real-time', playerId + ' has invalid realTime'));
-        }
-      }
-    }
-  }
-
-  if (Array.isArray(unmatched)) {
-    for (const [index, value] of unmatched.entries()) {
-      if (!isRecord(value)) {
-        issues.push(issue('fantasypros-adp-unmatched-row', 'unmatched[' + index + '] is not an object'));
-        continue;
-      }
-      if (!Number.isInteger(value.rank) || (value.rank as number) <= 0) {
-        issues.push(issue('fantasypros-adp-unmatched-rank', 'unmatched[' + index + '] has invalid rank'));
-      }
-      if (typeof value.name !== 'string' || !value.name.trim()) {
-        issues.push(issue('fantasypros-adp-unmatched-name', 'unmatched[' + index + '] has invalid name'));
-      }
-      if (typeof value.reason !== 'string' || !value.reason.trim()) {
-        issues.push(issue('fantasypros-adp-unmatched-reason', 'unmatched[' + index + '] has invalid reason'));
-      }
-    }
-  }
-  return issues;
-}
 
 
 /** Validate the committed multi-provider projections artifact (display-only). */
@@ -581,14 +334,21 @@ export function validateAdpRanges(entries: AdpEntry[]): ValidationIssue[] {
   return issues;
 }
 
-/** `high`/`low`/`timesDrafted` are `null`, not a real 0, when a source (Sleeper's lobby ADP, or ESPN's leaguedefaults feed) doesn't
- * expose them at all — see AdpEntry's doc. Checks the provenance tags are one of the declared
- * values and that each source's nullability contract holds: FFC always carries observed population
- * fields; Sleeper and ESPN always carry fitted stdev with null population fields. */
+/** `high`/`low`/`timesDrafted` are `null`, not a real 0, when a source (Sleeper's lobby ADP, ESPN's
+ * leaguedefaults feed, or Underdog's best-ball board) doesn't expose them at all — see AdpEntry's
+ * doc. Checks the provenance tags are one of the declared values and that each source's nullability
+ * contract holds: FFC always carries observed population fields; Sleeper, ESPN and Underdog always
+ * carry fitted stdev with null population fields. */
 export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const entry of entries) {
-    if (entry.adpSource !== 'sleeper' && entry.adpSource !== 'ffc' && entry.adpSource !== 'espn') {
+    const populationAbsentSource =
+      entry.adpSource === 'underdog'
+        ? 'adp-underdog-population-absent'
+        : entry.adpSource === 'espn'
+          ? 'adp-espn-population-absent'
+          : 'adp-sleeper-population-absent';
+    if (entry.adpSource !== 'sleeper' && entry.adpSource !== 'ffc' && entry.adpSource !== 'espn' && entry.adpSource !== 'underdog') {
       issues.push({ check: 'adp-source-valid', detail: `${entry.name} has invalid adpSource ${String(entry.adpSource)}` });
     }
     if (entry.stdevSource !== 'observed' && entry.stdevSource !== 'fitted') {
@@ -613,16 +373,18 @@ export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
         });
       }
     }
-    if (entry.adpSource === 'sleeper' || entry.adpSource === 'espn') {
+    if (entry.adpSource === 'sleeper' || entry.adpSource === 'espn' || entry.adpSource === 'underdog') {
       if (entry.stdevSource !== 'fitted') {
         issues.push({
-          check: entry.adpSource === 'espn' ? 'adp-espn-stdev-fitted' : 'adp-sleeper-stdev-fitted',
+          check: entry.adpSource === 'espn' ? 'adp-espn-stdev-fitted'
+            : entry.adpSource === 'underdog' ? 'adp-underdog-stdev-fitted'
+            : 'adp-sleeper-stdev-fitted',
           detail: `${entry.name} is adpSource '${entry.adpSource}' but stdevSource is ${entry.stdevSource}`,
         });
       }
       if (entry.high != null || entry.low != null || entry.timesDrafted != null) {
         issues.push({
-          check: entry.adpSource === 'espn' ? 'adp-espn-population-absent' : 'adp-sleeper-population-absent',
+          check: populationAbsentSource,
           detail: `${entry.name} is adpSource '${entry.adpSource}' but has high/low/timesDrafted set`,
         });
       }

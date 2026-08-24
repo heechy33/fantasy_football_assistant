@@ -42,8 +42,20 @@ const espnManifest = readJson(join('data', 'manifest.json'));
 const espnAdpOk = espnManifest?.sources?.['espn_adp_ppr']?.status === 'ok';
 const espnAdpRequired = espnAdpOk ? [join('data', 'adp-espn-ppr.json')] : [];
 
+// The Underdog best-ball board (`data/adp-underdog-bestball.json`) follows the
+// same fail-open pattern, with one difference: on failure the pipeline leaves
+// the PRIOR committed board byte-identical (it never deletes it, because the
+// Underdog lane is display/decoration + market-spread raw material only and
+// is never treated as current-by-default). The staged copy therefore always
+// exists once a first successful run has committed one — so it's required
+// exactly when the manifest reports `underdog_bestball` ok, mirroring ESPN.
+const manifest = espnManifest;
+const underdogAdpOk = manifest?.sources?.['underdog_bestball']?.status === 'ok';
+const underdogAdpRequired = underdogAdpOk ? [join('data', 'adp-underdog-bestball.json')] : [];
+
 const missing = required.filter((rel) => !existsSync(join(distDir, rel)))
-  .concat(espnAdpRequired.filter((rel) => !existsSync(join(distDir, rel))));
+  .concat(espnAdpRequired.filter((rel) => !existsSync(join(distDir, rel))))
+  .concat(underdogAdpRequired.filter((rel) => !existsSync(join(distDir, rel))));
 const forbidden = mustNotExist.filter((rel) => existsSync(join(distDir, rel)));
 
 if (missing.length > 0 || forbidden.length > 0) {
@@ -58,6 +70,11 @@ if (espnAdpOk) {
   console.log(`Artifact verification: manifest reports espn_adp_ppr ok — data/adp-espn-ppr.json present in ${distDir}`);
 } else {
   console.log('Artifact verification: manifest reports espn_adp_ppr error/absent — ESPN ADP board not required (fail-open)');
+}
+if (underdogAdpOk) {
+  console.log(`Artifact verification: manifest reports underdog_bestball ok — data/adp-underdog-bestball.json present in ${distDir}`);
+} else {
+  console.log('Artifact verification: manifest reports underdog_bestball error/absent — Underdog best-ball board not required (fail-open)');
 }
 
 /** Read and parse a JSON file from dist, or null when missing/unparseable. */

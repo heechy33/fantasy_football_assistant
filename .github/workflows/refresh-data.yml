@@ -28,6 +28,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   refresh:
@@ -55,13 +56,59 @@ jobs:
         run: python pipeline/build_data.py
 
       - name: Commit updated data
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           if git diff --cached --quiet; then
             echo "No data changes, nothing to commit."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "data: refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      # Layer D retention (DECISIONS.md 2026-08-24): mark the commit as a
+      # first-class dated vintage. Weekly cadence — Monday runs only, plus
+      # every manual dispatch (so a vintage can be forced before drafts,
+      # waiver deadlines, or other events). Idempotent per day: if the tag
+      # already exists, the first capture of the day stands.
+      - name: Tag data snapshot vintage
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ "$(date -u +%u)" != "1" ]; then
+            echo "Not a Monday and not a manual dispatch — no snapshot tag this run."
+            exit 0
+          fi
+          TAG="data-snapshots/$(date -u +%F)"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists — keeping the first capture of the day."
+          else
+            git tag -a "$TAG" -m "layer D data vintage $(date -u +%F) (${EVENT_NAME})"
+            git push origin "$TAG"
+            echo "Tagged $TAG."
+          fi
+
+      # A silent cron failure would silently punch holes in the vintage record.
+      # Make it loud: open one issue per day of failures, appending comments for
+      # repeat failures so the backlog is visible without spamming.
+      - name: Open an issue when the refresh fails
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="refresh-data failed on $(date -u +%F)"
+          NOTE="Failure at $(date -u +%FT%TZ) — run: ${RUN_URL}"
+          EXISTING=$(gh issue list --search "${TITLE} in:title" --state open --json number --jq '.[0].number' || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$NOTE"
+          else
+            gh issue create --title "$TITLE" --body "$NOTE
+          Layer D vintage retention is broken until this is fixed; any missed days are permanent holes in the dated-snapshot record."
+          fi
+

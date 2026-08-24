@@ -1,0 +1,6503 @@
+{
+ "schemaVersion": 1,
+ "season": "2025",
+ "source": "espn-frozen-2025",
+ "scoringKeys": [
+  "pass_yd",
+  "pass_td",
+  "pass_int",
+  "pass_2pt",
+  "rush_yd",
+  "rush_td",
+  "rush_2pt",
+  "rec",
+  "rec_yd",
+  "rec_td",
+  "rec_2pt",
+  "fum_lost",
+  "fgm",
+  "xpm",
+  "sack",
+  "int",
+  "fum_rec",
+  "def_td",
+  "def_kr_td"
+ ],
+ "builtAt": "2026-08-23T23:49:20.303445+00:00",
+ "note": "Derived from frozen bytes only (fixtures/projection-freeze/2025-retrievable/). Stats restricted to BACKTEST_SCORING keys; scoring happens in TS via the real scoreProjection \u2014 this file carries raw stat values only.",
+ "keyCoverage": {
+  "def_kr_td": 103,
+  "def_td": 33,
+  "fgm": 34,
+  "fum_lost": 454,
+  "fum_rec": 33,
+  "int": 33,
+  "pass_2pt": 66,
+  "pass_int": 66,
+  "pass_td": 66,
+  "pass_yd": 66,
+  "rec": 385,
+  "rec_2pt": 385,
+  "rec_td": 385,
+  "rec_yd": 385,
+  "rush_2pt": 243,
+  "rush_td": 243,
+  "rush_yd": 243,
+  "sack": 33,
+  "xpm": 34
+ },
+ "projections": [
+  {
+   "playerId": "9221",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1153.123756,
+    "rush_td": 10.83725079,
+    "rush_2pt": 0.428611308,
+    "rec_yd": 566.5696534,
+    "rec_td": 3.441424223,
+    "rec_2pt": 0.195657699,
+    "rec": 60.34979619,
+    "fum_lost": 1.007437
+   }
+  },
+  {
+   "playerId": "4034",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1169.139537,
+    "rush_td": 8.375111279,
+    "rush_2pt": 0.276521491,
+    "rec_yd": 611.2333441,
+    "rec_td": 3.440508084,
+    "rec_2pt": 0.144624994,
+    "rec": 71.55861391,
+    "fum_lost": 1.501304426
+   }
+  },
+  {
+   "playerId": "7564",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 19.5647913,
+    "rush_td": 0.119984106,
+    "rush_2pt": 0.006924406,
+    "rec_yd": 1536.38307,
+    "rec_td": 11.2996368,
+    "rec_2pt": 0.427915345,
+    "rec": 116.6923989,
+    "fum_lost": 0.846645171
+   }
+  },
+  {
+   "playerId": "9493",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 77.0832129,
+    "rush_td": 0.786406826,
+    "rush_2pt": 0.042926648,
+    "rec_yd": 1401.103864,
+    "rec_td": 6.923270457,
+    "rec_2pt": 0.374465482,
+    "rec": 105.2520822,
+    "fum_lost": 0.78445772
+   }
+  },
+  {
+   "playerId": "9509",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1443.046174,
+    "rush_td": 11.82538324,
+    "rush_2pt": 0.534008827,
+    "rec_yd": 490.6567169,
+    "rec_td": 2.287981729,
+    "rec_2pt": 0.142663009,
+    "rec": 62.49839902,
+    "fum_lost": 1.299880261
+   }
+  },
+  {
+   "playerId": "8130",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1086.589815,
+    "rec_td": 6.26661592,
+    "rec_2pt": 0.476415735,
+    "rec": 113.0974789,
+    "fum_lost": 0.558510781
+   }
+  },
+  {
+   "playerId": "7547",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 30.89312061,
+    "rush_td": 0.251150369,
+    "rush_2pt": 0.009932952,
+    "rec_yd": 1247.887101,
+    "rec_td": 7.538091338,
+    "rec_2pt": 0.428490622,
+    "rec": 116.6864706,
+    "fum_lost": 0.827608758
+   }
+  },
+  {
+   "playerId": "6786",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 47.74248876,
+    "rush_td": 0.328852104,
+    "rush_2pt": 0.019842142,
+    "rec_yd": 1451.551003,
+    "rec_td": 8.119312512,
+    "rec_2pt": 0.425803477,
+    "rec": 117.9637487,
+    "fum_lost": 0.995367649
+   }
+  },
+  {
+   "playerId": "9488",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 40.51651019,
+    "rush_td": 0.218705405,
+    "rush_2pt": 0.011488755,
+    "rec_yd": 1092.117271,
+    "rec_td": 6.406842476,
+    "rec_2pt": 0.363059735,
+    "rec": 88.48978938,
+    "fum_lost": 0.688459026
+   }
+  },
+  {
+   "playerId": "6813",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1581.552543,
+    "rush_td": 11.37770377,
+    "rush_2pt": 0.544261565,
+    "rec_yd": 249.3975932,
+    "rec_td": 1.141555482,
+    "rec_2pt": 0.0817482,
+    "rec": 32.65040878,
+    "fum_lost": 1.71908645
+   }
+  },
+  {
+   "playerId": "8138",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1240.549545,
+    "rush_td": 11.7910192,
+    "rush_2pt": 0.378323904,
+    "rec_yd": 283.3317591,
+    "rec_td": 1.886420803,
+    "rec_2pt": 0.10214065,
+    "rec": 36.57462311,
+    "fum_lost": 1.076473348
+   }
+  },
+  {
+   "playerId": "4866",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1605.250367,
+    "rush_td": 11.13990149,
+    "rush_2pt": 0.367102617,
+    "rec_yd": 377.5742218,
+    "rec_td": 2.431108248,
+    "rec_2pt": 0.16524241,
+    "rec": 47.60164663,
+    "fum_lost": 1.225343218
+   }
+  },
+  {
+   "playerId": "9226",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1010.598547,
+    "rush_td": 9.022006048,
+    "rush_2pt": 0.508355492,
+    "rec_yd": 561.3026657,
+    "rec_td": 3.703479611,
+    "rec_2pt": 0.198096223,
+    "rec": 74.41055078,
+    "fum_lost": 0.943173389
+   }
+  },
+  {
+   "playerId": "4984",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.48622527,
+    "pass_int": 10.72663087,
+    "rush_yd": 584.4774516,
+    "rush_td": 11.16764008,
+    "rush_2pt": 0.358341726,
+    "pass_yd": 3953.702332,
+    "pass_td": 27.48252596,
+    "fum_lost": 4.059139872
+   }
+  },
+  {
+   "playerId": "6904",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.525697198,
+    "pass_int": 10.06701011,
+    "rush_yd": 683.5165353,
+    "rush_td": 14.06540947,
+    "rush_2pt": 0.463532051,
+    "pass_yd": 3701.374219,
+    "pass_td": 22.46300633,
+    "fum_lost": 4.631364991
+   }
+  },
+  {
+   "playerId": "3198",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1532.780096,
+    "rush_td": 14.9163117,
+    "rush_2pt": 0.584042657,
+    "rec_yd": 157.2365975,
+    "rec_td": 1.109813525,
+    "rec_2pt": 0.050955994,
+    "rec": 17.87433844,
+    "fum_lost": 1.321141625
+   }
+  },
+  {
+   "playerId": "12527",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1254.993639,
+    "rush_td": 8.87159855,
+    "rush_2pt": 0.480699825,
+    "rec_yd": 481.7861723,
+    "rec_td": 2.286306238,
+    "rec_2pt": 0.128173897,
+    "rec": 62.73094959,
+    "fum_lost": 1.322019084
+   }
+  },
+  {
+   "playerId": "6794",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1421.389706,
+    "rec_td": 10.38580848,
+    "rec_2pt": 0.39568119,
+    "rec": 112.2780875,
+    "fum_lost": 0.849726119
+   }
+  },
+  {
+   "playerId": "8137",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 11.84364153,
+    "rush_td": 0.107122028,
+    "rush_2pt": 0.006463485,
+    "rec_yd": 1032.848025,
+    "rec_td": 7.479207978,
+    "rec_2pt": 0.392293415,
+    "rec": 72.19303974,
+    "fum_lost": 0.827278389
+   }
+  },
+  {
+   "playerId": "8150",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1415.781349,
+    "rush_td": 12.37899013,
+    "rush_2pt": 0.675717118,
+    "rec_yd": 235.0524576,
+    "rec_td": 1.888521411,
+    "rec_2pt": 0.102173358,
+    "rec": 35.51963318,
+    "fum_lost": 1.910953486
+   }
+  },
+  {
+   "playerId": "11533",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.46510744,
+    "xpm": 39.23941727
+   }
+  },
+  {
+   "playerId": "11564",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.367022205,
+    "pass_int": 12.6309326,
+    "rush_yd": 608.8442055,
+    "rush_td": 2.743595849,
+    "rush_2pt": 0.136152366,
+    "pass_yd": 3664.46898,
+    "pass_td": 23.52015987,
+    "fum_lost": 5.394935192
+   }
+  },
+  {
+   "playerId": "7569",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1386.135263,
+    "rec_td": 8.424741013,
+    "rec_2pt": 0.441941611,
+    "rec": 100.2469492,
+    "fum_lost": 0.59856494
+   }
+  },
+  {
+   "playerId": "9224",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1078.134921,
+    "rush_td": 8.764986742,
+    "rush_2pt": 0.505836391,
+    "rec_yd": 427.2576373,
+    "rec_td": 2.51020747,
+    "rec_2pt": 0.095069682,
+    "rec": 64.37848832,
+    "fum_lost": 1.310824092
+   }
+  },
+  {
+   "playerId": "8112",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1201.994724,
+    "rec_td": 8.370689067,
+    "rec_2pt": 0.521860556,
+    "rec": 97.30993494,
+    "fum_lost": 0.715580318
+   }
+  },
+  {
+   "playerId": "5859",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1340.243076,
+    "rec_td": 8.440156517,
+    "rec_2pt": 0.573604156,
+    "rec": 91.17458216,
+    "fum_lost": 0.693120746
+   }
+  },
+  {
+   "playerId": "5850",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1295.634206,
+    "rush_td": 11.78090941,
+    "rush_2pt": 0.597437701,
+    "rec_yd": 326.8676555,
+    "rec_td": 1.727686135,
+    "rec_2pt": 0.098576097,
+    "rec": 41.34922815,
+    "fum_lost": 1.631385296
+   }
+  },
+  {
+   "playerId": "11584",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1239.474302,
+    "rush_td": 8.232835022,
+    "rush_2pt": 0.553518025,
+    "rec_yd": 411.0117103,
+    "rec_td": 2.764463489,
+    "rec_2pt": 0.134425992,
+    "rec": 53.45148239,
+    "fum_lost": 1.230422679
+   }
+  },
+  {
+   "playerId": "DEN",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.761509113,
+    "def_td": 1.698850569,
+    "int": 12.16929279,
+    "fum_rec": 7.325520383,
+    "sack": 44.2125561
+   }
+  },
+  {
+   "playerId": "6801",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1155.974665,
+    "rec_td": 9.375587976,
+    "rec_2pt": 0.355049415,
+    "rec": 94.35609311,
+    "fum_lost": 0.772855853
+   }
+  },
+  {
+   "playerId": "12518",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 20.01438332,
+    "rush_td": 0.155490118,
+    "rush_2pt": 0.007437994,
+    "rec_yd": 689.4214244,
+    "rec_td": 4.929017139,
+    "rec_2pt": 0.352918504,
+    "rec": 64.7561601,
+    "fum_lost": 0.441606724
+   }
+  },
+  {
+   "playerId": "8148",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 74.02388683,
+    "rush_td": 0.760319351,
+    "rush_2pt": 0.030070493,
+    "rec_yd": 1080.997969,
+    "rec_td": 5.530010531,
+    "rec_2pt": 0.314346857,
+    "rec": 65.66580805,
+    "fum_lost": 0.502621692
+   }
+  },
+  {
+   "playerId": "12529",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.158859749,
+    "rush_yd": 984.843879,
+    "rush_td": 6.312366511,
+    "rush_2pt": 0.313174407,
+    "rec_yd": 330.5011735,
+    "rec_td": 1.909947446,
+    "rec_2pt": 0.111140701,
+    "rec": 43.17493845,
+    "fum_lost": 1.034255921
+   }
+  },
+  {
+   "playerId": "9997",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 63.11281263,
+    "rush_td": 0.49943355,
+    "rush_2pt": 0.019555136,
+    "rec_yd": 1072.82264,
+    "rec_td": 7.107501667,
+    "rec_2pt": 0.32628718,
+    "rec": 73.58839336,
+    "fum_lost": 0.510528035
+   }
+  },
+  {
+   "playerId": "7543",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 735.0076366,
+    "rush_td": 3.686820966,
+    "rush_2pt": 0.20449641,
+    "rec_yd": 367.5369496,
+    "rec_td": 1.44623097,
+    "rec_2pt": 0.079496694,
+    "rec": 48.17210333,
+    "fum_lost": 0.849066283
+   }
+  },
+  {
+   "playerId": "2133",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1170.427561,
+    "rec_td": 9.158489474,
+    "rec_2pt": 0.495428479,
+    "rec": 85.06611186,
+    "fum_lost": 0.500425041
+   }
+  },
+  {
+   "playerId": "HOU",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.494446455,
+    "def_td": 1.769327131,
+    "int": 13.71341612,
+    "fum_rec": 7.971876258,
+    "sack": 42.12052837
+   }
+  },
+  {
+   "playerId": "6790",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1037.501791,
+    "rush_td": 8.452740708,
+    "rush_2pt": 0.431048672,
+    "rec_yd": 292.6681541,
+    "rec_td": 1.202564232,
+    "rec_2pt": 0.068997769,
+    "rec": 37.18824485,
+    "fum_lost": 1.210091954
+   }
+  },
+  {
+   "playerId": "7021",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 339.6954806,
+    "rush_td": 1.556284472,
+    "rush_2pt": 0.081628219,
+    "rec_yd": 147.6549864,
+    "rec_td": 0.818402528,
+    "rec_2pt": 0.046318053,
+    "rec": 21.52516292,
+    "fum_lost": 0.416892616
+   }
+  },
+  {
+   "playerId": "11635",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1146.79176,
+    "rec_td": 6.26828602,
+    "rec_2pt": 0.369096473,
+    "rec": 92.18053834,
+    "fum_lost": 1.005580209
+   }
+  },
+  {
+   "playerId": "5045",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1009.407401,
+    "rec_td": 8.651086906,
+    "rec_2pt": 0.459514653,
+    "rec": 75.1500547,
+    "fum_lost": 0.676713339
+   }
+  },
+  {
+   "playerId": "7588",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 957.1938454,
+    "rush_td": 7.86311337,
+    "rush_2pt": 0.474428296,
+    "rec_yd": 273.3479606,
+    "rec_td": 1.248684008,
+    "rec_2pt": 0.065500139,
+    "rec": 40.72749261,
+    "fum_lost": 1.182704576
+   }
+  },
+  {
+   "playerId": "421",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.544576603,
+    "pass_int": 12.27133225,
+    "rush_yd": 58.68654749,
+    "rush_td": 0.872518052,
+    "rush_2pt": 0.047631684,
+    "pass_yd": 4422.692621,
+    "pass_td": 28.54701129,
+    "fum_lost": 3.47595923
+   }
+  },
+  {
+   "playerId": "3294",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.428354829,
+    "pass_int": 13.89567894,
+    "rush_yd": 196.7668308,
+    "rush_td": 2.354771937,
+    "rush_2pt": 0.142097412,
+    "pass_yd": 4394.619524,
+    "pass_td": 27.25052663,
+    "fum_lost": 4.185681053
+   }
+  },
+  {
+   "playerId": "8144",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1024.064734,
+    "rec_td": 4.210946924,
+    "rec_2pt": 0.245163077,
+    "rec": 83.28999738,
+    "fum_lost": 0.834262997
+   }
+  },
+  {
+   "playerId": "8155",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1018.783767,
+    "rush_td": 5.426637675,
+    "rush_2pt": 0.237431678,
+    "rec_yd": 390.8720521,
+    "rec_td": 1.701011583,
+    "rec_2pt": 0.111420673,
+    "rec": 44.92600637,
+    "fum_lost": 1.703524293
+   }
+  },
+  {
+   "playerId": "1466",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 738.651679,
+    "rec_td": 5.188651514,
+    "rec_2pt": 0.272165565,
+    "rec": 76.63319607,
+    "fum_lost": 0.559696469
+   }
+  },
+  {
+   "playerId": "7553",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 669.5158163,
+    "rec_td": 4.375223778,
+    "rec_2pt": 0.272785509,
+    "rec": 49.77902798,
+    "fum_lost": 0.238676484
+   }
+  },
+  {
+   "playerId": "7526",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 23.44945914,
+    "rush_td": 0.244553048,
+    "rush_2pt": 0.013779292,
+    "rec_yd": 1082.79055,
+    "rec_td": 4.591671862,
+    "rec_2pt": 0.245505385,
+    "rec": 87.58066726,
+    "fum_lost": 0.619524258
+   }
+  },
+  {
+   "playerId": "8228",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.153244485,
+    "rush_yd": 994.0382041,
+    "rush_td": 6.186222028,
+    "rush_2pt": 0.27218539,
+    "rec_yd": 435.9614131,
+    "rec_td": 1.906228451,
+    "rec_2pt": 0.102498004,
+    "rec": 59.98455499,
+    "fum_lost": 1.536565714
+   }
+  },
+  {
+   "playerId": "12526",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1125.847172,
+    "rec_td": 6.670364173,
+    "rec_2pt": 0.377449401,
+    "rec": 82.86320832,
+    "fum_lost": 0.49303157
+   }
+  },
+  {
+   "playerId": "7525",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 996.3496744,
+    "rec_td": 5.925896881,
+    "rec_2pt": 0.402712543,
+    "rec": 88.14880372,
+    "fum_lost": 0.591598748
+   }
+  },
+  {
+   "playerId": "2449",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.20067927,
+    "rush_td": 0.132640098,
+    "rush_2pt": 0.006580651,
+    "rec_yd": 715.0217077,
+    "rec_td": 3.618525254,
+    "rec_2pt": 0.210425508,
+    "rec": 65.90415186,
+    "fum_lost": 0.461616641
+   }
+  },
+  {
+   "playerId": "8151",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1045.253078,
+    "rush_td": 7.894529816,
+    "rush_2pt": 0.414705426,
+    "rec_yd": 333.0643608,
+    "rec_td": 1.459916982,
+    "rec_2pt": 0.082750396,
+    "rec": 45.56675793,
+    "fum_lost": 0.890579183
+   }
+  },
+  {
+   "playerId": "6770",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.310362638,
+    "pass_int": 11.78887817,
+    "rush_yd": 199.0240012,
+    "rush_td": 2.584293806,
+    "rush_2pt": 0.14916714,
+    "pass_yd": 4644.941594,
+    "pass_td": 34.6220043,
+    "fum_lost": 4.409594477
+   }
+  },
+  {
+   "playerId": "11539",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.86177812,
+    "xpm": 46.16397709
+   }
+  },
+  {
+   "playerId": "4881",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.453694286,
+    "pass_int": 9.917633235,
+    "rush_yd": 890.6574283,
+    "rush_td": 4.199946175,
+    "rush_2pt": 0.164454852,
+    "pass_yd": 3698.690158,
+    "pass_td": 31.68665221,
+    "fum_lost": 4.404493368
+   }
+  },
+  {
+   "playerId": "12489",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 834.1645928,
+    "rush_td": 5.129153831,
+    "rush_2pt": 0.299834498,
+    "rec_yd": 350.0908069,
+    "rec_td": 2.173295157,
+    "rec_2pt": 0.115463022,
+    "rec": 45.98013341,
+    "fum_lost": 0.919776735
+   }
+  },
+  {
+   "playerId": "8110",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 638.2767034,
+    "rec_td": 3.495073277,
+    "rec_2pt": 0.183286457,
+    "rec": 66.67480964,
+    "fum_lost": 0.746757868
+   }
+  },
+  {
+   "playerId": "4217",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1048.25351,
+    "rec_td": 6.765169918,
+    "rec_2pt": 0.284354081,
+    "rec": 82.51973831,
+    "fum_lost": 0.400099309
+   }
+  },
+  {
+   "playerId": "12507",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1146.393911,
+    "rush_td": 10.84347719,
+    "rush_2pt": 0.52258369,
+    "rec_yd": 299.3049566,
+    "rec_td": 1.660881954,
+    "rec_2pt": 0.097821863,
+    "rec": 40.82804629,
+    "fum_lost": 1.153203241
+   }
+  },
+  {
+   "playerId": "6819",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 933.3608376,
+    "rec_td": 3.730723665,
+    "rec_2pt": 0.266920485,
+    "rec": 86.49009343,
+    "fum_lost": 0.838042693
+   }
+  },
+  {
+   "playerId": "12514",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.118986033,
+    "rush_yd": 27.61656077,
+    "rush_td": 0.181312947,
+    "rush_2pt": 0.01219021,
+    "rec_yd": 768.2443344,
+    "rec_td": 6.179876179,
+    "rec_2pt": 0.300508611,
+    "rec": 57.51968139,
+    "fum_lost": 0.364086924
+   }
+  },
+  {
+   "playerId": "SEA",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.383656756,
+    "def_td": 1.737953922,
+    "int": 13.61903743,
+    "fum_rec": 9.330530032,
+    "sack": 40.50665011
+   }
+  },
+  {
+   "playerId": "8259",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.53499256,
+    "xpm": 40.51694427
+   }
+  },
+  {
+   "playerId": "5872",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 121.0086532,
+    "rush_td": 1.723278179,
+    "rush_2pt": 0.066228906,
+    "rec_yd": 896.6032972,
+    "rec_td": 4.812288783,
+    "rec_2pt": 0.265515495,
+    "rec": 63.32957602,
+    "fum_lost": 0.938238464
+   }
+  },
+  {
+   "playerId": "5022",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 11.81273904,
+    "rush_td": 0.192171607,
+    "rush_2pt": 0.006332794,
+    "rec_yd": 682.0872681,
+    "rec_td": 3.693116453,
+    "rec_2pt": 0.250983006,
+    "rec": 64.87809936,
+    "fum_lost": 0.623392139
+   }
+  },
+  {
+   "playerId": "11563",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.437161161,
+    "pass_int": 12.16896718,
+    "rush_yd": 417.9363125,
+    "rush_td": 3.412078426,
+    "rush_2pt": 0.199494959,
+    "pass_yd": 3949.60357,
+    "pass_td": 27.06710741,
+    "fum_lost": 2.860208331
+   }
+  },
+  {
+   "playerId": "5927",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 12.79893857,
+    "rush_td": 0.109591236,
+    "rush_2pt": 0.004211803,
+    "rec_yd": 1150.305423,
+    "rec_td": 7.553091186,
+    "rec_2pt": 0.41700649,
+    "rec": 85.82455593,
+    "fum_lost": 0.664667981
+   }
+  },
+  {
+   "playerId": "2216",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1018.63233,
+    "rec_td": 8.946786788,
+    "rec_2pt": 0.435028015,
+    "rec": 79.47406987,
+    "fum_lost": 0.41958703
+   }
+  },
+  {
+   "playerId": "5892",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 849.6560055,
+    "rush_td": 10.05112764,
+    "rush_2pt": 0.39752028,
+    "rec_yd": 271.1611677,
+    "rec_td": 0.976521842,
+    "rec_2pt": 0.05551392,
+    "rec": 36.04344525,
+    "fum_lost": 0.921869121
+   }
+  },
+  {
+   "playerId": "10232",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 522.0450765,
+    "rec_td": 2.921092019,
+    "rec_2pt": 0.222054425,
+    "rec": 46.52118155,
+    "fum_lost": 0.453562894
+   }
+  },
+  {
+   "playerId": "11631",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 25.66434358,
+    "rush_td": 0.14149613,
+    "rush_2pt": 0.007846628,
+    "rec_yd": 1316.011875,
+    "rec_td": 6.762558963,
+    "rec_2pt": 0.371629644,
+    "rec": 95.31900958,
+    "fum_lost": 0.833283785
+   }
+  },
+  {
+   "playerId": "6797",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.474858115,
+    "pass_int": 10.33027193,
+    "rush_yd": 266.0087839,
+    "rush_td": 2.541568165,
+    "rush_2pt": 0.122498056,
+    "pass_yd": 4168.862167,
+    "pass_td": 25.06022657,
+    "fum_lost": 3.549962439
+   }
+  },
+  {
+   "playerId": "11628",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1142.126711,
+    "rec_td": 7.30395626,
+    "rec_2pt": 0.55528806,
+    "rec": 82.50157289,
+    "fum_lost": 0.845948495
+   }
+  },
+  {
+   "playerId": "NE",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.357434434,
+    "def_td": 1.741021708,
+    "int": 12.89546982,
+    "fum_rec": 6.35174119,
+    "sack": 40.4881905
+   }
+  },
+  {
+   "playerId": "8126",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.25664665,
+    "rush_td": 0.090760387,
+    "rush_2pt": 0.005927155,
+    "rec_yd": 676.709207,
+    "rec_td": 2.424709441,
+    "rec_2pt": 0.185522238,
+    "rec": 69.03585765,
+    "fum_lost": 0.373580832
+   }
+  },
+  {
+   "playerId": "7049",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 947.6838741,
+    "rec_td": 4.784107745,
+    "rec_2pt": 0.201047407,
+    "rec": 70.174437,
+    "fum_lost": 0.672379832
+   }
+  },
+  {
+   "playerId": "5947",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 12.54888403,
+    "rush_td": 0.102666565,
+    "rush_2pt": 0.005562898,
+    "rec_yd": 984.0481031,
+    "rec_td": 5.337934222,
+    "rec_2pt": 0.299101642,
+    "rec": 87.94784321,
+    "fum_lost": 0.626500302
+   }
+  },
+  {
+   "playerId": "3214",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 586.7016488,
+    "rec_td": 5.575348794,
+    "rec_2pt": 0.324401303,
+    "rec": 55.8102144,
+    "fum_lost": 0.227200794
+   }
+  },
+  {
+   "playerId": "4892",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.62192054,
+    "pass_int": 13.9533873,
+    "rush_yd": 320.340748,
+    "rush_td": 2.143639993,
+    "rush_2pt": 0.144150296,
+    "pass_yd": 4158.22981,
+    "pass_td": 33.36385606,
+    "fum_lost": 4.804915897
+   }
+  },
+  {
+   "playerId": "11560",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.424428594,
+    "pass_int": 11.07664552,
+    "rush_yd": 445.0794114,
+    "rush_td": 1.360577925,
+    "rush_2pt": 0.069403653,
+    "pass_yd": 3889.045757,
+    "pass_td": 24.82819913,
+    "fum_lost": 4.416612097
+   }
+  },
+  {
+   "playerId": "3163",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.496242565,
+    "pass_int": 12.33092816,
+    "rush_yd": 66.48242282,
+    "rush_td": 0.608272302,
+    "rush_2pt": 0.024058718,
+    "pass_yd": 4337.254152,
+    "pass_td": 26.37865533,
+    "fum_lost": 3.716393292
+   }
+  },
+  {
+   "playerId": "10229",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 7.431226798,
+    "rush_td": 0.062207653,
+    "rush_2pt": 0.003587525,
+    "rec_yd": 710.1522593,
+    "rec_td": 4.83144037,
+    "rec_2pt": 0.253147418,
+    "rec": 62.82537604,
+    "fum_lost": 0.715344347
+   }
+  },
+  {
+   "playerId": "11655",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 956.6144642,
+    "rush_td": 5.891962202,
+    "rush_2pt": 0.384768896,
+    "rec_yd": 298.2605308,
+    "rec_td": 1.541307623,
+    "rec_2pt": 0.118093241,
+    "rec": 39.44678356,
+    "fum_lost": 1.887860136
+   }
+  },
+  {
+   "playerId": "8183",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.045572448,
+    "pass_int": 12.59859427,
+    "rush_yd": 263.5676691,
+    "rush_td": 4.478024973,
+    "rush_2pt": 0.147873201,
+    "pass_yd": 4583.932527,
+    "pass_td": 24.92269613,
+    "fum_lost": 3.729322052
+   }
+  },
+  {
+   "playerId": "4983",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 50.00684369,
+    "rush_td": 0.272683926,
+    "rush_2pt": 0.013905554,
+    "rec_yd": 1060.737992,
+    "rec_td": 6.304729221,
+    "rec_2pt": 0.361631993,
+    "rec": 88.02887082,
+    "fum_lost": 0.702059348
+   }
+  },
+  {
+   "playerId": "7567",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.183893382,
+    "rush_yd": 876.140804,
+    "rush_td": 7.493352475,
+    "rush_2pt": 0.329643649,
+    "rec_yd": 234.2902326,
+    "rec_td": 0.809629609,
+    "rec_2pt": 0.043526822,
+    "rec": 32.19287653,
+    "fum_lost": 0.889183456
+   }
+  },
+  {
+   "playerId": "4199",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 804.7877432,
+    "rush_td": 4.841377542,
+    "rush_2pt": 0.281115312,
+    "rec_yd": 389.6365268,
+    "rec_td": 3.094016814,
+    "rec_2pt": 0.117921611,
+    "rec": 51.00611952,
+    "fum_lost": 1.306965545
+   }
+  },
+  {
+   "playerId": "1945",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.59781563,
+    "xpm": 35.08655462
+   }
+  },
+  {
+   "playerId": "11620",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.18611953,
+    "rush_td": 0.110120495,
+    "rush_2pt": 0.00561561,
+    "rec_yd": 1009.682194,
+    "rec_td": 7.230853977,
+    "rec_2pt": 0.414809915,
+    "rec": 71.48102916,
+    "fum_lost": 0.820616567
+   }
+  },
+  {
+   "playerId": "12508",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.802666761,
+    "pass_int": 7.704036383,
+    "rush_yd": 183.3201408,
+    "rush_td": 1.68107987,
+    "rush_2pt": 0.109780275,
+    "pass_yd": 1995.885266,
+    "pass_td": 10.48566102,
+    "fum_lost": 2.28599456
+   }
+  },
+  {
+   "playerId": "2747",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.35755462,
+    "xpm": 34.46148669
+   }
+  },
+  {
+   "playerId": "5967",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1056.992989,
+    "rush_td": 5.708592012,
+    "rush_2pt": 0.333990278,
+    "rec_yd": 300.1433833,
+    "rec_td": 1.174157084,
+    "rec_2pt": 0.062412854,
+    "rec": 46.3631707,
+    "fum_lost": 1.04656072
+   }
+  },
+  {
+   "playerId": "5012",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 17.99407104,
+    "rush_td": 0.263514051,
+    "rush_2pt": 0.010317795,
+    "rec_yd": 666.1124108,
+    "rec_td": 7.065125099,
+    "rec_2pt": 0.324364137,
+    "rec": 61.31678311,
+    "fum_lost": 0.5062335
+   }
+  },
+  {
+   "playerId": "12506",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 234.5171602,
+    "rec_td": 1.094892616,
+    "rec_2pt": 0.074519803,
+    "rec": 23.61195662,
+    "fum_lost": 0.152082384
+   }
+  },
+  {
+   "playerId": "5846",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1171.627185,
+    "rec_td": 7.143650166,
+    "rec_2pt": 0.384050514,
+    "rec": 81.50047628,
+    "fum_lost": 0.912805334
+   }
+  },
+  {
+   "playerId": "7611",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 752.0096926,
+    "rush_td": 6.917544997,
+    "rush_2pt": 0.343199028,
+    "rec_yd": 199.6958966,
+    "rec_td": 1.515350903,
+    "rec_2pt": 0.088182323,
+    "rec": 29.37768752,
+    "fum_lost": 1.506900793
+   }
+  },
+  {
+   "playerId": "12474",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 199.7940541,
+    "rush_td": 1.212868817,
+    "rush_2pt": 0.073203564,
+    "rec_yd": 173.9041647,
+    "rec_td": 0.89855106,
+    "rec_2pt": 0.047164812,
+    "rec": 23.62191548,
+    "fum_lost": 0.283137367
+   }
+  },
+  {
+   "playerId": "1479",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 954.0106911,
+    "rec_td": 6.162445697,
+    "rec_2pt": 0.362862463,
+    "rec": 81.03908012,
+    "fum_lost": 0.789914952
+   }
+  },
+  {
+   "playerId": "11604",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 18.3086445,
+    "rush_td": 0.199753633,
+    "rush_2pt": 0.010823476,
+    "rec_yd": 1152.252897,
+    "rec_td": 5.718632548,
+    "rec_2pt": 0.320459216,
+    "rec": 109.7298139,
+    "fum_lost": 0.39256154
+   }
+  },
+  {
+   "playerId": "4035",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 917.0351979,
+    "rush_td": 6.044929436,
+    "rush_2pt": 0.312950017,
+    "rec_yd": 582.2282642,
+    "rec_td": 1.69176393,
+    "rec_2pt": 0.098533328,
+    "rec": 71.2698157,
+    "fum_lost": 0.893006416
+   }
+  },
+  {
+   "playerId": "11624",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 81.42968911,
+    "rush_td": 1.072681566,
+    "rush_2pt": 0.061852238,
+    "rec_yd": 687.5512043,
+    "rec_td": 5.21851138,
+    "rec_2pt": 0.273393112,
+    "rec": 52.13144206,
+    "fum_lost": 0.335843457
+   }
+  },
+  {
+   "playerId": "8134",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 892.9075576,
+    "rec_td": 4.756465192,
+    "rec_2pt": 0.257491979,
+    "rec": 79.12815662,
+    "fum_lost": 0.67521397
+   }
+  },
+  {
+   "playerId": "9756",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 9.782016656,
+    "rush_td": 0.079392875,
+    "rush_2pt": 0.004614381,
+    "rec_yd": 730.8791155,
+    "rec_td": 5.704471233,
+    "rec_2pt": 0.217558293,
+    "rec": 58.71416687,
+    "fum_lost": 0.317000222
+   }
+  },
+  {
+   "playerId": "7523",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.240369368,
+    "pass_int": 13.66281014,
+    "rush_yd": 283.4326891,
+    "rush_td": 3.795680275,
+    "rush_2pt": 0.210523561,
+    "pass_yd": 4266.504819,
+    "pass_td": 22.55938225,
+    "fum_lost": 4.251233346
+   }
+  },
+  {
+   "playerId": "DET",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.346592866,
+    "def_td": 1.747308178,
+    "int": 14.42497774,
+    "fum_rec": 7.431430191,
+    "sack": 43.18782637
+   }
+  },
+  {
+   "playerId": "6650",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.30809423,
+    "xpm": 44.55700752
+   }
+  },
+  {
+   "playerId": "PIT",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.337137867,
+    "def_td": 1.710083601,
+    "int": 12.30247771,
+    "fum_rec": 10.70329081,
+    "sack": 41.5673337
+   }
+  },
+  {
+   "playerId": "6804",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.495896805,
+    "pass_int": 13.61628566,
+    "rush_yd": 175.9062313,
+    "rush_td": 2.023457258,
+    "rush_2pt": 0.102627917,
+    "pass_yd": 4022.200875,
+    "pass_td": 26.25009584,
+    "fum_lost": 3.615753735
+   }
+  },
+  {
+   "playerId": "12512",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 191.7648639,
+    "rush_td": 1.277486456,
+    "rush_2pt": 0.08418644,
+    "rec_yd": 85.27781833,
+    "rec_td": 0.353597322,
+    "rec_2pt": 0.024109078,
+    "rec": 12.33025552,
+    "fum_lost": 0.222894395
+   }
+  },
+  {
+   "playerId": "8167",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 16.07247928,
+    "rush_td": 0.140746159,
+    "rush_2pt": 0.007149742,
+    "rec_yd": 225.8067472,
+    "rec_td": 1.874782388,
+    "rec_2pt": 0.107140824,
+    "rec": 13.7696134,
+    "fum_lost": 0.140736483
+   }
+  },
+  {
+   "playerId": "4037",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 10.42262091,
+    "rush_td": 0.09826281,
+    "rush_2pt": 0.006602433,
+    "rec_yd": 817.3953894,
+    "rec_td": 5.572080042,
+    "rec_2pt": 0.270728168,
+    "rec": 71.58407797,
+    "fum_lost": 0.709918034
+   }
+  },
+  {
+   "playerId": "PHI",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.40766753,
+    "def_td": 1.750156221,
+    "int": 13.0672443,
+    "fum_rec": 11.14645824,
+    "sack": 41.42196304
+   }
+  },
+  {
+   "playerId": "8146",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 25.71467241,
+    "rush_td": 0.125177663,
+    "rush_2pt": 0.005476818,
+    "rec_yd": 1162.330176,
+    "rec_td": 5.615255251,
+    "rec_2pt": 0.367599752,
+    "rec": 89.38988108,
+    "fum_lost": 1.017861473
+   }
+  },
+  {
+   "playerId": "10236",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 676.0766582,
+    "rec_td": 3.949659191,
+    "rec_2pt": 0.213826864,
+    "rec": 55.99212611,
+    "fum_lost": 0.460797575
+   }
+  },
+  {
+   "playerId": "JAX",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.4073171,
+    "def_td": 1.755593428,
+    "int": 12.94689368,
+    "fum_rec": 7.412078639,
+    "sack": 38.93786494
+   }
+  },
+  {
+   "playerId": "3257",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.017274917,
+    "pass_int": 0.106956595,
+    "rush_yd": 1.481758461,
+    "rush_td": 0.012513009,
+    "rush_2pt": 0.000662004,
+    "pass_yd": 36.08414955,
+    "pass_td": 0.21035703,
+    "fum_lost": 0.048172858
+   }
+  },
+  {
+   "playerId": "12534",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.08050382,
+    "rush_yd": 232.7080496,
+    "rush_td": 2.068996163,
+    "rush_2pt": 0.105508743,
+    "rec_yd": 55.51672094,
+    "rec_td": 0.316210368,
+    "rec_2pt": 0.018143856,
+    "rec": 8.177526485,
+    "fum_lost": 0.251120957
+   }
+  },
+  {
+   "playerId": "9753",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 574.6660505,
+    "rush_td": 4.153082457,
+    "rush_2pt": 0.218164459,
+    "rec_yd": 217.4262726,
+    "rec_td": 0.517973609,
+    "rec_2pt": 0.029349868,
+    "rec": 29.96921104,
+    "fum_lost": 0.347039991
+   }
+  },
+  {
+   "playerId": "7594",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1242.475436,
+    "rush_td": 8.498458765,
+    "rush_2pt": 0.445750162,
+    "rec_yd": 289.8853799,
+    "rec_td": 1.247967602,
+    "rec_2pt": 0.070623817,
+    "rec": 48.78206031,
+    "fum_lost": 1.533671275
+   }
+  },
+  {
+   "playerId": "8121",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 563.5449658,
+    "rec_td": 3.997762346,
+    "rec_2pt": 0.227984564,
+    "rec": 46.68082095,
+    "fum_lost": 0.492079562
+   }
+  },
+  {
+   "playerId": "LAR",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.335237915,
+    "def_td": 1.738767914,
+    "int": 12.83609305,
+    "fum_rec": 9.397976031,
+    "sack": 40.58466649
+   }
+  },
+  {
+   "playerId": "7002",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 521.0634029,
+    "rec_td": 2.348841065,
+    "rec_2pt": 0.136774854,
+    "rec": 51.90810784,
+    "fum_lost": 0.529782953
+   }
+  },
+  {
+   "playerId": "9754",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 792.9298762,
+    "rec_td": 5.171811982,
+    "rec_2pt": 0.304540605,
+    "rec": 53.87679449,
+    "fum_lost": 0.455112048
+   }
+  },
+  {
+   "playerId": "5844",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 802.17439,
+    "rec_td": 4.102066594,
+    "rec_2pt": 0.156253887,
+    "rec": 80.36151456,
+    "fum_lost": 0.495972692
+   }
+  },
+  {
+   "playerId": "5001",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 571.918652,
+    "rec_td": 2.758636113,
+    "rec_2pt": 0.14468198,
+    "rec": 52.52124755,
+    "fum_lost": 0.257501468
+   }
+  },
+  {
+   "playerId": "4046",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.60208623,
+    "pass_int": 12.41416523,
+    "rush_yd": 369.1090531,
+    "rush_td": 3.33435886,
+    "rush_2pt": 0.192514639,
+    "pass_yd": 4349.264197,
+    "pass_td": 30.55377912,
+    "fum_lost": 3.568165248
+   }
+  },
+  {
+   "playerId": "11627",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.33156753,
+    "rush_td": 0.088440978,
+    "rush_2pt": 0.005169987,
+    "rec_yd": 363.1815246,
+    "rec_td": 2.683912177,
+    "rec_2pt": 0.142550678,
+    "rec": 25.67173256,
+    "fum_lost": 0.290011699
+   }
+  },
+  {
+   "playerId": "BUF",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.381716749,
+    "def_td": 1.76434471,
+    "int": 12.87387924,
+    "fum_rec": 9.984882311,
+    "sack": 42.93224329
+   }
+  },
+  {
+   "playerId": "10859",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 777.5203169,
+    "rec_td": 6.52741048,
+    "rec_2pt": 0.371077004,
+    "rec": 74.61348873,
+    "fum_lost": 0.255536258
+   }
+  },
+  {
+   "playerId": "12711",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.05442095,
+    "xpm": 48.37316397
+   }
+  },
+  {
+   "playerId": "6783",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 1194.599531,
+    "rec_td": 3.772366558,
+    "rec_2pt": 0.25657033,
+    "rec": 90.14864124,
+    "fum_lost": 0.673272545
+   }
+  },
+  {
+   "playerId": "4098",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 325.8236333,
+    "rush_td": 3.732677856,
+    "rush_2pt": 0.215512657,
+    "rec_yd": 149.6142798,
+    "rec_td": 1.221387772,
+    "rec_2pt": 0.064074574,
+    "rec": 22.67881305,
+    "fum_lost": 0.274075576
+   }
+  },
+  {
+   "playerId": "11566",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.476595092,
+    "pass_int": 11.59313578,
+    "rush_yd": 815.4951774,
+    "rush_td": 7.491847474,
+    "rush_2pt": 0.287664953,
+    "pass_yd": 4112.899964,
+    "pass_td": 26.74150493,
+    "fum_lost": 3.46255836
+   }
+  },
+  {
+   "playerId": "9758",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.301520644,
+    "pass_int": 11.04018118,
+    "rush_yd": 240.1496869,
+    "rush_td": 0.867203356,
+    "rush_2pt": 0.052354524,
+    "pass_yd": 4477.485876,
+    "pass_td": 24.83658508,
+    "fum_lost": 4.076472589
+   }
+  },
+  {
+   "playerId": "8676",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.167955426,
+    "rush_yd": 52.21654257,
+    "rush_td": 0.37341094,
+    "rush_2pt": 0.019331733,
+    "rec_yd": 885.7375586,
+    "rec_td": 3.855723846,
+    "rec_2pt": 0.224510711,
+    "rec": 59.08927517,
+    "fum_lost": 0.738386388
+   }
+  },
+  {
+   "playerId": "4227",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.96746908,
+    "xpm": 42.6991946
+   }
+  },
+  {
+   "playerId": "8205",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 902.1670461,
+    "rush_td": 6.678470955,
+    "rush_2pt": 0.38555092,
+    "rec_yd": 301.7294592,
+    "rec_td": 1.905039066,
+    "rec_2pt": 0.099936819,
+    "rec": 42.71584271,
+    "fum_lost": 0.920193998
+   }
+  },
+  {
+   "playerId": "4195",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.89193828,
+    "xpm": 45.70212241
+   }
+  },
+  {
+   "playerId": "12517",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 662.1998796,
+    "rec_td": 4.780742888,
+    "rec_2pt": 0.274266542,
+    "rec": 60.50259593,
+    "fum_lost": 0.38969151
+   }
+  },
+  {
+   "playerId": "8136",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.039662011,
+    "rush_yd": 478.2115725,
+    "rush_td": 2.678177297,
+    "rush_2pt": 0.180061838,
+    "rec_yd": 231.4731576,
+    "rec_td": 1.588284064,
+    "rec_2pt": 0.077232375,
+    "rec": 32.26435303,
+    "fum_lost": 0.769337921
+   }
+  },
+  {
+   "playerId": "3451",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.99473036,
+    "xpm": 35.50298974
+   }
+  },
+  {
+   "playerId": "8408",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 823.1753776,
+    "rush_td": 4.269786426,
+    "rush_2pt": 0.247925789,
+    "rec_yd": 97.62914223,
+    "rec_td": 0.497794257,
+    "rec_2pt": 0.018965854,
+    "rec": 14.40450204,
+    "fum_lost": 1.051674082
+   }
+  },
+  {
+   "playerId": "11638",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 28.57275015,
+    "rush_td": 0.229147714,
+    "rush_2pt": 0.007565782,
+    "rec_yd": 989.6099582,
+    "rec_td": 4.561582328,
+    "rec_2pt": 0.191695944,
+    "rec": 68.8315635,
+    "fum_lost": 0.764504458
+   }
+  },
+  {
+   "playerId": "10222",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 109.2299888,
+    "rush_td": 0.680544677,
+    "rush_2pt": 0.034502274,
+    "rec_yd": 746.7852527,
+    "rec_td": 4.611394488,
+    "rec_2pt": 0.262998785,
+    "rec": 60.83341895,
+    "fum_lost": 0.821227697
+   }
+  },
+  {
+   "playerId": "8142",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 334.3004574,
+    "rec_td": 2.204439512,
+    "rec_2pt": 0.157810361,
+    "rec": 24.3848702,
+    "fum_lost": 0.217479818
+   }
+  },
+  {
+   "playerId": "2020",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.19159903,
+    "xpm": 39.1315567
+   }
+  },
+  {
+   "playerId": "CLE",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.413922807,
+    "def_td": 1.764983102,
+    "int": 11.28099566,
+    "fum_rec": 7.701734111,
+    "sack": 38.64889785
+   }
+  },
+  {
+   "playerId": "4943",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.25443328,
+    "pass_int": 13.57360978,
+    "rush_yd": 222.1604411,
+    "rush_td": 1.569965359,
+    "rush_2pt": 0.082480917,
+    "pass_yd": 3866.860306,
+    "pass_td": 22.13879072,
+    "fum_lost": 4.472568427
+   }
+  },
+  {
+   "playerId": "GB",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.431259317,
+    "def_td": 1.749073771,
+    "int": 12.28879876,
+    "fum_rec": 9.470927361,
+    "sack": 42.83414599
+   }
+  },
+  {
+   "playerId": "12533",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 776.8833495,
+    "rush_td": 6.322141205,
+    "rush_2pt": 0.242972089,
+    "rec_yd": 179.0733782,
+    "rec_td": 1.032666327,
+    "rec_2pt": 0.05716491,
+    "rec": 24.99924189,
+    "fum_lost": 0.800224453
+   }
+  },
+  {
+   "playerId": "11786",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 29.3005146,
+    "xpm": 34.0751263
+   }
+  },
+  {
+   "playerId": "4039",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 12.85347471,
+    "rush_td": 0.077140595,
+    "rush_2pt": 0.004052252,
+    "rec_yd": 925.1493751,
+    "rec_td": 5.37540306,
+    "rec_2pt": 0.304601615,
+    "rec": 76.52939052,
+    "fum_lost": 0.659362292
+   }
+  },
+  {
+   "playerId": "NO",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.352706394,
+    "def_td": 1.73135559,
+    "int": 12.23041809,
+    "fum_rec": 5.475260568,
+    "sack": 36.64093376
+   }
+  },
+  {
+   "playerId": "9500",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 785.7976905,
+    "rec_td": 4.220731071,
+    "rec_2pt": 0.302084031,
+    "rec": 74.69308871,
+    "fum_lost": 0.394345618
+   }
+  },
+  {
+   "playerId": "MIN",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.39323792,
+    "def_td": 1.710634861,
+    "int": 13.26248681,
+    "fum_rec": 7.954637519,
+    "sack": 43.69182988
+   }
+  },
+  {
+   "playerId": "12713",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.46578132,
+    "xpm": 35.60013535
+   }
+  },
+  {
+   "playerId": "BAL",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.361670656,
+    "def_td": 1.729952414,
+    "int": 13.95846532,
+    "fum_rec": 8.737650093,
+    "sack": 42.54296098
+   }
+  },
+  {
+   "playerId": "7090",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 790.6215637,
+    "rec_td": 4.051439023,
+    "rec_2pt": 0.252553761,
+    "rec": 57.56975031,
+    "fum_lost": 0.337178305
+   }
+  },
+  {
+   "playerId": "4033",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 729.8364531,
+    "rec_td": 5.2033808,
+    "rec_2pt": 0.354330279,
+    "rec": 72.21727983,
+    "fum_lost": 0.380653932
+   }
+  },
+  {
+   "playerId": "12519",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 26.53781246,
+    "rush_td": 0.238690383,
+    "rush_2pt": 0.012172049,
+    "rec_yd": 388.26612,
+    "rec_td": 2.543303872,
+    "rec_2pt": 0.145907134,
+    "rec": 33.40101785,
+    "fum_lost": 0.220014895
+   }
+  },
+  {
+   "playerId": "11597",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 548.7494213,
+    "rec_td": 2.773642522,
+    "rec_2pt": 0.212403459,
+    "rec": 50.78315529,
+    "fum_lost": 0.347844276
+   }
+  },
+  {
+   "playerId": "17",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 6.773323666,
+    "xpm": 12.38960811
+   }
+  },
+  {
+   "playerId": "11586",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 340.2099716,
+    "rush_td": 2.457805481,
+    "rush_2pt": 0.134161286,
+    "rec_yd": 94.96109,
+    "rec_td": 0.525994753,
+    "rec_2pt": 0.028456226,
+    "rec": 13.28546681,
+    "fum_lost": 0.318133502
+   }
+  },
+  {
+   "playerId": "11603",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 339.8310018,
+    "rec_td": 2.441433307,
+    "rec_2pt": 0.138360299,
+    "rec": 33.37401788,
+    "fum_lost": 0.228598657
+   }
+  },
+  {
+   "playerId": "11637",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 951.7768242,
+    "rec_td": 8.295160921,
+    "rec_2pt": 0.449116367,
+    "rec": 56.33903963,
+    "fum_lost": 0.594889134
+   }
+  },
+  {
+   "playerId": "LAC",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.330288107,
+    "def_td": 1.745102857,
+    "int": 13.229077,
+    "fum_rec": 7.603439901,
+    "sack": 39.60596963
+   }
+  },
+  {
+   "playerId": "10213",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.256990387,
+    "rush_yd": 47.37557594,
+    "rush_td": 0.391187063,
+    "rush_2pt": 0.02119613,
+    "rec_yd": 621.5315668,
+    "rec_td": 2.577770406,
+    "rec_2pt": 0.144404178,
+    "rec": 44.00780863,
+    "fum_lost": 0.426860491
+   }
+  },
+  {
+   "playerId": "5870",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.105512917,
+    "pass_int": 8.569082297,
+    "rush_yd": 435.2897137,
+    "rush_td": 3.719339822,
+    "rush_2pt": 0.17788688,
+    "pass_yd": 2654.546372,
+    "pass_td": 15.44941703,
+    "fum_lost": 3.229810439
+   }
+  },
+  {
+   "playerId": "IND",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.386433432,
+    "def_td": 1.757515859,
+    "int": 12.42272382,
+    "fum_rec": 9.314098755,
+    "sack": 39.71909514
+   }
+  },
+  {
+   "playerId": "4066",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 5.949702921,
+    "rush_td": 0.076759472,
+    "rush_2pt": 0.004487122,
+    "rec_yd": 710.6004721,
+    "rec_td": 2.935268577,
+    "rec_2pt": 0.155818878,
+    "rec": 79.85186134,
+    "fum_lost": 0.617564164
+   }
+  },
+  {
+   "playerId": "4988",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 650.1207992,
+    "rush_td": 5.118921193,
+    "rush_2pt": 0.309049386,
+    "rec_yd": 98.45468587,
+    "rec_td": 0.403424299,
+    "rec_2pt": 0.021175872,
+    "rec": 12.22980398,
+    "fum_lost": 0.599080934
+   }
+  },
+  {
+   "playerId": "11435",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 147.0189349,
+    "rush_td": 1.027700118,
+    "rush_2pt": 0.052077513,
+    "rec_yd": 41.79813106,
+    "rec_td": 0.238428149,
+    "rec_2pt": 0.013586128,
+    "rec": 5.752945394,
+    "fum_lost": 0.119695918
+   }
+  },
+  {
+   "playerId": "6806",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 708.2950958,
+    "rush_td": 4.838744592,
+    "rush_2pt": 0.282858071,
+    "rec_yd": 249.281228,
+    "rec_td": 1.479941788,
+    "rec_2pt": 0.078621626,
+    "rec": 37.99080081,
+    "fum_lost": 0.523157935
+   }
+  },
+  {
+   "playerId": "1339",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 514.2900749,
+    "rec_td": 5.455700235,
+    "rec_2pt": 0.302032874,
+    "rec": 57.63226711,
+    "fum_lost": 0.309818398
+   }
+  },
+  {
+   "playerId": "11625",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 27.18840534,
+    "rush_td": 0.21328465,
+    "rush_2pt": 0.010202642,
+    "rec_yd": 373.3873178,
+    "rec_td": 2.638548022,
+    "rec_2pt": 0.18889807,
+    "rec": 27.47434823,
+    "fum_lost": 0.330299177
+   }
+  },
+  {
+   "playerId": "10219",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 163.1239082,
+    "rush_td": 1.657166834,
+    "rush_2pt": 0.064100715,
+    "rec_yd": 28.70948706,
+    "rec_td": 0.134715558,
+    "rec_2pt": 0.007450456,
+    "rec": 4.184639963,
+    "fum_lost": 0.183662442
+   }
+  },
+  {
+   "playerId": "TB",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.349025697,
+    "def_td": 1.742210174,
+    "int": 13.02214854,
+    "fum_rec": 10.04910694,
+    "sack": 43.27706422
+   }
+  },
+  {
+   "playerId": "11589",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 608.5370975,
+    "rush_td": 3.880828866,
+    "rush_2pt": 0.205263896,
+    "rec_yd": 169.4503911,
+    "rec_td": 0.88298882,
+    "rec_2pt": 0.067143007,
+    "rec": 23.14807695,
+    "fum_lost": 0.769807582
+   }
+  },
+  {
+   "playerId": "9480",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 581.0038148,
+    "rec_td": 3.476907019,
+    "rec_2pt": 0.191078834,
+    "rec": 60.92667432,
+    "fum_lost": 0.417323319
+   }
+  },
+  {
+   "playerId": "12501",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.081246537,
+    "rec_yd": 952.1449638,
+    "rec_td": 6.586039523,
+    "rec_2pt": 0.375669017,
+    "rec": 68.14536065,
+    "fum_lost": 0.405461179
+   }
+  },
+  {
+   "playerId": "12484",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 788.073579,
+    "rec_td": 4.329016591,
+    "rec_2pt": 0.227058356,
+    "rec": 56.90641963,
+    "fum_lost": 0.338590093
+   }
+  },
+  {
+   "playerId": "12476",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 262.4388169,
+    "rush_td": 1.676075224,
+    "rush_2pt": 0.086771529,
+    "rec_yd": 59.62827943,
+    "rec_td": 0.275717461,
+    "rec_2pt": 0.016060823,
+    "rec": 8.508237236,
+    "fum_lost": 0.274639152
+   }
+  },
+  {
+   "playerId": "6130",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.120050074,
+    "rush_yd": 81.26099686,
+    "rush_td": 0.565477704,
+    "rush_2pt": 0.036909765,
+    "rec_yd": 29.02530021,
+    "rec_td": 0.071883017,
+    "rec_2pt": 0.005501632,
+    "rec": 4.540643489,
+    "fum_lost": 0.121129949
+   }
+  },
+  {
+   "playerId": "9487",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.08146342,
+    "rec_yd": 196.6887622,
+    "rec_td": 0.962999285,
+    "rec_2pt": 0.052908535,
+    "rec": 17.7700238,
+    "fum_lost": 0.187635326
+   }
+  },
+  {
+   "playerId": "9508",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.149103276,
+    "rush_yd": 412.1882117,
+    "rush_td": 3.057706181,
+    "rush_2pt": 0.178559781,
+    "rec_yd": 229.698028,
+    "rec_td": 0.974666233,
+    "rec_2pt": 0.05171912,
+    "rec": 30.45722763,
+    "fum_lost": 0.52209703
+   }
+  },
+  {
+   "playerId": "8132",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 572.4882409,
+    "rush_td": 3.915779102,
+    "rush_2pt": 0.176828147,
+    "rec_yd": 90.86080142,
+    "rec_td": 0.34016352,
+    "rec_2pt": 0.021208769,
+    "rec": 13.07511446,
+    "fum_lost": 0.291172543
+   }
+  },
+  {
+   "playerId": "12469",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 821.5455871,
+    "rush_td": 4.767417904,
+    "rush_2pt": 0.313870003,
+    "rec_yd": 342.3346458,
+    "rec_td": 1.356498425,
+    "rec_2pt": 0.092425257,
+    "rec": 47.08964908,
+    "fum_lost": 0.943591389
+   }
+  },
+  {
+   "playerId": "KC",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.368030435,
+    "def_td": 1.77777938,
+    "int": 12.36277132,
+    "fum_rec": 8.094982799,
+    "sack": 41.21139263
+   }
+  },
+  {
+   "playerId": "NYG",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.344143547,
+    "def_td": 1.751777287,
+    "int": 11.75946516,
+    "fum_rec": 10.64671596,
+    "sack": 39.99012829
+   }
+  },
+  {
+   "playerId": "11565",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.13233189,
+    "pass_int": 15.47846585,
+    "rush_yd": 230.238411,
+    "rush_td": 2.16819978,
+    "rush_2pt": 0.12591505,
+    "pass_yd": 4120.318084,
+    "pass_td": 29.72072016,
+    "fum_lost": 4.481773888
+   }
+  },
+  {
+   "playerId": "12530",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 24.83303637,
+    "rush_td": 0.15684053,
+    "rush_2pt": 0.008697547,
+    "rec_yd": 963.6327226,
+    "rec_td": 5.52120258,
+    "rec_2pt": 0.303414274,
+    "rec": 79.47173606,
+    "fum_lost": 0.492643673,
+    "def_td": 0.076746681,
+    "int": 0.624149622,
+    "fum_rec": 0.185640736,
+    "sack": 0.182742444
+   }
+  },
+  {
+   "playerId": "6865",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 56.58053827,
+    "rec_td": 0.548262666,
+    "rec_2pt": 0.029659344,
+    "rec": 5.792864273,
+    "fum_lost": 0.03174304
+   }
+  },
+  {
+   "playerId": "8122",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 18.80945423,
+    "rush_td": 0.123554177,
+    "rush_2pt": 0.006534999,
+    "rec_yd": 14.88539159,
+    "rec_td": 0.077807065,
+    "rec_2pt": 0.005916454,
+    "rec": 2.102469058,
+    "fum_lost": 0.039212665
+   }
+  },
+  {
+   "playerId": "2505",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 607.5239511,
+    "rec_td": 3.204273107,
+    "rec_2pt": 0.171298393,
+    "rec": 51.85161854,
+    "fum_lost": 0.318582424
+   }
+  },
+  {
+   "playerId": "SF",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.408493825,
+    "def_td": 1.764426014,
+    "int": 13.36409389,
+    "fum_rec": 8.235216198,
+    "sack": 40.71529172
+   }
+  },
+  {
+   "playerId": "12481",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 620.8203583,
+    "rush_td": 3.853883721,
+    "rush_2pt": 0.25170639,
+    "rec_yd": 205.6163474,
+    "rec_td": 1.038626473,
+    "rec_2pt": 0.079583832,
+    "rec": 27.98789812,
+    "fum_lost": 0.669338271
+   }
+  },
+  {
+   "playerId": "8111",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 556.1877153,
+    "rec_td": 5.1987215,
+    "rec_2pt": 0.252771753,
+    "rec": 52.0461206,
+    "fum_lost": 0.5224235
+   }
+  },
+  {
+   "playerId": "DAL",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.500316236,
+    "def_td": 1.783836332,
+    "int": 11.88973248,
+    "fum_rec": 9.079919759,
+    "sack": 41.66159224
+   }
+  },
+  {
+   "playerId": "11632",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 24.04765158,
+    "rush_td": 0.184824863,
+    "rush_2pt": 0.012070085,
+    "rec_yd": 1425.043557,
+    "rec_td": 8.097665625,
+    "rec_2pt": 0.620146208,
+    "rec": 107.1477711,
+    "fum_lost": 0.853174749
+   }
+  },
+  {
+   "playerId": "9504",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 536.1398179,
+    "rec_td": 2.773776137,
+    "rec_2pt": 0.16137121,
+    "rec": 40.25182946,
+    "fum_lost": 0.425022793
+   }
+  },
+  {
+   "playerId": "96",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.136836238,
+    "pass_int": 11.07158187,
+    "rush_yd": 111.7426845,
+    "rush_td": 1.220499623,
+    "rush_2pt": 0.053710009,
+    "pass_yd": 3889.751421,
+    "pass_td": 21.15240901,
+    "fum_lost": 3.25214359
+   }
+  },
+  {
+   "playerId": "12545",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.458680067,
+    "pass_int": 6.21184159,
+    "rush_yd": 113.7148683,
+    "rush_td": 1.007843512,
+    "rush_2pt": 0.051987025,
+    "pass_yd": 1645.150434,
+    "pass_td": 7.906304153,
+    "fum_lost": 1.801203181
+   }
+  },
+  {
+   "playerId": "5849",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.710216746,
+    "pass_int": 12.12034154,
+    "rush_yd": 596.9812442,
+    "rush_td": 5.296378075,
+    "rush_2pt": 0.280163715,
+    "pass_yd": 3862.36019,
+    "pass_td": 22.51223695,
+    "fum_lost": 4.537143761
+   }
+  },
+  {
+   "playerId": "12540",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.040916586,
+    "rush_yd": 12.76500798,
+    "rush_td": 0.081379467,
+    "rush_2pt": 0.004760476,
+    "rec_yd": 155.6978293,
+    "rec_td": 0.950028023,
+    "rec_2pt": 0.050483091,
+    "rec": 13.50310698,
+    "fum_lost": 0.090536767
+   }
+  },
+  {
+   "playerId": "4981",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 50.10448109,
+    "rush_td": 0.390728322,
+    "rush_2pt": 0.022856538,
+    "rec_yd": 1095.51775,
+    "rec_td": 7.178033189,
+    "rec_2pt": 0.381451231,
+    "rec": 69.68786618,
+    "fum_lost": 0.659479258
+   }
+  },
+  {
+   "playerId": "6149",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 12.57050957,
+    "rush_td": 0.102059064,
+    "rush_2pt": 0.006665021,
+    "rec_yd": 569.8274091,
+    "rec_td": 3.043973277,
+    "rec_2pt": 0.233100078,
+    "rec": 38.52428521,
+    "fum_lost": 0.449782448
+   }
+  },
+  {
+   "playerId": "4018",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 486.3375842,
+    "rush_td": 4.083369521,
+    "rush_2pt": 0.246109098,
+    "rec_yd": 169.2096019,
+    "rec_td": 1.330461393,
+    "rec_2pt": 0.069720537,
+    "rec": 20.12625187,
+    "fum_lost": 0.374725331
+   }
+  },
+  {
+   "playerId": "9484",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 719.0543459,
+    "rec_td": 4.211327737,
+    "rec_2pt": 0.240222506,
+    "rec": 63.13034547,
+    "fum_lost": 0.419586137
+   }
+  },
+  {
+   "playerId": "7839",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 26.65347155,
+    "xpm": 42.79127824
+   }
+  },
+  {
+   "playerId": "5848",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 825.9910455,
+    "rec_td": 5.443462433,
+    "rec_2pt": 0.285579128,
+    "rec": 59.28776848,
+    "fum_lost": 0.571466288
+   }
+  },
+  {
+   "playerId": "ATL",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.375380459,
+    "def_td": 1.73996134,
+    "int": 12.52193456,
+    "fum_rec": 8.929211302,
+    "sack": 41.74128244
+   }
+  },
+  {
+   "playerId": "3321",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 49.8066928,
+    "rush_td": 0.364408744,
+    "rush_2pt": 0.020532536,
+    "rec_yd": 1190.024066,
+    "rec_td": 7.348474435,
+    "rec_2pt": 0.392973791,
+    "rec": 93.8182958,
+    "fum_lost": 0.665044986
+   }
+  },
+  {
+   "playerId": "8154",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 406.5423912,
+    "rush_td": 3.932600963,
+    "rush_2pt": 0.129842894,
+    "rec_yd": 50.30076598,
+    "rec_td": 0.240805187,
+    "rec_2pt": 0.010122052,
+    "rec": 6.235275759,
+    "fum_lost": 0.458081144
+   }
+  },
+  {
+   "playerId": "3678",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.23057578,
+    "xpm": 38.42487196
+   }
+  },
+  {
+   "playerId": "CHI",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.526429071,
+    "def_td": 1.767936548,
+    "int": 12.8427387,
+    "fum_rec": 8.949159482,
+    "sack": 38.11500674
+   }
+  },
+  {
+   "playerId": "7591",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.157432507,
+    "pass_int": 12.26285386,
+    "rush_yd": 829.0490072,
+    "rush_td": 7.521586978,
+    "rush_2pt": 0.329165422,
+    "pass_yd": 3366.553441,
+    "pass_td": 17.67353407,
+    "fum_lost": 6.439290244
+   }
+  },
+  {
+   "playerId": "4137",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 1050.022819,
+    "rush_td": 9.454922157,
+    "rush_2pt": 0.500087539,
+    "rec_yd": 343.708531,
+    "rec_td": 1.632799662,
+    "rec_2pt": 0.12415955,
+    "rec": 45.59383333,
+    "fum_lost": 1.325441805
+   }
+  },
+  {
+   "playerId": "12490",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.20365855,
+    "rush_yd": 19.02672711,
+    "rush_td": 0.10504088,
+    "rush_2pt": 0.00576322,
+    "rec_yd": 3.682100925,
+    "rec_td": 0.019484184,
+    "rec_2pt": 0.001059361,
+    "rec": 0.49429155,
+    "fum_lost": 0.017875987
+   }
+  },
+  {
+   "playerId": "11792",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.95162659,
+    "xpm": 38.32873554
+   }
+  },
+  {
+   "playerId": "9506",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.190377653,
+    "rush_yd": 139.1653368,
+    "rush_td": 0.866831329,
+    "rush_2pt": 0.058279653,
+    "rec_yd": 31.49077423,
+    "rec_td": 0.157545423,
+    "rec_2pt": 0.007660242,
+    "rec": 4.112195153,
+    "fum_lost": 0.163403289
+   }
+  },
+  {
+   "playerId": "6803",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 578.4058208,
+    "rec_td": 3.012037693,
+    "rec_2pt": 0.126571781,
+    "rec": 36.96492903,
+    "fum_lost": 0.348267898
+   }
+  },
+  {
+   "playerId": "8131",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 404.318487,
+    "rec_td": 4.26318388,
+    "rec_2pt": 0.195778986,
+    "rec": 33.35703856,
+    "fum_lost": 0.207029938
+   }
+  },
+  {
+   "playerId": "11626",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.106890028,
+    "rush_yd": 47.47881915,
+    "rush_td": 0.268057491,
+    "rush_2pt": 0.014059805,
+    "rec_yd": 740.3552469,
+    "rec_td": 4.038644355,
+    "rec_2pt": 0.22851146,
+    "rec": 61.33886379,
+    "fum_lost": 0.57285764
+   }
+  },
+  {
+   "playerId": "9225",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.12219513,
+    "rush_yd": 610.0113976,
+    "rush_td": 4.321886567,
+    "rush_2pt": 0.23962777,
+    "rec_yd": 90.83193023,
+    "rec_td": 0.329974486,
+    "rec_2pt": 0.018136698,
+    "rec": 12.780924,
+    "fum_lost": 1.215055607
+   }
+  },
+  {
+   "playerId": "1433",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.16939483,
+    "xpm": 39.99828309
+   }
+  },
+  {
+   "playerId": "9228",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.272390792,
+    "pass_int": 12.5709621,
+    "rush_yd": 293.7582364,
+    "rush_td": 3.644660324,
+    "rush_2pt": 0.191201689,
+    "pass_yd": 3935.992757,
+    "pass_td": 22.4748204,
+    "fum_lost": 4.356174404
+   }
+  },
+  {
+   "playerId": "12457",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 80.28157383,
+    "rush_td": 0.503868844,
+    "rush_2pt": 0.030394733,
+    "rec_yd": 29.61833126,
+    "rec_td": 0.177524263,
+    "rec_2pt": 0.009310774,
+    "rec": 4.314983084,
+    "fum_lost": 0.092397544
+   }
+  },
+  {
+   "playerId": "9482",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 314.457371,
+    "rec_td": 1.671396873,
+    "rec_2pt": 0.093657113,
+    "rec": 31.77160051,
+    "fum_lost": 0.21762274
+   }
+  },
+  {
+   "playerId": "7042",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 20.71901083,
+    "xpm": 37.79994746
+   }
+  },
+  {
+   "playerId": "2307",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014915102,
+    "pass_int": 0.175331484,
+    "rush_yd": 2.182620803,
+    "rush_td": 0.026089866,
+    "rush_2pt": 0.001000554,
+    "pass_yd": 41.11236204,
+    "pass_td": 0.267323875,
+    "fum_lost": 0.038650302
+   }
+  },
+  {
+   "playerId": "12485",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 9.615212377,
+    "rec_td": 0.075758471,
+    "rec_2pt": 0.003690912,
+    "rec": 0.811595808,
+    "fum_lost": 0.004828951
+   }
+  },
+  {
+   "playerId": "12504",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 786.4845712,
+    "rush_td": 6.527914058,
+    "rush_2pt": 0.287064629,
+    "rec_yd": 158.4482669,
+    "rec_td": 0.844253435,
+    "rec_2pt": 0.045371399,
+    "rec": 21.96600257,
+    "fum_lost": 0.79631794
+   }
+  },
+  {
+   "playerId": "4663",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.170907911,
+    "rush_yd": 580.5181317,
+    "rush_td": 6.612917352,
+    "rush_2pt": 0.254147177,
+    "rec_yd": 440.0604799,
+    "rec_td": 2.3614307,
+    "rec_2pt": 0.130775861,
+    "rec": 52.76290567,
+    "fum_lost": 1.35280724
+   }
+  },
+  {
+   "playerId": "MIA",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.392946648,
+    "def_td": 1.735225762,
+    "int": 12.59047235,
+    "fum_rec": 8.45737729,
+    "sack": 42.54348312
+   }
+  },
+  {
+   "playerId": "12524",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.281545159,
+    "pass_int": 3.558353816,
+    "rush_yd": 69.05156188,
+    "rush_td": 0.618041239,
+    "rush_2pt": 0.040732098,
+    "pass_yd": 934.2190943,
+    "pass_td": 4.130509347,
+    "fum_lost": 1.067029157
+   }
+  },
+  {
+   "playerId": "8147",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.122300259,
+    "rec_yd": 1.950752517,
+    "rec_td": 0.014631329,
+    "rec_2pt": 0.000988685,
+    "rec": 0.159671413,
+    "fum_lost": 0.00178832
+   }
+  },
+  {
+   "playerId": "11610",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.292619844,
+    "rush_yd": 24.49518013,
+    "rush_td": 0.214935132,
+    "rush_2pt": 0.012110476,
+    "rec_yd": 224.5473235,
+    "rec_td": 1.273645309,
+    "rec_2pt": 0.068107435,
+    "rec": 20.00759259,
+    "fum_lost": 0.246214949
+   }
+  },
+  {
+   "playerId": "LV",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.428317311,
+    "def_td": 1.741632994,
+    "int": 11.32091752,
+    "fum_rec": 7.853573909,
+    "sack": 40.17718515
+   }
+  },
+  {
+   "playerId": "11646",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 504.0123628,
+    "rec_td": 2.854833223,
+    "rec_2pt": 0.161503697,
+    "rec": 41.61247225,
+    "fum_lost": 0.439389946
+   }
+  },
+  {
+   "playerId": "11643",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 228.2904797,
+    "rush_td": 1.429964207,
+    "rush_2pt": 0.080528334,
+    "rec_yd": 52.67819075,
+    "rec_td": 0.295088183,
+    "rec_2pt": 0.015774881,
+    "rec": 7.354081125,
+    "fum_lost": 0.286527655
+   }
+  },
+  {
+   "playerId": "4144",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 19.30240521,
+    "rush_td": 0.357990422,
+    "rush_2pt": 0.015750909,
+    "rec_yd": 564.4346826,
+    "rec_td": 3.191580462,
+    "rec_2pt": 0.171579564,
+    "rec": 56.12092854,
+    "fum_lost": 0.553756511
+   }
+  },
+  {
+   "playerId": "TEN",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.335516002,
+    "def_td": 1.730977518,
+    "int": 11.92399058,
+    "fum_rec": 8.118622529,
+    "sack": 39.41890198
+   }
+  },
+  {
+   "playerId": "6083",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.81589437,
+    "xpm": 44.76882139
+   }
+  },
+  {
+   "playerId": "11199",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.159144182,
+    "rush_yd": 80.9852747,
+    "rush_td": 0.505808926,
+    "rush_2pt": 0.026753128,
+    "rec_yd": 68.6299343,
+    "rec_td": 0.261773088,
+    "rec_2pt": 0.019902982,
+    "rec": 10.17652898,
+    "fum_lost": 0.087061373
+   }
+  },
+  {
+   "playerId": "8125",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 514.336964,
+    "rec_td": 2.564382705,
+    "rec_2pt": 0.137840026,
+    "rec": 39.16336556,
+    "fum_lost": 0.438629694
+   }
+  },
+  {
+   "playerId": "6768",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.454285821,
+    "pass_int": 13.19821233,
+    "rush_yd": 103.8249549,
+    "rush_td": 0.9364006,
+    "rush_2pt": 0.052768041,
+    "pass_yd": 4586.482391,
+    "pass_td": 27.23954337,
+    "fum_lost": 4.693941685
+   }
+  },
+  {
+   "playerId": "9494",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.761509113,
+    "rush_yd": 108.6254324,
+    "rush_td": 0.5749481,
+    "rush_2pt": 0.033609691,
+    "rec_yd": 622.6861862,
+    "rec_td": 4.032544422,
+    "rec_2pt": 0.214180817,
+    "rec": 43.72219156,
+    "fum_lost": 0.690600495
+   }
+  },
+  {
+   "playerId": "8143",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.08546024,
+    "rush_yd": 564.4119899,
+    "rush_td": 2.871419346,
+    "rush_2pt": 0.188843956,
+    "rec_yd": 130.9146269,
+    "rec_td": 0.408401201,
+    "rec_2pt": 0.027764142,
+    "rec": 19.79209235,
+    "fum_lost": 0.351160618
+   }
+  },
+  {
+   "playerId": "12498",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 573.0342599,
+    "rec_td": 3.074698643,
+    "rec_2pt": 0.201314924,
+    "rec": 54.55778142,
+    "fum_lost": 0.351401521
+   }
+  },
+  {
+   "playerId": "4950",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 625.9072668,
+    "rec_td": 3.18896214,
+    "rec_2pt": 0.167209502,
+    "rec": 48.06693444,
+    "fum_lost": 0.478378493
+   }
+  },
+  {
+   "playerId": "7571",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 621.0796188,
+    "rec_td": 5.02281005,
+    "rec_2pt": 0.230585288,
+    "rec": 43.82436805,
+    "fum_lost": 0.280785489
+   }
+  },
+  {
+   "playerId": "12499",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 406.557785,
+    "rec_td": 2.386071918,
+    "rec_2pt": 0.126800407,
+    "rec": 33.9575165,
+    "fum_lost": 0.202045371
+   }
+  },
+  {
+   "playerId": "19",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.546430695,
+    "pass_int": 7.504183717,
+    "rush_yd": 68.25801215,
+    "rush_td": 0.610202795,
+    "rush_2pt": 0.040322651,
+    "pass_yd": 1986.462017,
+    "pass_td": 7.99707237,
+    "fum_lost": 2.290638594
+   }
+  },
+  {
+   "playerId": "1166",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014319672,
+    "pass_int": 0.132348926,
+    "rush_yd": 0.24609015,
+    "rush_td": 0.003799619,
+    "rush_2pt": 0.000171623,
+    "pass_yd": 42.79065813,
+    "pass_td": 0.245400234,
+    "fum_lost": 0.050093715
+   }
+  },
+  {
+   "playerId": "10444",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 827.0528028,
+    "rec_td": 3.535301891,
+    "rec_2pt": 0.240548888,
+    "rec": 62.93140396,
+    "fum_lost": 0.667143378
+   }
+  },
+  {
+   "playerId": "5995",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.092341444,
+    "rush_yd": 184.9900113,
+    "rush_td": 1.118647217,
+    "rush_2pt": 0.043800217,
+    "rec_yd": 316.193785,
+    "rec_td": 2.130062141,
+    "rec_2pt": 0.097798385,
+    "rec": 38.33838957,
+    "fum_lost": 0.294976128
+   }
+  },
+  {
+   "playerId": "NYJ",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.350535141,
+    "def_td": 1.754693933,
+    "int": 12.40766936,
+    "fum_rec": 7.210784551,
+    "sack": 36.89151301
+   }
+  },
+  {
+   "playerId": "8210",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 591.929275,
+    "rec_td": 3.125944189,
+    "rec_2pt": 0.166114274,
+    "rec": 58.01143726,
+    "fum_lost": 0.373646192
+   }
+  },
+  {
+   "playerId": "650",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 30.03173087,
+    "xpm": 31.79670497
+   }
+  },
+  {
+   "playerId": "4147",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 196.2639722,
+    "rush_td": 1.269671159,
+    "rush_2pt": 0.073274027,
+    "rec_yd": 137.6710663,
+    "rec_td": 0.779831498,
+    "rec_2pt": 0.029535439,
+    "rec": 17.19087244,
+    "fum_lost": 0.197106323
+   }
+  },
+  {
+   "playerId": "1373",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.176263088,
+    "pass_int": 13.23481626,
+    "rush_yd": 287.7945292,
+    "rush_td": 1.737175716,
+    "rush_2pt": 0.094146746,
+    "pass_yd": 4256.699982,
+    "pass_td": 21.0100789,
+    "fum_lost": 4.310457377
+   }
+  },
+  {
+   "playerId": "ARI",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.350117201,
+    "def_td": 1.711794225,
+    "int": 12.78908232,
+    "fum_rec": 7.451023323,
+    "sack": 41.25497214
+   }
+  },
+  {
+   "playerId": "12495",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 371.750148,
+    "rush_td": 2.917888338,
+    "rush_2pt": 0.164450624,
+    "rec_yd": 112.1448945,
+    "rec_td": 0.588730004,
+    "rec_2pt": 0.031496975,
+    "rec": 15.3127007,
+    "fum_lost": 0.40802975
+   }
+  },
+  {
+   "playerId": "12522",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.231003956,
+    "pass_int": 13.95040577,
+    "rush_yd": 299.132492,
+    "rush_td": 2.52624697,
+    "rush_2pt": 0.147799983,
+    "pass_yd": 3822.448476,
+    "pass_td": 23.1834278,
+    "fum_lost": 4.279268416
+   }
+  },
+  {
+   "playerId": "9501",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.61839136,
+    "rush_td": 0.085733381,
+    "rush_2pt": 0.004253476,
+    "rec_yd": 639.8290852,
+    "rec_td": 3.28593178,
+    "rec_2pt": 0.191118108,
+    "rec": 57.0351882,
+    "fum_lost": 0.659594226
+   }
+  },
+  {
+   "playerId": "11576",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 471.3247725,
+    "rush_td": 2.285402788,
+    "rush_2pt": 0.099991765,
+    "rec_yd": 132.1153414,
+    "rec_td": 0.535908623,
+    "rec_2pt": 0.035098429,
+    "rec": 17.16282153,
+    "fum_lost": 0.273529737
+   }
+  },
+  {
+   "playerId": "10226",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 303.2761914,
+    "rec_td": 2.586100498,
+    "rec_2pt": 0.097931723,
+    "rec": 25.83630025,
+    "fum_lost": 0.218246308
+   }
+  },
+  {
+   "playerId": "7600",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 537.1002591,
+    "rec_td": 3.157679558,
+    "rec_2pt": 0.169749502,
+    "rec": 62.30714287,
+    "fum_lost": 0.69784
+   }
+  },
+  {
+   "playerId": "CAR",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.427560112,
+    "def_td": 1.70098703,
+    "int": 12.79182432,
+    "fum_rec": 6.384482448,
+    "sack": 37.03062674
+   }
+  },
+  {
+   "playerId": "5119",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 22.22839671,
+    "xpm": 30.9015316
+   }
+  },
+  {
+   "playerId": "7528",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 457.7178,
+    "rush_td": 4.181963102,
+    "rush_2pt": 0.201542888,
+    "rec_yd": 86.56979228,
+    "rec_td": 0.470959907,
+    "rec_2pt": 0.027737722,
+    "rec": 12.91201482,
+    "fum_lost": 0.346604425
+   }
+  },
+  {
+   "playerId": "4177",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 232.8734924,
+    "rec_td": 2.022911263,
+    "rec_2pt": 0.117708532,
+    "rec": 18.47153981,
+    "fum_lost": 0.157784811
+   }
+  },
+  {
+   "playerId": "827",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.011691237,
+    "pass_int": 0.139979455,
+    "rush_yd": 3.038035224,
+    "rush_td": 0.011770823,
+    "rush_2pt": 0.000515316,
+    "pass_yd": 34.83025145,
+    "pass_td": 0.18286455,
+    "fum_lost": 0.044622753
+   }
+  },
+  {
+   "playerId": "1689",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 405.2957967,
+    "rec_td": 3.643405404,
+    "rec_2pt": 0.13871539,
+    "rec": 45.02925648,
+    "fum_lost": 0.393999481
+   }
+  },
+  {
+   "playerId": "11559",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 1.417647487,
+    "pass_int": 13.3771445,
+    "rush_yd": 187.5588501,
+    "rush_td": 2.610296447,
+    "rush_2pt": 0.117889499,
+    "pass_yd": 3962.074032,
+    "pass_td": 22.72397601,
+    "fum_lost": 4.616781826
+   }
+  },
+  {
+   "playerId": "11834",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 199.6231331,
+    "rec_td": 0.938336525,
+    "rec_2pt": 0.05463451,
+    "rec": 20.1412681,
+    "fum_lost": 0.212673514
+   }
+  },
+  {
+   "playerId": "12535",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 260.5559002,
+    "rec_td": 1.61057021,
+    "rec_2pt": 0.091550185,
+    "rec": 20.7330486,
+    "fum_lost": 0.123360508
+   }
+  },
+  {
+   "playerId": "11575",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.119286484,
+    "rush_yd": 443.7173278,
+    "rush_td": 3.480396,
+    "rush_2pt": 0.111671178,
+    "rec_yd": 57.05861264,
+    "rec_td": 0.422614118,
+    "rec_2pt": 0.022882547,
+    "rec": 7.976309324,
+    "fum_lost": 0.433352494
+   }
+  },
+  {
+   "playerId": "4993",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 454.5855453,
+    "rec_td": 3.574226087,
+    "rec_2pt": 0.135352956,
+    "rec": 49.14713517,
+    "fum_lost": 0.28538268
+   }
+  },
+  {
+   "playerId": "11783",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 83.59727072,
+    "rec_td": 0.567032054,
+    "rec_2pt": 0.029732775,
+    "rec": 7.704703069,
+    "fum_lost": 0.081354673
+   }
+  },
+  {
+   "playerId": "9481",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 142.0414638,
+    "rec_td": 0.925232491,
+    "rec_2pt": 0.052775044,
+    "rec": 14.57630346,
+    "fum_lost": 0.099841841
+   }
+  },
+  {
+   "playerId": "3200",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 9.995421763,
+    "rush_td": 0.063059931,
+    "rush_2pt": 0.004248152,
+    "rec_yd": 117.8101074,
+    "rec_td": 1.012594573,
+    "rec_2pt": 0.049312883,
+    "rec": 10.19739834,
+    "fum_lost": 0.095958472
+   }
+  },
+  {
+   "playerId": "11789",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.02940128,
+    "xpm": 41.18092499
+   }
+  },
+  {
+   "playerId": "11571",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.159334155,
+    "rush_yd": 102.0607304,
+    "rush_td": 0.46434361,
+    "rush_2pt": 0.020313184,
+    "rec_yd": 50.4999304,
+    "rec_td": 0.300537981,
+    "rec_2pt": 0.019678325,
+    "rec": 6.845034335,
+    "fum_lost": 0.129229189
+   }
+  },
+  {
+   "playerId": "12547",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.93755439,
+    "rush_td": 0.107794879,
+    "rush_2pt": 0.00534801,
+    "rec_yd": 177.1371901,
+    "rec_td": 1.159494743,
+    "rec_2pt": 0.067437012,
+    "rec": 14.88605528,
+    "fum_lost": 0.099621178
+   }
+  },
+  {
+   "playerId": "7922",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 6.344703989,
+    "xpm": 8.447574011
+   }
+  },
+  {
+   "playerId": "5906",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 184.4194974,
+    "rec_td": 1.911001778,
+    "rec_2pt": 0.103466999,
+    "rec": 17.05591676,
+    "fum_lost": 0.111017054
+   }
+  },
+  {
+   "playerId": "CIN",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.424784419,
+    "def_td": 1.769587768,
+    "int": 12.74164242,
+    "fum_rec": 7.290761546,
+    "sack": 39.16899974
+   }
+  },
+  {
+   "playerId": "1426",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 350.1847668,
+    "rec_td": 3.974771496,
+    "rec_2pt": 0.182475418,
+    "rec": 30.02629966,
+    "fum_lost": 0.299832143
+   }
+  },
+  {
+   "playerId": "4219",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 56.92630673,
+    "rush_td": 0.587665411,
+    "rush_2pt": 0.022585116,
+    "rec_yd": 28.08596504,
+    "rec_td": 0.137793944,
+    "rec_2pt": 0.007621425,
+    "rec": 4.130964986,
+    "fum_lost": 0.074885849
+   }
+  },
+  {
+   "playerId": "11370",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 86.84329543,
+    "rush_td": 0.592943792,
+    "rush_2pt": 0.0300316,
+    "rec_yd": 47.42340568,
+    "rec_td": 0.252445118,
+    "rec_2pt": 0.014379165,
+    "rec": 6.811851978,
+    "fum_lost": 0.092366673
+   }
+  },
+  {
+   "playerId": "8161",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.015110069,
+    "pass_int": 0.11882813,
+    "rush_yd": 1.970799205,
+    "rush_td": 0.014695865,
+    "rush_2pt": 0.000745484,
+    "pass_yd": 36.38659656,
+    "pass_td": 0.237502112,
+    "fum_lost": 0.048441519
+   }
+  },
+  {
+   "playerId": "11577",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.285367271,
+    "rush_yd": 240.6651785,
+    "rush_td": 1.888977846,
+    "rush_2pt": 0.062249088,
+    "rec_yd": 76.32174786,
+    "rec_td": 0.475321669,
+    "rec_2pt": 0.032307246,
+    "rec": 10.6318757,
+    "fum_lost": 0.284593616
+   }
+  },
+  {
+   "playerId": "12961",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.55390506,
+    "xpm": 33.1357342
+   }
+  },
+  {
+   "playerId": "12509",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 12.79480745,
+    "rush_td": 0.121699995,
+    "rush_2pt": 0.005865133,
+    "rec_yd": 108.3192241,
+    "rec_td": 0.696481318,
+    "rec_2pt": 0.041028286,
+    "rec": 8.754912604,
+    "fum_lost": 0.062344905
+   }
+  },
+  {
+   "playerId": "12718",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 21.21896558,
+    "rec_td": 0.147499641,
+    "rec_2pt": 0.007978367,
+    "rec": 1.811701842,
+    "fum_lost": 0.010779527
+   }
+  },
+  {
+   "playerId": "7670",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 502.8627161,
+    "rec_td": 3.275743934,
+    "rec_2pt": 0.177337879,
+    "rec": 41.65393686,
+    "fum_lost": 0.38272288
+   }
+  },
+  {
+   "playerId": "5970",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.190973019,
+    "rush_yd": 28.42456626,
+    "rush_td": 0.205832727,
+    "rush_2pt": 0.010886857,
+    "rec_yd": 238.5984443,
+    "rec_td": 1.221177346,
+    "rec_2pt": 0.092825871,
+    "rec": 23.15900634,
+    "fum_lost": 0.300418844
+   }
+  },
+  {
+   "playerId": "12497",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.383656756,
+    "rec_yd": 251.7000878,
+    "rec_td": 1.426158304,
+    "rec_2pt": 0.080798817,
+    "rec": 19.63347702,
+    "fum_lost": 0.116818117
+   }
+  },
+  {
+   "playerId": "12455",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.140011579,
+    "rush_yd": 209.6197178,
+    "rush_td": 1.723118787,
+    "rush_2pt": 0.099462642,
+    "rec_yd": 63.78895454,
+    "rec_td": 0.401353418,
+    "rec_2pt": 0.021054468,
+    "rec": 9.0727465,
+    "fum_lost": 0.232712052
+   }
+  },
+  {
+   "playerId": "10955",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.20998034,
+    "xpm": 36.05172706
+   }
+  },
+  {
+   "playerId": "7585",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.013146673,
+    "pass_int": 0.172846554,
+    "rush_yd": 0.764785315,
+    "rush_td": 0.007168987,
+    "rush_2pt": 0.000432874,
+    "pass_yd": 40.97567521,
+    "pass_td": 0.227366223,
+    "fum_lost": 0.040824993
+   }
+  },
+  {
+   "playerId": "4040",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 310.8426001,
+    "rec_td": 1.889391387,
+    "rec_2pt": 0.099256,
+    "rec": 28.33194286,
+    "fum_lost": 0.314406572
+   }
+  },
+  {
+   "playerId": "12483",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 275.4848279,
+    "rec_td": 1.436087018,
+    "rec_2pt": 0.080463491,
+    "rec": 21.92379132,
+    "fum_lost": 0.130445362
+   }
+  },
+  {
+   "playerId": "7891",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 38.43486495,
+    "rec_td": 0.331837264,
+    "rec_2pt": 0.018864507,
+    "rec": 3.939347461,
+    "fum_lost": 0.021586362
+   }
+  },
+  {
+   "playerId": "12492",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 424.9489497,
+    "rec_td": 3.100888776,
+    "rec_2pt": 0.1646896,
+    "rec": 34.42311057,
+    "fum_lost": 0.20481563
+   }
+  },
+  {
+   "playerId": "8917",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.413274254,
+    "rush_yd": 126.6786315,
+    "rush_td": 0.688995277,
+    "rush_2pt": 0.041576102,
+    "rec_yd": 380.1128892,
+    "rec_td": 2.657023726,
+    "rec_2pt": 0.139352613,
+    "rec": 29.19580662,
+    "fum_lost": 0.518230631
+   }
+  },
+  {
+   "playerId": "5857",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 348.3788225,
+    "rec_td": 2.358720842,
+    "rec_2pt": 0.089320196,
+    "rec": 36.65047769,
+    "fum_lost": 0.175728766
+   }
+  },
+  {
+   "playerId": "9486",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 93.95602523,
+    "rec_td": 0.719413359,
+    "rec_2pt": 0.041020026,
+    "rec": 6.876463113,
+    "fum_lost": 0.077016387
+   }
+  },
+  {
+   "playerId": "9757",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.083977713,
+    "rush_yd": 427.7795169,
+    "rush_td": 2.352231888,
+    "rush_2pt": 0.121776609,
+    "rec_yd": 91.92277978,
+    "rec_td": 0.299896322,
+    "rec_2pt": 0.017466887,
+    "rec": 12.69615579,
+    "fum_lost": 0.379649412
+   }
+  },
+  {
+   "playerId": "6271",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.12687596,
+    "rush_td": 0.111970937,
+    "rush_2pt": 0.005709973,
+    "rec_yd": 150.4673971,
+    "rec_td": 0.880962689,
+    "rec_2pt": 0.050503969,
+    "rec": 14.63173727,
+    "fum_lost": 0.183904498
+   }
+  },
+  {
+   "playerId": "8180",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 13.46073382,
+    "rush_td": 0.12103367,
+    "rush_2pt": 0.007023265,
+    "rec_yd": 93.03894076,
+    "rec_td": 0.754947446,
+    "rec_2pt": 0.028720249,
+    "rec": 8.002236671,
+    "fum_lost": 0.104742189
+   }
+  },
+  {
+   "playerId": "7527",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.010561338,
+    "pass_int": 0.157622644,
+    "rush_yd": 0.740198381,
+    "rush_td": 0.00699712,
+    "rush_2pt": 0.000231085,
+    "pass_yd": 37.96076051,
+    "pass_td": 0.206472555,
+    "fum_lost": 0.032136708
+   }
+  },
+  {
+   "playerId": "4171",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 460.5853159,
+    "rec_td": 3.613058829,
+    "rec_2pt": 0.236602094,
+    "rec": 36.45397895,
+    "fum_lost": 0.36929686
+   }
+  },
+  {
+   "playerId": "9511",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.192378008,
+    "rush_yd": 165.1455744,
+    "rush_td": 1.059814743,
+    "rush_2pt": 0.041496653,
+    "rec_yd": 13.28229971,
+    "rec_td": 0.086115889,
+    "rec_2pt": 0.003953821,
+    "rec": 1.75095819,
+    "fum_lost": 0.126429166
+   }
+  },
+  {
+   "playerId": "2374",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 417.5748193,
+    "rec_td": 3.156645775,
+    "rec_2pt": 0.167768142,
+    "rec": 39.47825819,
+    "fum_lost": 0.342170466
+   }
+  },
+  {
+   "playerId": "12185",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.51229633,
+    "xpm": 34.37827981
+   }
+  },
+  {
+   "playerId": "11618",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 7.862063459,
+    "rush_td": 0.048006803,
+    "rush_2pt": 0.003222505,
+    "rec_yd": 125.0312013,
+    "rec_td": 1.20457025,
+    "rec_2pt": 0.058472195,
+    "rec": 9.776972365,
+    "fum_lost": 0.113625421
+   }
+  },
+  {
+   "playerId": "6039",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.063619458,
+    "rush_yd": 149.6394425,
+    "rush_td": 1.03141437,
+    "rush_2pt": 0.033093722,
+    "rec_yd": 137.7421737,
+    "rec_td": 0.871028243,
+    "rec_2pt": 0.047162169,
+    "rec": 14.23788567,
+    "fum_lost": 0.166961015
+   }
+  },
+  {
+   "playerId": "5095",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.68785716,
+    "xpm": 31.66651613
+   }
+  },
+  {
+   "playerId": "8123",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.099086432,
+    "rush_yd": 17.19342403,
+    "rush_td": 0.207597803,
+    "rush_2pt": 0.010004837,
+    "rec_yd": 14.8146769,
+    "rec_td": 0.062571927,
+    "rec_2pt": 0.003685027,
+    "rec": 2.181734357,
+    "fum_lost": 0.031069936
+   }
+  },
+  {
+   "playerId": "12536",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.126544752,
+    "rec_yd": 168.9009736,
+    "rec_td": 0.942651044,
+    "rec_2pt": 0.049457357,
+    "rec": 13.75893064,
+    "fum_lost": 0.081864887
+   }
+  },
+  {
+   "playerId": "8188",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.10000827,
+    "rec_yd": 193.0554482,
+    "rec_td": 1.492327534,
+    "rec_2pt": 0.07841604,
+    "rec": 14.16622264,
+    "fum_lost": 0.149582456
+   }
+  },
+  {
+   "playerId": "3271",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 482.5142477,
+    "rec_td": 4.009403224,
+    "rec_2pt": 0.216887267,
+    "rec": 51.92044652,
+    "fum_lost": 0.2828842
+   }
+  },
+  {
+   "playerId": "11581",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 168.04599,
+    "rush_td": 1.192832898,
+    "rush_2pt": 0.06056864,
+    "rec_yd": 107.5982816,
+    "rec_td": 0.668305727,
+    "rec_2pt": 0.038180962,
+    "rec": 15.19258851,
+    "fum_lost": 0.242893511
+   }
+  },
+  {
+   "playerId": "9230",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.013528583,
+    "pass_int": 0.128985324,
+    "rush_yd": 0.833501562,
+    "rush_td": 0.008300657,
+    "rush_2pt": 0.000273641,
+    "pass_yd": 31.14508115,
+    "pass_td": 0.188298402,
+    "fum_lost": 0.026241876
+   }
+  },
+  {
+   "playerId": "11650",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.042726978,
+    "rec_yd": 117.3585577,
+    "rec_td": 0.828302066,
+    "rec_2pt": 0.045692077,
+    "rec": 10.68611952,
+    "fum_lost": 0.112835725
+   }
+  },
+  {
+   "playerId": "6011",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.016182689,
+    "pass_int": 0.156643231,
+    "rush_yd": 0.821494522,
+    "rush_td": 0.010468022,
+    "rush_2pt": 0.000604443,
+    "pass_yd": 42.80912997,
+    "pass_td": 0.300762032,
+    "fum_lost": 0.050385894
+   }
+  },
+  {
+   "playerId": "11651",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.245096295,
+    "rush_yd": 191.3427095,
+    "rush_td": 1.599465064,
+    "rush_2pt": 0.052811657,
+    "rec_yd": 15.83711576,
+    "rec_td": 0.075796917,
+    "rec_2pt": 0.003186025,
+    "rec": 2.081673283,
+    "fum_lost": 0.281182525
+   }
+  },
+  {
+   "playerId": "9479",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 54.7577527,
+    "rec_td": 0.395773616,
+    "rec_2pt": 0.021278365,
+    "rec": 5.648313205,
+    "fum_lost": 0.038688683
+   }
+  },
+  {
+   "playerId": "11439",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 97.01770107,
+    "rush_td": 0.501250212,
+    "rush_2pt": 0.029301533,
+    "rec_yd": 26.31709294,
+    "rec_td": 0.157787086,
+    "rec_2pt": 0.008382278,
+    "rec": 4.489822575,
+    "fum_lost": 0.089362846
+   }
+  },
+  {
+   "playerId": "6826",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 169.9522997,
+    "rec_td": 1.099731808,
+    "rec_2pt": 0.06308156,
+    "rec": 20.70810024,
+    "fum_lost": 0.138233127
+   }
+  },
+  {
+   "playerId": "7496",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 489.9090983,
+    "rec_td": 4.447115095,
+    "rec_2pt": 0.237849753,
+    "rec": 33.97651917,
+    "fum_lost": 0.295727029
+   }
+  },
+  {
+   "playerId": "7587",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 515.8676944,
+    "rec_td": 2.684430731,
+    "rec_2pt": 0.147513852,
+    "rec": 40.14681193,
+    "fum_lost": 0.449644294
+   }
+  },
+  {
+   "playerId": "8129",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.172836957,
+    "rush_yd": 232.8270736,
+    "rush_td": 1.475580677,
+    "rush_2pt": 0.089150538,
+    "rec_yd": 69.10444563,
+    "rec_td": 0.254977646,
+    "rec_2pt": 0.013387069,
+    "rec": 10.32831425,
+    "fum_lost": 0.323376943
+   }
+  },
+  {
+   "playerId": "7562",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 25.85286277,
+    "rush_td": 0.235506409,
+    "rush_2pt": 0.012855307,
+    "rec_yd": 537.1192012,
+    "rec_td": 2.320559268,
+    "rec_2pt": 0.125498023,
+    "rec": 43.16849117,
+    "fum_lost": 0.412912365
+   }
+  },
+  {
+   "playerId": "3161",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.011437696,
+    "pass_int": 0.125153207,
+    "rush_yd": 1.107911786,
+    "rush_td": 0.009065468,
+    "rush_2pt": 0.000526523,
+    "pass_yd": 41.30869861,
+    "pass_td": 0.297974001,
+    "fum_lost": 0.048182571
+   }
+  },
+  {
+   "playerId": "5086",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 44.49080766,
+    "rec_td": 0.249889482,
+    "rec_2pt": 0.010521767,
+    "rec": 2.306695064,
+    "fum_lost": 0.02160874
+   }
+  },
+  {
+   "playerId": "2197",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 413.522269,
+    "rec_td": 2.589574834,
+    "rec_2pt": 0.150797248,
+    "rec": 34.55741491,
+    "fum_lost": 0.273180728
+   }
+  },
+  {
+   "playerId": "6528",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.38422286,
+    "xpm": 31.8439272
+   }
+  },
+  {
+   "playerId": "10235",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 302.1109448,
+    "rush_td": 4.086613835,
+    "rush_2pt": 0.208397433,
+    "rec_yd": 91.264039,
+    "rec_td": 0.375731278,
+    "rec_2pt": 0.021555689,
+    "rec": 14.51618888,
+    "fum_lost": 0.256642737
+   }
+  },
+  {
+   "playerId": "4666",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 26.86325936,
+    "xpm": 36.24802395
+   }
+  },
+  {
+   "playerId": "1234",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.704861276,
+    "pass_int": 5.261159208,
+    "rush_yd": 119.1879003,
+    "rush_td": 1.310314318,
+    "rush_2pt": 0.085625664,
+    "pass_yd": 1902.698401,
+    "pass_td": 9.200713753,
+    "fum_lost": 1.923557376
+   }
+  },
+  {
+   "playerId": "12541",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 333.2529033,
+    "rec_td": 1.623691083,
+    "rec_2pt": 0.090987774,
+    "rec": 27.45420999,
+    "fum_lost": 0.163351052
+   }
+  },
+  {
+   "playerId": "12502",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 266.3170777,
+    "rec_td": 1.825638206,
+    "rec_2pt": 0.097027457,
+    "rec": 26.05593749,
+    "fum_lost": 0.167823834
+   }
+  },
+  {
+   "playerId": "2749",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 205.8402621,
+    "rush_td": 1.469950144,
+    "rush_2pt": 0.079648045,
+    "rec_yd": 62.03092283,
+    "rec_td": 0.34135881,
+    "rec_2pt": 0.019137374,
+    "rec": 8.989139315,
+    "fum_lost": 0.31922146
+   }
+  },
+  {
+   "playerId": "6151",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 365.2881375,
+    "rush_td": 2.108003709,
+    "rush_2pt": 0.127206272,
+    "rec_yd": 142.0096658,
+    "rec_td": 0.485831166,
+    "rec_2pt": 0.025481427,
+    "rec": 23.08920826,
+    "fum_lost": 0.545153876
+   }
+  },
+  {
+   "playerId": "10218",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 223.7720982,
+    "rec_td": 1.120409524,
+    "rec_2pt": 0.058776857,
+    "rec": 16.46527771,
+    "fum_lost": 0.173858391
+   }
+  },
+  {
+   "playerId": "11600",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 440.3687373,
+    "rec_td": 2.413266454,
+    "rec_2pt": 0.136554803,
+    "rec": 44.21069443,
+    "fum_lost": 0.302825551
+   }
+  },
+  {
+   "playerId": "11058",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 28.63912726,
+    "xpm": 28.23039805
+   }
+  },
+  {
+   "playerId": "10937",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 25.95309593,
+    "xpm": 38.35806225
+   }
+  },
+  {
+   "playerId": "8117",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.087041982,
+    "rec_yd": 303.7412247,
+    "rec_td": 2.489664094,
+    "rec_2pt": 0.130586639,
+    "rec": 25.88632494,
+    "fum_lost": 0.258384886
+   }
+  },
+  {
+   "playerId": "12521",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 503.5817402,
+    "rec_td": 3.290761489,
+    "rec_2pt": 0.186528067,
+    "rec": 45.05167423,
+    "fum_lost": 0.290173582
+   }
+  },
+  {
+   "playerId": "11562",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.605927208,
+    "pass_int": 8.099009674,
+    "rush_yd": 185.2881107,
+    "rush_td": 0.73452576,
+    "rush_2pt": 0.038134423,
+    "pass_yd": 2440.657194,
+    "pass_td": 10.37722099,
+    "fum_lost": 3.130197274
+   }
+  },
+  {
+   "playerId": "9229",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.332139726,
+    "pass_int": 3.709136306,
+    "rush_yd": 167.0419511,
+    "rush_td": 1.649070136,
+    "rush_2pt": 0.078993552,
+    "pass_yd": 868.4304208,
+    "pass_td": 4.63437113,
+    "fum_lost": 1.496027184
+   }
+  },
+  {
+   "playerId": "12486",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.385065523,
+    "pass_int": 4.606278877,
+    "rush_yd": 79.75145058,
+    "rush_td": 0.779387219,
+    "rush_2pt": 0.050967308,
+    "pass_yd": 1140.661101,
+    "pass_td": 5.69571322,
+    "fum_lost": 1.297501196
+   }
+  },
+  {
+   "playerId": "5096",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.268220567,
+    "rush_yd": 66.1917546,
+    "rush_td": 0.437867609,
+    "rush_2pt": 0.019773158,
+    "rec_yd": 463.4497953,
+    "rec_td": 1.695334853,
+    "rec_2pt": 0.105653632,
+    "rec": 44.47938642,
+    "fum_lost": 0.583785672
+   }
+  },
+  {
+   "playerId": "12531",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.320670084,
+    "rush_yd": 103.4768236,
+    "rush_td": 0.547660879,
+    "rush_2pt": 0.0287252,
+    "rec_yd": 30.21361033,
+    "rec_td": 0.152561357,
+    "rec_2pt": 0.008634199,
+    "rec": 4.297417531,
+    "fum_lost": 0.108984491
+   }
+  },
+  {
+   "playerId": "12641",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.170907911,
+    "rush_yd": 13.5056604,
+    "rush_td": 0.133990113,
+    "rush_2pt": 0.005149499,
+    "rec_yd": 77.35644048,
+    "rec_td": 0.521816671,
+    "rec_2pt": 0.028660592,
+    "rec": 6.715908451,
+    "fum_lost": 0.050787022
+   }
+  },
+  {
+   "playerId": "6853",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 245.9354746,
+    "rec_td": 1.771705554,
+    "rec_2pt": 0.094167837,
+    "rec": 18.35668475,
+    "fum_lost": 0.155076696
+   }
+  },
+  {
+   "playerId": "12471",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.154573373,
+    "rush_yd": 60.13596129,
+    "rush_td": 0.445053916,
+    "rush_2pt": 0.021284266,
+    "rec_yd": 39.57330132,
+    "rec_td": 0.236307122,
+    "rec_2pt": 0.016921544,
+    "rec": 5.989525479,
+    "fum_lost": 0.082063573
+   }
+  },
+  {
+   "playerId": "7610",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014897557,
+    "pass_int": 0.168585576,
+    "rush_yd": 2.027078294,
+    "rush_td": 0.016838979,
+    "rush_2pt": 0.000811687,
+    "pass_yd": 39.75581949,
+    "pass_td": 0.239000656,
+    "fum_lost": 0.025120903
+   }
+  },
+  {
+   "playerId": "8119",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 148.3061787,
+    "rec_td": 0.989961016,
+    "rec_2pt": 0.067281361,
+    "rec": 12.07663651,
+    "fum_lost": 0.089262826
+   }
+  },
+  {
+   "playerId": "4972",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.011483194,
+    "pass_int": 0.152482,
+    "rush_yd": 1.126484812,
+    "rush_td": 0.011733299,
+    "rush_2pt": 0.000516423,
+    "pass_yd": 38.2308343,
+    "pass_td": 0.20790718,
+    "fum_lost": 0.045735495
+   }
+  },
+  {
+   "playerId": "1379",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 18.29422697,
+    "rush_td": 0.187825557,
+    "rush_2pt": 0.006201446,
+    "rec_yd": 95.05493631,
+    "rec_td": 0.487486096,
+    "rec_2pt": 0.020491136,
+    "rec": 11.72272033,
+    "fum_lost": 0.086557803
+   }
+  },
+  {
+   "playerId": "12487",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 202.7022298,
+    "rec_td": 1.541870456,
+    "rec_2pt": 0.083406941,
+    "rec": 19.86532075,
+    "fum_lost": 0.127950656
+   }
+  },
+  {
+   "playerId": "4718",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 23.256242,
+    "rush_td": 0.146619939,
+    "rush_2pt": 0.008852215,
+    "rec_yd": 47.70814712,
+    "rec_td": 0.284803224,
+    "rec_2pt": 0.01495138,
+    "rec": 6.00028148,
+    "fum_lost": 0.026718038
+   }
+  },
+  {
+   "playerId": "12503",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 276.5220102,
+    "rec_td": 1.041545242,
+    "rec_2pt": 0.070873624,
+    "rec": 24.31037788,
+    "fum_lost": 0.144645422
+   }
+  },
+  {
+   "playerId": "6111",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.013235986,
+    "pass_int": 0.195001406,
+    "rush_yd": 1.485998298,
+    "rush_td": 0.019770625,
+    "rush_2pt": 0.001141365,
+    "pass_yd": 44.18771279,
+    "pass_td": 0.329382239,
+    "fum_lost": 0.042097701
+   }
+  },
+  {
+   "playerId": "8160",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.011881445,
+    "pass_int": 0.118573249,
+    "rush_yd": 0.875253749,
+    "rush_td": 0.014054014,
+    "rush_2pt": 0.000761849,
+    "pass_yd": 39.09896116,
+    "pass_td": 0.19302998,
+    "fum_lost": 0.039462064
+   }
+  },
+  {
+   "playerId": "11261",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.80367837,
+    "xpm": 25.48272141
+   }
+  },
+  {
+   "playerId": "7828",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 272.4414647,
+    "rec_td": 2.235147559,
+    "rec_2pt": 0.117249156,
+    "rec": 30.5306603,
+    "fum_lost": 0.146385957
+   }
+  },
+  {
+   "playerId": "8208",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 94.54282036,
+    "rush_td": 0.586988994,
+    "rush_2pt": 0.034313564,
+    "rec_yd": 28.94078957,
+    "rec_td": 0.150652838,
+    "rec_2pt": 0.008003134,
+    "rec": 4.218564523,
+    "fum_lost": 0.110971825
+   }
+  },
+  {
+   "playerId": "5955",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 258.1905485,
+    "rec_td": 1.498702533,
+    "rec_2pt": 0.084812775,
+    "rec": 26.86207689,
+    "fum_lost": 0.300855261
+   }
+  },
+  {
+   "playerId": "4234",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 495.4428382,
+    "rec_td": 2.27958182,
+    "rec_2pt": 0.125358053,
+    "rec": 40.4028424,
+    "fum_lost": 0.344806824
+   }
+  },
+  {
+   "playerId": "11630",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 320.493211,
+    "rec_td": 1.75615433,
+    "rec_2pt": 0.094398076,
+    "rec": 27.22638244,
+    "fum_lost": 0.287485892
+   }
+  },
+  {
+   "playerId": "3286",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 122.0290653,
+    "rec_td": 0.902264594,
+    "rec_2pt": 0.037903144,
+    "rec": 7.587921034,
+    "fum_lost": 0.084984716
+   }
+  },
+  {
+   "playerId": "12543",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 100.4591094,
+    "rush_td": 0.833499437,
+    "rush_2pt": 0.048102109,
+    "rec_yd": 16.40485938,
+    "rec_td": 0.101789047,
+    "rec_2pt": 0.003855116,
+    "rec": 2.348583179,
+    "fum_lost": 0.104658151
+   }
+  },
+  {
+   "playerId": "503",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "fgm": 27.85535116,
+    "xpm": 29.07589191
+   }
+  },
+  {
+   "playerId": "5185",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 315.7733974,
+    "rec_td": 1.617622176,
+    "rec_2pt": 0.105895533,
+    "rec": 24.800464,
+    "fum_lost": 0.183309276
+   }
+  },
+  {
+   "playerId": "12510",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.012671043,
+    "pass_int": 0.130983587,
+    "rush_yd": 20.48717197,
+    "rush_td": 0.171438626,
+    "rush_2pt": 0.009005937,
+    "pass_yd": 38.57494819,
+    "pass_td": 0.220860207,
+    "fum_lost": 0.067657229
+   }
+  },
+  {
+   "playerId": "829",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.012852432,
+    "pass_int": 0.173811514,
+    "rush_yd": 0.851933407,
+    "rush_td": 0.006644767,
+    "rush_2pt": 0.00034861,
+    "pass_yd": 41.80685903,
+    "pass_td": 0.238712129,
+    "fum_lost": 0.036438404
+   }
+  },
+  {
+   "playerId": "11569",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.039909276
+   }
+  },
+  {
+   "playerId": "11596",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 183.5024024,
+    "rec_td": 1.43198188,
+    "rec_2pt": 0.07885364,
+    "rec": 18.88888606,
+    "fum_lost": 0.129381305
+   }
+  },
+  {
+   "playerId": "12544",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 188.9898642,
+    "rush_td": 1.174351022,
+    "rush_2pt": 0.065170708,
+    "rec_yd": 87.49627375,
+    "rec_td": 0.423745175,
+    "rec_2pt": 0.023305214,
+    "rec": 12.58050533,
+    "fum_lost": 0.230389852
+   }
+  },
+  {
+   "playerId": "12542",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 56.90499278,
+    "rec_td": 0.383704777,
+    "rec_2pt": 0.02232064,
+    "rec": 4.853425399,
+    "fum_lost": 0.028877616
+   }
+  },
+  {
+   "playerId": "3634",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.189050654,
+    "rec_yd": 111.7624144,
+    "rec_td": 0.562122258,
+    "rec_2pt": 0.031951147,
+    "rec": 10.20792527,
+    "fum_lost": 0.113560087
+   }
+  },
+  {
+   "playerId": "11377",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.97499442,
+    "rec_td": 0.133605776,
+    "rec_2pt": 0.007233075,
+    "rec": 1.506209951,
+    "fum_lost": 0.01590421
+   }
+  },
+  {
+   "playerId": "11068",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 209.8934558,
+    "rec_td": 1.628273652,
+    "rec_2pt": 0.061659874,
+    "rec": 17.78567304,
+    "fum_lost": 0.187800568
+   }
+  },
+  {
+   "playerId": "7694",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 204.4263421,
+    "rec_td": 1.792725459,
+    "rec_2pt": 0.101453809,
+    "rec": 20.41824602,
+    "fum_lost": 0.163859164
+   }
+  },
+  {
+   "playerId": "10871",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 112.4279941,
+    "rec_td": 0.913000115,
+    "rec_2pt": 0.047887582,
+    "rec": 12.548161,
+    "fum_lost": 0.085949878
+   }
+  },
+  {
+   "playerId": "6945",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.158859749,
+    "rush_yd": 29.7897894,
+    "rush_td": 0.169103694,
+    "rush_2pt": 0.008389714,
+    "rec_yd": 14.93504444,
+    "rec_td": 0.08552024,
+    "rec_2pt": 0.004976441,
+    "rec": 1.992290718,
+    "fum_lost": 0.049072866
+   }
+  },
+  {
+   "playerId": "6828",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 52.29324225,
+    "rush_td": 0.418633551,
+    "rush_2pt": 0.013795586,
+    "rec_yd": 13.59736006,
+    "rec_td": 0.062146283,
+    "rec_2pt": 0.004223885,
+    "rec": 1.775465196,
+    "fum_lost": 0.048153376
+   }
+  },
+  {
+   "playerId": "11623",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.255419364,
+    "rush_yd": 13.72869986,
+    "rush_td": 0.100696444,
+    "rush_2pt": 0.005496596,
+    "rec_yd": 247.9015554,
+    "rec_td": 1.611675147,
+    "rec_2pt": 0.087176528,
+    "rec": 21.13064064,
+    "fum_lost": 0.242512305
+   }
+  },
+  {
+   "playerId": "3976",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.015012376,
+    "pass_int": 0.188081164,
+    "rush_yd": 0.514857308,
+    "rush_td": 0.013707228,
+    "rush_2pt": 0.000439872,
+    "pass_yd": 35.44808622,
+    "pass_td": 0.24645658,
+    "fum_lost": 0.032895975
+   }
+  },
+  {
+   "playerId": "10228",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.254870652,
+    "rec_yd": 22.85046562,
+    "rec_td": 0.163008072,
+    "rec_2pt": 0.006172621,
+    "rec": 1.862275894,
+    "fum_lost": 0.019663944
+   }
+  },
+  {
+   "playerId": "6847",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.445925252,
+    "rec_yd": 17.34032795,
+    "rec_td": 0.121583593,
+    "rec_2pt": 0.006973717,
+    "rec": 1.787136876,
+    "fum_lost": 0.0198323
+   }
+  },
+  {
+   "playerId": "5973",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 126.0234304,
+    "rec_td": 1.167942741,
+    "rec_2pt": 0.04449396,
+    "rec": 12.72718349,
+    "fum_lost": 0.110467875
+   }
+  },
+  {
+   "playerId": "10214",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.94173782,
+    "rec_td": 0.167265675,
+    "rec_2pt": 0.009048371,
+    "rec": 1.918766799,
+    "fum_lost": 0.013142784
+   }
+  },
+  {
+   "playerId": "3202",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 246.961786,
+    "rec_td": 1.651125144,
+    "rec_2pt": 0.096053792,
+    "rec": 25.67243665,
+    "fum_lost": 0.16537615
+   }
+  },
+  {
+   "playerId": "1837",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.015601784,
+    "pass_int": 0.16996354,
+    "rush_yd": 0.282314524,
+    "rush_td": 0.00744874,
+    "rush_2pt": 0.000406718,
+    "pass_yd": 45.83082799,
+    "pass_td": 0.295800878,
+    "fum_lost": 0.03542903
+   }
+  },
+  {
+   "playerId": "8139",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 307.9910869,
+    "rush_td": 1.679018289,
+    "rush_2pt": 0.090976141,
+    "rec_yd": 92.44790554,
+    "rec_td": 0.344174034,
+    "rec_2pt": 0.019291494,
+    "rec": 13.47860276,
+    "fum_lost": 0.610779754
+   }
+  },
+  {
+   "playerId": "5773",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 52.12882979,
+    "rec_td": 0.290056624,
+    "rec_2pt": 0.018082463,
+    "rec": 3.898619357,
+    "fum_lost": 0.040333475
+   }
+  },
+  {
+   "playerId": "11557",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014427827,
+    "pass_int": 0.139454178,
+    "rush_yd": 1.142807406,
+    "rush_td": 0.016954614,
+    "rush_2pt": 0.001023235,
+    "pass_yd": 41.70468017,
+    "pass_td": 0.258629237,
+    "fum_lost": 0.04319159
+   }
+  },
+  {
+   "playerId": "8225",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 67.65144264,
+    "rec_td": 0.312068143,
+    "rec_2pt": 0.023891593,
+    "rec": 8.122086581,
+    "fum_lost": 0.056967716
+   }
+  },
+  {
+   "playerId": "12482",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 26.94553366,
+    "rush_td": 0.204568451,
+    "rush_2pt": 0.010374149,
+    "rec_yd": 73.52733475,
+    "rec_td": 0.533118479,
+    "rec_2pt": 0.030393324,
+    "rec": 6.201144613,
+    "fum_lost": 0.058642456
+   }
+  },
+  {
+   "playerId": "8177",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 82.22234286,
+    "rec_td": 0.539273204,
+    "rec_2pt": 0.036649316,
+    "rec": 8.279250021,
+    "fum_lost": 0.056709547
+   }
+  },
+  {
+   "playerId": "6699",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.224093472
+   }
+  },
+  {
+   "playerId": "11599",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 162.2485744,
+    "rec_td": 0.954235338,
+    "rec_2pt": 0.050053384,
+    "rec": 15.94402696,
+    "fum_lost": 0.109210199
+   }
+  },
+  {
+   "playerId": "11510",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 25.54199341,
+    "rush_td": 0.199701444,
+    "rush_2pt": 0.012049503,
+    "rec_yd": 31.56348752,
+    "rec_td": 0.133165244,
+    "rec_2pt": 0.006985119,
+    "rec": 4.585998211,
+    "fum_lost": 0.048077178
+   }
+  },
+  {
+   "playerId": "11570",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.076951203,
+    "rush_yd": 21.71796744,
+    "rush_td": 0.165363944,
+    "rush_2pt": 0.006474764,
+    "rec_yd": 12.41391588,
+    "rec_td": 0.094934921,
+    "rec_2pt": 0.004358775,
+    "rec": 1.702286391,
+    "fum_lost": 0.029849585
+   }
+  },
+  {
+   "playerId": "10231",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 143.3209525,
+    "rec_td": 1.00691491,
+    "rec_2pt": 0.076553837,
+    "rec": 15.51363181,
+    "fum_lost": 0.106262165
+   }
+  },
+  {
+   "playerId": "12505",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 104.906179,
+    "rec_td": 0.79974512,
+    "rec_2pt": 0.042021315,
+    "rec": 9.173180045,
+    "fum_lost": 0.054579921
+   }
+  },
+  {
+   "playerId": "11168",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.039909276,
+    "rush_yd": 14.16339951,
+    "rush_td": 0.100057288,
+    "rush_2pt": 0.005461707,
+    "fum_lost": 0.019391915
+   }
+  },
+  {
+   "playerId": "8168",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 48.18697703,
+    "rec_td": 0.212268671,
+    "rec_2pt": 0.008926388,
+    "rec": 3.298329456,
+    "fum_lost": 0.03694129
+   }
+  },
+  {
+   "playerId": "5094",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 301.7133238,
+    "rec_td": 2.06876403,
+    "rec_2pt": 0.121825456,
+    "rec": 31.26749058,
+    "fum_lost": 0.189808334
+   }
+  },
+  {
+   "playerId": "6109",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 33.67802518,
+    "rush_td": 0.303055986,
+    "rush_2pt": 0.017075628,
+    "rec_yd": 65.23009581,
+    "rec_td": 0.26568506,
+    "rec_2pt": 0.014209449,
+    "rec": 9.196676709,
+    "fum_lost": 0.105553773
+   }
+  },
+  {
+   "playerId": "7596",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 98.87300089,
+    "rec_td": 0.611443386,
+    "rec_2pt": 0.03309956,
+    "rec": 8.90949297,
+    "fum_lost": 0.067265037
+   }
+  },
+  {
+   "playerId": "9497",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 40.66189833,
+    "rec_td": 0.158216811,
+    "rec_2pt": 0.012110002,
+    "rec": 2.946415409,
+    "fum_lost": 0.031111473
+   }
+  },
+  {
+   "playerId": "4574",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014683781,
+    "pass_int": 0.130469651,
+    "rush_yd": 0.228970024,
+    "rush_td": 0.002770974,
+    "rush_2pt": 0.00010851,
+    "pass_yd": 34.64050788,
+    "pass_td": 0.296819467,
+    "fum_lost": 0.047818751
+   }
+  },
+  {
+   "playerId": "8230",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.157295168,
+    "rush_yd": 27.22127567,
+    "rush_td": 0.142101027,
+    "rush_2pt": 0.008249558,
+    "rec_yd": 14.83693612,
+    "rec_td": 0.079173799,
+    "rec_2pt": 0.003017111,
+    "rec": 2.248991093,
+    "fum_lost": 0.01906594
+   }
+  },
+  {
+   "playerId": "10867",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 146.0438386,
+    "rec_td": 0.800604305,
+    "rec_2pt": 0.045386988,
+    "rec": 12.3427052,
+    "fum_lost": 0.130327767
+   }
+  },
+  {
+   "playerId": "4274",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 169.1422779,
+    "rec_td": 0.881433528,
+    "rec_2pt": 0.049880554,
+    "rec": 14.28488824,
+    "fum_lost": 0.139271941
+   }
+  },
+  {
+   "playerId": "4082",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 23.5626088,
+    "rush_td": 0.244805668,
+    "rush_2pt": 0.007854778,
+    "rec_yd": 166.6845322,
+    "rec_td": 1.4650579,
+    "rec_2pt": 0.079316131,
+    "rec": 17.17721879,
+    "fum_lost": 0.177131747
+   }
+  },
+  {
+   "playerId": "2152",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.016383036,
+    "pass_int": 0.132106544,
+    "rush_yd": 0.95587624,
+    "rush_td": 0.008290042,
+    "rush_2pt": 0.000557548,
+    "pass_yd": 41.44183025,
+    "pass_td": 0.332537908,
+    "fum_lost": 0.027586487
+   }
+  },
+  {
+   "playerId": "4351",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 80.90213052,
+    "rec_td": 0.526277971,
+    "rec_2pt": 0.028921296,
+    "rec": 7.363098725,
+    "fum_lost": 0.054423349
+   }
+  },
+  {
+   "playerId": "5010",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 351.7736208,
+    "rec_td": 1.786886746,
+    "rec_2pt": 0.105213948,
+    "rec": 38.54953083,
+    "fum_lost": 0.175489667
+   }
+  },
+  {
+   "playerId": "11256",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014388168,
+    "pass_int": 0.157788008,
+    "rush_yd": 1.384262064,
+    "rush_td": 0.018992336,
+    "rush_2pt": 0.00096906,
+    "pass_yd": 39.76633583,
+    "pass_td": 0.253880928,
+    "fum_lost": 0.044381497
+   }
+  },
+  {
+   "playerId": "11633",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 166.0865019,
+    "rec_td": 0.672764271,
+    "rec_2pt": 0.045729161,
+    "rec": 14.69889039,
+    "fum_lost": 0.155206944
+   }
+  },
+  {
+   "playerId": "12670",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 97.4974717,
+    "rec_td": 0.627344242,
+    "rec_2pt": 0.036936228,
+    "rec": 8.453746803,
+    "fum_lost": 0.050299332
+   }
+  },
+  {
+   "playerId": "8254",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.14549614,
+    "rush_yd": 44.89500836,
+    "rush_td": 0.275305976,
+    "rush_2pt": 0.016200485,
+    "rec_yd": 27.07293231,
+    "rec_td": 0.110548581,
+    "rec_2pt": 0.005911631,
+    "rec": 3.948021387,
+    "fum_lost": 0.064574885
+   }
+  },
+  {
+   "playerId": "4179",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.013808305,
+    "pass_int": 0.140496571,
+    "rush_yd": 1.907830776,
+    "rush_td": 0.025524405,
+    "rush_2pt": 0.0012669,
+    "pass_yd": 33.57166006,
+    "pass_td": 0.215545622,
+    "fum_lost": 0.05961456
+   }
+  },
+  {
+   "playerId": "12516",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 86.83461638,
+    "rush_td": 0.551156408,
+    "rush_2pt": 0.032338562,
+    "rec_yd": 45.83978575,
+    "rec_td": 0.247640407,
+    "rec_2pt": 0.013217348,
+    "rec": 6.482455193,
+    "fum_lost": 0.110207888
+   }
+  },
+  {
+   "playerId": "12467",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 17.08178681,
+    "rush_td": 0.147919499,
+    "rush_2pt": 0.004881871,
+    "fum_lost": 0.015467174
+   }
+  },
+  {
+   "playerId": "7842",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 38.6572592,
+    "rec_td": 0.224062783,
+    "rec_2pt": 0.009416523,
+    "rec": 3.740772876,
+    "fum_lost": 0.025622796
+   }
+  },
+  {
+   "playerId": "6869",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 134.5680037,
+    "rec_td": 1.376926973,
+    "rec_2pt": 0.073145448,
+    "rec": 12.64837965,
+    "fum_lost": 0.083913383
+   }
+  },
+  {
+   "playerId": "10234",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.231201675,
+    "rush_yd": 54.99694369,
+    "rush_td": 0.406984821,
+    "rush_2pt": 0.019613969,
+    "rec_yd": 40.25281058,
+    "rec_td": 0.25830564,
+    "rec_2pt": 0.015209714,
+    "rec": 3.662031451,
+    "fum_lost": 0.137520598
+   }
+  },
+  {
+   "playerId": "11895",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 46.75860399,
+    "rec_td": 0.171332101,
+    "rec_2pt": 0.00997698,
+    "rec": 4.182695598,
+    "fum_lost": 0.04416547
+   }
+  },
+  {
+   "playerId": "12496",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.235942752,
+    "rec_yd": 42.23844008,
+    "rec_td": 0.343942441,
+    "rec_2pt": 0.013099168,
+    "rec": 3.895147436,
+    "fum_lost": 0.023175915
+   }
+  },
+  {
+   "playerId": "12658",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 17.44209144,
+    "rec_td": 0.150781298,
+    "rec_2pt": 0.008163426,
+    "rec": 1.755944037,
+    "fum_lost": 0.01130987
+   }
+  },
+  {
+   "playerId": "8204",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_td": 0.008805159,
+    "int": 0.070790704,
+    "fum_rec": 0.018520514,
+    "sack": 0.015877865
+   }
+  },
+  {
+   "playerId": "12473",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.20398244,
+    "rec_td": 0.11931577,
+    "rec_2pt": 0.006751692,
+    "rec": 1.937168568,
+    "fum_lost": 0.01247712
+   }
+  },
+  {
+   "playerId": "8207",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.231860059,
+    "rush_yd": 38.10807487,
+    "rush_td": 0.250209353,
+    "rush_2pt": 0.011973921,
+    "rec_yd": 11.68626348,
+    "rec_td": 0.06547916,
+    "rec_2pt": 0.004691181,
+    "rec": 1.834457795,
+    "fum_lost": 0.036022969
+   }
+  },
+  {
+   "playerId": "11762",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 16.51734136,
+    "rec_td": 0.106155091,
+    "rec_2pt": 0.007598435,
+    "rec": 1.615521992,
+    "fum_lost": 0.017058446
+   }
+  },
+  {
+   "playerId": "12048",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 38.03957584,
+    "rush_td": 0.210652268,
+    "rush_2pt": 0.011065718,
+    "rec_yd": 14.71646731,
+    "rec_td": 0.082465544,
+    "rec_2pt": 0.004674604,
+    "rec": 1.96177576,
+    "fum_lost": 0.046090837
+   }
+  },
+  {
+   "playerId": "4054",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 54.64904926,
+    "rec_td": 0.562441684,
+    "rec_2pt": 0.040278769,
+    "rec": 4.570928309,
+    "fum_lost": 0.044282804
+   }
+  },
+  {
+   "playerId": "11574",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.171326924
+   }
+  },
+  {
+   "playerId": "3832",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 5.742685036,
+    "rush_td": 0.04297983,
+    "rush_2pt": 0.002497881,
+    "rec_yd": 19.47237872,
+    "rec_td": 0.082732109,
+    "rec_2pt": 0.003155173,
+    "rec": 3.226971921,
+    "fum_lost": 0.024729134
+   }
+  },
+  {
+   "playerId": "11629",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 22.50510216,
+    "rec_td": 0.215480571,
+    "rec_2pt": 0.009889179,
+    "rec": 1.730521662,
+    "fum_lost": 0.018272738
+   }
+  },
+  {
+   "playerId": "7538",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014689756,
+    "pass_int": 0.136811352,
+    "rush_yd": 1.653326367,
+    "rush_td": 0.017819731,
+    "rush_2pt": 0.001004284,
+    "pass_yd": 38.54106833,
+    "pass_td": 0.228957669,
+    "fum_lost": 0.044199096
+   }
+  },
+  {
+   "playerId": "8145",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 74.01872349,
+    "rec_td": 0.321364486,
+    "rec_2pt": 0.021034768,
+    "rec": 7.81648002,
+    "fum_lost": 0.053539758
+   }
+  },
+  {
+   "playerId": "7716",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 71.93346901,
+    "rec_td": 0.594175194,
+    "rec_2pt": 0.032828778,
+    "rec": 7.422920585,
+    "fum_lost": 0.07964556
+   }
+  },
+  {
+   "playerId": "11320",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.128010586,
+    "rec_yd": 12.74654066,
+    "rec_td": 0.083854189,
+    "rec_2pt": 0.004410521,
+    "rec": 1.041613486,
+    "fum_lost": 0.010998493
+   }
+  },
+  {
+   "playerId": "7602",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 17.86927473,
+    "rec_td": 0.10470379,
+    "rec_2pt": 0.007115675,
+    "rec": 1.40283412,
+    "fum_lost": 0.009472507
+   }
+  },
+  {
+   "playerId": "7075",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 68.82448581,
+    "rec_td": 0.434837783,
+    "rec_2pt": 0.027108479,
+    "rec": 7.22579532,
+    "fum_lost": 0.049493804
+   }
+  },
+  {
+   "playerId": "7535",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.65992279,
+    "rec_td": 0.113259743,
+    "rec_2pt": 0.006224277,
+    "rec": 1.972326379,
+    "fum_lost": 0.013509646
+   }
+  },
+  {
+   "playerId": "6290",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.21981297,
+    "rec_td": 0.088619857,
+    "rec_2pt": 0.004762794,
+    "rec": 1.606012422,
+    "fum_lost": 0.013566427
+   }
+  },
+  {
+   "playerId": "7757",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 53.49582764,
+    "rec_td": 0.192657044,
+    "rec_2pt": 0.0103509,
+    "rec": 5.111540772,
+    "fum_lost": 0.043178586
+   }
+  },
+  {
+   "playerId": "11371",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 158.9744086,
+    "rec_td": 1.203929815,
+    "rec_2pt": 0.064412598,
+    "rec": 15.35006699,
+    "fum_lost": 0.105141811
+   }
+  },
+  {
+   "playerId": "11640",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.169913768
+   }
+  },
+  {
+   "playerId": "12539",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 213.5125271,
+    "rec_td": 0.942211127,
+    "rec_2pt": 0.061698185,
+    "rec": 18.11332983,
+    "fum_lost": 0.107773324
+   }
+  },
+  {
+   "playerId": "6136",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.014516779,
+    "pass_int": 0.156676768,
+    "rush_yd": 1.506564586,
+    "rush_td": 0.010006751,
+    "rush_2pt": 0.000585178,
+    "pass_yd": 38.62114738,
+    "pass_td": 0.264689004,
+    "fum_lost": 0.043906565
+   }
+  },
+  {
+   "playerId": "8127",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 55.23480871,
+    "rec_td": 0.581127075,
+    "rec_2pt": 0.026663916,
+    "rec": 5.195177255,
+    "fum_lost": 0.035584884
+   }
+  },
+  {
+   "playerId": "4198",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.107159892,
+    "rec_yd": 6.745700134,
+    "rec_td": 0.043898767,
+    "rec_2pt": 0.002737164,
+    "rec": 0.634999187,
+    "fum_lost": 0.007111991
+   }
+  },
+  {
+   "playerId": "5121",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.195064745
+   }
+  },
+  {
+   "playerId": "6659",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.157542212,
+    "rush_yd": 20.24431161,
+    "rush_td": 0.13114708,
+    "rush_2pt": 0.005186843,
+    "rec_yd": 16.55636882,
+    "rec_td": 0.06867543,
+    "rec_2pt": 0.003904186,
+    "rec": 2.062005183,
+    "fum_lost": 0.038099593
+   }
+  },
+  {
+   "playerId": "4080",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 127.6623808,
+    "rec_td": 0.858632779,
+    "rec_2pt": 0.065274112,
+    "rec": 12.23252534,
+    "fum_lost": 0.100201077
+   }
+  },
+  {
+   "playerId": "7595",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.81860574,
+    "rec_td": 0.136454799,
+    "rec_2pt": 0.006264228,
+    "rec": 1.406007898,
+    "fum_lost": 0.014846168
+   }
+  },
+  {
+   "playerId": "6960",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 316.838211,
+    "rec_td": 1.620688945,
+    "rec_2pt": 0.106013425,
+    "rec": 27.1387024,
+    "fum_lost": 0.229248056
+   }
+  },
+  {
+   "playerId": "5127",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.015113561,
+    "pass_int": 0.179874424,
+    "rush_yd": 0.669094874,
+    "rush_td": 0.008631073,
+    "rush_2pt": 0.000341414,
+    "pass_yd": 34.19160394,
+    "pass_td": 0.208008243,
+    "fum_lost": 0.051473513
+   }
+  },
+  {
+   "playerId": "8162",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.001882499,
+    "pass_int": 0.021281951,
+    "rush_yd": 0.180200334,
+    "rush_td": 0.002101965,
+    "rush_2pt": 6.91764e-05,
+    "pass_yd": 4.002596996,
+    "pass_td": 0.025010659,
+    "fum_lost": 0.003005223
+   }
+  },
+  {
+   "playerId": "11921",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.32183985,
+    "rec_td": 0.12929162,
+    "rec_2pt": 0.009829121,
+    "rec": 1.695998642,
+    "fum_lost": 0.017908207
+   }
+  },
+  {
+   "playerId": "11210",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.03889856,
+    "rec_td": 0.14166201,
+    "rec_2pt": 0.008080433,
+    "rec": 1.53983167,
+    "fum_lost": 0.016259225
+   }
+  },
+  {
+   "playerId": "12634",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.16339753,
+    "rec_yd": 32.14985401,
+    "rec_td": 0.173189191,
+    "rec_2pt": 0.007272545,
+    "rec": 2.361336332,
+    "fum_lost": 0.014049822
+   }
+  },
+  {
+   "playerId": "4353",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 23.12762794,
+    "rec_td": 0.19609057,
+    "rec_2pt": 0.009002759,
+    "rec": 3.125594347,
+    "fum_lost": 0.019524718
+   }
+  },
+  {
+   "playerId": "11201",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 36.65002249,
+    "rec_td": 0.212085138,
+    "rec_2pt": 0.014437882,
+    "rec": 3.880346446,
+    "fum_lost": 0.026578819
+   }
+  },
+  {
+   "playerId": "5985",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 210.2797852,
+    "rec_td": 1.634023105,
+    "rec_2pt": 0.095092253,
+    "rec": 18.71709198,
+    "fum_lost": 0.140872826
+   }
+  },
+  {
+   "playerId": "6001",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 56.76308031,
+    "rec_td": 0.441103081,
+    "rec_2pt": 0.016703707,
+    "rec": 6.973928674,
+    "fum_lost": 0.054319637
+   }
+  },
+  {
+   "playerId": "10227",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 63.79152072,
+    "rec_td": 0.627550201,
+    "rec_2pt": 0.0305374,
+    "rec": 6.433679169,
+    "fum_lost": 0.044068126
+   }
+  },
+  {
+   "playerId": "7612",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.100326804,
+    "rec_yd": 22.72115704,
+    "rec_td": 0.13434255,
+    "rec_2pt": 0.007183709,
+    "rec": 1.767101898,
+    "fum_lost": 0.01051416
+   }
+  },
+  {
+   "playerId": "4995",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 40.53719618,
+    "rec_td": 0.207116459,
+    "rec_2pt": 0.011605729,
+    "rec": 3.858078339,
+    "fum_lost": 0.027590358
+   }
+  },
+  {
+   "playerId": "4314",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 89.43756284,
+    "rec_td": 0.531533872,
+    "rec_2pt": 0.029209671,
+    "rec": 10.22263798,
+    "fum_lost": 0.056016781
+   }
+  },
+  {
+   "playerId": "7039",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 25.20372866,
+    "rec_td": 0.124577411,
+    "rec_2pt": 0.007047192,
+    "rec": 1.879625266,
+    "fum_lost": 0.019847137
+   }
+  },
+  {
+   "playerId": "11593",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 40.82691923,
+    "rec_td": 0.310669489,
+    "rec_2pt": 0.016295014,
+    "rec": 4.133806584,
+    "fum_lost": 0.02831492
+   }
+  },
+  {
+   "playerId": "12889",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.10513926,
+    "rec_td": 0.097764064,
+    "rec_2pt": 0.007485045,
+    "rec": 1.665639562,
+    "fum_lost": 0.009910465
+   }
+  },
+  {
+   "playerId": "5008",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 30.71696833,
+    "rec_td": 0.225666134,
+    "rec_2pt": 0.012944617,
+    "rec": 3.8992166,
+    "fum_lost": 0.018695651
+   }
+  },
+  {
+   "playerId": "11306",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.191200986,
+    "rec_yd": 11.2819653,
+    "rec_td": 0.043841837,
+    "rec_2pt": 0.002913224,
+    "rec": 0.925449006,
+    "fum_lost": 0.009771902
+   }
+  },
+  {
+   "playerId": "12700",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.02171409,
+    "rec_td": 0.162131792,
+    "rec_2pt": 0.006027114,
+    "rec": 1.995225285,
+    "fum_lost": 0.012851058
+   }
+  },
+  {
+   "playerId": "12656",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 14.84036477,
+    "rec_td": 0.083014277,
+    "rec_2pt": 0.004705718,
+    "rec": 1.956795063,
+    "fum_lost": 0.015820905
+   }
+  },
+  {
+   "playerId": "2750",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.328462567,
+    "rec_yd": 37.55063848,
+    "rec_td": 0.172461472,
+    "rec_2pt": 0.011732932,
+    "rec": 3.5640939,
+    "fum_lost": 0.039917852
+   }
+  },
+  {
+   "playerId": "12897",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 39.06522187,
+    "rush_td": 0.307995525,
+    "rush_2pt": 0.013908414,
+    "rec_yd": 14.19490388,
+    "rec_td": 0.078768945,
+    "rec_2pt": 0.004911528,
+    "rec": 2.06042014,
+    "fum_lost": 0.044574915
+   }
+  },
+  {
+   "playerId": "4189",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 41.7607455,
+    "rec_td": 0.350500162,
+    "rec_2pt": 0.019841025,
+    "rec": 4.149991281,
+    "fum_lost": 0.028425778
+   }
+  },
+  {
+   "playerId": "8489",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 16.73691722,
+    "rec_td": 0.135564681,
+    "rec_2pt": 0.00970672,
+    "rec": 1.653957719,
+    "fum_lost": 0.011328948
+   }
+  },
+  {
+   "playerId": "4464",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.012528984,
+    "pass_int": 0.203556109,
+    "rush_yd": 0.964143133,
+    "rush_td": 0.007540523,
+    "rush_2pt": 0.00041829,
+    "pass_yd": 45.24692038,
+    "pass_td": 0.239222727,
+    "fum_lost": 0.043249891
+   }
+  },
+  {
+   "playerId": "8849",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 57.17705875,
+    "rec_td": 0.412066007,
+    "rec_2pt": 0.022066984,
+    "rec": 5.677755528,
+    "fum_lost": 0.038890352
+   }
+  },
+  {
+   "playerId": "8181",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 17.32983028,
+    "rec_td": 0.126861673,
+    "rec_2pt": 0.006820463,
+    "rec": 1.874515961,
+    "fum_lost": 0.012839684
+   }
+  },
+  {
+   "playerId": "11157",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 48.49896924,
+    "rec_td": 0.225315544,
+    "rec_2pt": 0.012748966,
+    "rec": 4.127777639,
+    "fum_lost": 0.043585586
+   }
+  },
+  {
+   "playerId": "6427",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.14859975,
+    "rec_td": 0.112825535,
+    "rec_2pt": 0.008076342,
+    "rec": 1.499116335,
+    "fum_lost": 0.015829308
+   }
+  },
+  {
+   "playerId": "9492",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 58.87028087,
+    "rec_td": 0.201674164,
+    "rec_2pt": 0.011737231,
+    "rec": 4.846762442,
+    "fum_lost": 0.054283739
+   }
+  },
+  {
+   "playerId": "11806",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 133.3005041,
+    "rec_td": 0.804542862,
+    "rec_2pt": 0.050155479,
+    "rec": 11.47732734,
+    "fum_lost": 0.121190162
+   }
+  },
+  {
+   "playerId": "5154",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 39.48255929,
+    "rec_td": 0.311514671,
+    "rec_2pt": 0.016544733,
+    "rec": 3.108226291,
+    "fum_lost": 0.026256039
+   }
+  },
+  {
+   "playerId": "13101",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 39.03852839,
+    "rec_td": 0.154791692,
+    "rec_2pt": 0.010528824,
+    "rec": 3.567114378,
+    "fum_lost": 0.021224136
+   }
+  },
+  {
+   "playerId": "5409",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.69044761,
+    "rec_td": 0.132901513,
+    "rec_2pt": 0.005032551,
+    "rec": 2.266732649,
+    "fum_lost": 0.015898695
+   }
+  },
+  {
+   "playerId": "5374",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 33.12409934,
+    "rec_td": 0.17308192,
+    "rec_2pt": 0.0090886,
+    "rec": 2.316296694,
+    "fum_lost": 0.022809208
+   }
+  },
+  {
+   "playerId": "11582",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 16.11269406,
+    "rush_td": 0.124355924,
+    "rush_2pt": 0.007173684,
+    "rec_yd": 15.34181067,
+    "rec_td": 0.093802049,
+    "rec_2pt": 0.004917052,
+    "rec": 2.226389307,
+    "fum_lost": 0.050430603
+   }
+  },
+  {
+   "playerId": "4602",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 20.60221324,
+    "rec_td": 0.144229412,
+    "rec_2pt": 0.007564804,
+    "rec": 2.134377363,
+    "fum_lost": 0.010233741
+   }
+  },
+  {
+   "playerId": "3048",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 17.93341309,
+    "rec_td": 0.126517775,
+    "rec_2pt": 0.009690708,
+    "rec": 1.811192654,
+    "fum_lost": 0.012405944
+   }
+  },
+  {
+   "playerId": "12462",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 36.95431541,
+    "rush_td": 0.21318699,
+    "rush_2pt": 0.011213202,
+    "rec_yd": 14.80953069,
+    "rec_td": 0.082207175,
+    "rec_2pt": 0.004666043,
+    "rec": 1.962237181,
+    "fum_lost": 0.0422304
+   }
+  },
+  {
+   "playerId": "8249",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 55.03679556,
+    "rec_td": 0.435764126,
+    "rec_2pt": 0.023145351,
+    "rec": 5.783178976,
+    "fum_lost": 0.03961246
+   }
+  },
+  {
+   "playerId": "3357",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "pass_2pt": 0.012434383,
+    "pass_int": 0.145866341,
+    "rush_yd": 0.902783332,
+    "rush_td": 0.00737337,
+    "rush_2pt": 0.000431451,
+    "pass_yd": 35.23772014,
+    "pass_td": 0.213765505,
+    "fum_lost": 0.043756747
+   }
+  },
+  {
+   "playerId": "7531",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 17.74200359,
+    "rec_td": 0.129528231,
+    "rec_2pt": 0.008075507,
+    "rec": 1.813718998,
+    "fum_lost": 0.012423249
+   }
+  },
+  {
+   "playerId": "11716",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 36.99026284,
+    "rec_td": 0.237351554,
+    "rec_2pt": 0.018044963,
+    "rec": 3.819651929,
+    "fum_lost": 0.026163086
+   }
+  },
+  {
+   "playerId": "12357",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 37.17702408,
+    "rec_td": 0.257741154,
+    "rec_2pt": 0.013698126,
+    "rec": 3.704983832,
+    "fum_lost": 0.025377655
+   }
+  },
+  {
+   "playerId": "12787",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rush_yd": 18.74911854,
+    "rush_td": 0.120895526,
+    "rush_2pt": 0.008128166,
+    "fum_lost": 0.016865679
+   }
+  },
+  {
+   "playerId": "12045",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.24379762,
+    "rec_td": 0.137773784,
+    "rec_2pt": 0.008015581,
+    "rec": 1.778587517,
+    "fum_lost": 0.012182612
+   }
+  },
+  {
+   "playerId": "8223",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.100773255
+   }
+  },
+  {
+   "playerId": "11421",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 48.98818684,
+    "rec_td": 0.368162988,
+    "rec_2pt": 0.017935031,
+    "rec": 3.82745216,
+    "fum_lost": 0.040414422
+   }
+  },
+  {
+   "playerId": "8583",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 16.29518988,
+    "rec_td": 0.08782132,
+    "rec_2pt": 0.005749944,
+    "rec": 1.593001335,
+    "fum_lost": 0.010911421
+   }
+  },
+  {
+   "playerId": "12690",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.042816327,
+    "rush_yd": 24.09532281,
+    "rush_td": 0.147966271,
+    "rush_2pt": 0.008025611,
+    "rec_yd": 43.55940947,
+    "rec_td": 0.21508751,
+    "rec_2pt": 0.012063039,
+    "rec": 3.731847787,
+    "fum_lost": 0.041541262
+   }
+  },
+  {
+   "playerId": "8227",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 19.02374924,
+    "rec_td": 0.145680006,
+    "rec_2pt": 0.009082831,
+    "rec": 1.814680772,
+    "fum_lost": 0.012429837
+   }
+  },
+  {
+   "playerId": "11645",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "def_kr_td": 0.038355121
+   }
+  },
+  {
+   "playerId": "11959",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 38.22503151,
+    "rec_td": 0.238372996,
+    "rec_2pt": 0.012666821,
+    "rec": 3.389431198,
+    "fum_lost": 0.035789318
+   }
+  },
+  {
+   "playerId": "10220",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 15.96166408,
+    "rec_td": 0.092175111,
+    "rec_2pt": 0.006598054,
+    "rec": 1.727000196,
+    "fum_lost": 0.01182926
+   }
+  },
+  {
+   "playerId": "12480",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 50.97881771,
+    "rec_td": 0.267369025,
+    "rec_2pt": 0.015596604,
+    "rec": 5.149072828,
+    "fum_lost": 0.033164692
+   }
+  },
+  {
+   "playerId": "11820",
+   "source": "espn-frozen-2025",
+   "stats": {
+    "rec_yd": 18.54049209,
+    "rec_td": 0.159249219,
+    "rec_2pt": 0.007758977,
+    "rec": 1.793993955,
+    "fum_lost": 0.01228814
+   }
+  }
+ ]
+}

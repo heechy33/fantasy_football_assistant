@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AdpEntry } from '../../../shared/types';
-import { adpPositionalRank, displayPositionalRank } from './positionalRank';
+import { adpPositionalRank } from './positionalRank';
 
 function entry(playerId: string, position: string, adp: number): AdpEntry {
   return {
@@ -30,18 +30,5 @@ describe('adpPositionalRank', () => {
     expect(adpPositionalRank('missing', 'RB', board)).toBeNull();
     expect(adpPositionalRank('rb-a', 'RB', [])).toBeNull();
     expect(adpPositionalRank('rb-a', 'RB', undefined)).toBeNull();
-  });
-});
-
-describe('displayPositionalRank', () => {
-  it('prefers a recorded FantasyPros rank over the ADP fallback', () => {
-    expect(displayPositionalRank('RB12', 'ADP RB4')).toBe('RB12');
-    expect(displayPositionalRank('  WR1  ', 'ADP WR1')).toBe('WR1');
-  });
-
-  it('falls back to ADP rank when FantasyPros is absent', () => {
-    expect(displayPositionalRank(undefined, 'ADP RB4')).toBe('ADP RB4');
-    expect(displayPositionalRank('', 'ADP RB4')).toBe('ADP RB4');
-    expect(displayPositionalRank(undefined, null)).toBeNull();
   });
 });

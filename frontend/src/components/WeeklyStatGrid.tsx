@@ -57,7 +57,7 @@ function groupRuns(specs: WeeklyStatColumnSpec[]): { group: string; label: strin
 }
 
 /**
- * The primary weekly view: an 18-row FantasyPros-style game log with a
+ * The primary weekly view: an 18-row game log with a
  * position-appropriate stat set and league-relative heat shading (see
  * pipeline/weekly_stats.py's heat breakpoints). Five equal percentile buckets
  * map to a diverging ramp; the number is always the primary signal and heat is

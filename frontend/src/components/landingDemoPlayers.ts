@@ -1,6 +1,7 @@
-import type { FantasyProsStars, PlayerMeta } from '../../../shared/types';
+import type { PlayerMeta } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import type { Recommendation } from '../engine/recommend';
+import type { NextUpInfo } from './NextUpChip';
 
 /**
  * Static demo rows for the landing page's card showcase — the REAL PlayerCard component rendered
@@ -13,7 +14,7 @@ export interface LandingDemoCard {
   recommendation: Recommendation;
   /** Card-face board rank shown next to the positional rank. */
   rank: number;
-  fantasyPros: FantasyProsStars;
+  nextUp: NextUpInfo;
   depthRole: TeamDepthRole;
 }
 
@@ -111,14 +112,14 @@ export const LANDING_DEMO_CARDS: ReadonlyArray<LandingDemoCard> = [
     player: achane,
     recommendation: demoRecommendation(achane.playerId, 3, 248.6, 8.2, 0.86),
     rank: 3,
-    fantasyPros: { rank: 6, tier: 1, upside: 5, bust: 2, sos: 3, ecrVsAdp: null, positionRank: 'RB6' },
+    nextUp: { name: 'Kyren Williams', gap: 11.4, tierBoundaryGap: 0, nearTie: false },
     depthRole: demoDepthRole(achane.playerId, 'RB1', 'Miami lead back by measured carry share.'),
   },
   {
     player: smithNjigba,
     recommendation: demoRecommendation(smithNjigba.playerId, 7, 231.9, 14.6, 0.64),
     rank: 7,
-    fantasyPros: { rank: 12, tier: 2, upside: 4, bust: 1, sos: 3, ecrVsAdp: null, positionRank: 'WR8' },
+    nextUp: { name: 'Amon-Ra St. Brown', gap: 3.1, tierBoundaryGap: 0, nearTie: true },
     depthRole: demoDepthRole(smithNjigba.playerId, 'WR1', "Seattle's clear top target by measured target share."),
   },
 ];
