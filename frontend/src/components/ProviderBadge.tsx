@@ -17,24 +17,26 @@ const providerSvg = import.meta.glob('../assets/providers/*.svg', {
   import: 'default',
 }) as Record<string, string>;
 
-// Raster fallback for brands whose committed asset is a PNG (e.g. Sleeper's
-// logo) rather than an SVG — same committed-asset trust boundary as the SVG
-// map above, just rendered as an <img> instead of inlined markup.
-const providerPng = import.meta.glob('../assets/providers/*.png', {
+// Raster fallback for brands whose committed asset is a bitmap (Sleeper's PNG logo,
+// Underdog's official AVIF mark) rather than an inline-able SVG — same committed-asset trust
+// boundary as the SVG map above, rendered as an <img> pointing at the build-emitted URL.
+const providerImage = import.meta.glob('../assets/providers/*.{png,avif}', {
   eager: true,
   query: '?url',
   import: 'default',
 }) as Record<string, string>;
 
-/** Brand-colored logo chip that inlines a committed SVG when present, falls
- * back to a committed PNG, and finally to a monogram. Used by the ADP/projection
- * provider sections. */
+/** Brand-colored logo chip that inlines a committed SVG when present, falls back to a committed
+ * raster image (PNG/AVIF), and finally to a monogram. Used by the ADP/projection provider
+ * sections. */
 export function ProviderBadge({ brandKey, size = 'default' }: ProviderBadgeProps) {
   const brand = providerBrand(brandKey);
   const svgPath = Object.keys(providerSvg).find((path) => path.endsWith(`/${brandKey}.svg`));
   const svg = svgPath ? providerSvg[svgPath] : null;
-  const pngPath = Object.keys(providerPng).find((path) => path.endsWith(`/${brandKey}-logo.png`));
-  const png = pngPath ? providerPng[pngPath] : null;
+  const imagePath = Object.keys(providerImage).find(
+    (path) => path.endsWith(`/${brandKey}.avif`) || path.endsWith(`/${brandKey}-logo.png`),
+  );
+  const image = imagePath ? providerImage[imagePath] : null;
 
   const label = brand?.label ?? brandKey;
   if (!brand) {
@@ -60,10 +62,10 @@ export function ProviderBadge({ brandKey, size = 'default' }: ProviderBadgeProps
       />
     );
   }
-  if (png) {
+  if (image) {
     return (
-      <span className="provider-badge provider-badge-png" data-size={size} data-brand={brandKey}>
-        <img src={png} alt={label} title={label} />
+      <span className="provider-badge provider-badge-img" data-size={size} data-brand={brandKey}>
+        <img src={image} alt={label} title={label} />
       </span>
     );
   }

@@ -16,13 +16,18 @@ export function useRevealOnScroll<T extends HTMLElement>() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    const targets = Array.from(root.querySelectorAll<HTMLElement>('[data-reveal]'));
+
+    const observeTarget = (el: HTMLElement, observer: IntersectionObserver): void => {
+      // One-shot by design: once revealed an element never needs observing again.
+      if (el.classList.contains('revealed')) return;
+      observer.observe(el);
+    };
+
     if (typeof IntersectionObserver === 'undefined') {
-      targets.forEach((el) => el.classList.add('revealed'));
+      root.querySelectorAll<HTMLElement>('[data-reveal]').forEach((el) => el.classList.add('revealed'));
       return;
     }
-    // Threshold 0.15 so a block is visibly on its way in before it animates; unobserve after
-    // firing because the reveal is one-shot by design.
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -31,10 +36,35 @@ export function useRevealOnScroll<T extends HTMLElement>() {
           observer.unobserve(entry.target);
         });
       },
+      // Threshold 0.15 so a block is visibly on its way in before it animates.
       { threshold: 0.15, rootMargin: '0px 0px -8% 0px' },
     );
-    targets.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+
+    const observeAll = (): void => {
+      root.querySelectorAll<HTMLElement>('[data-reveal]').forEach((el) => observeTarget(el, observer));
+    };
+    observeAll();
+
+    // Landing sections render conditionally AFTER mount — Home's Sleeper/ESPN provider panels only
+    // exist once the "Connect your league" gate opens — and a one-shot querySelectorAll at effect
+    // time misses them. An unobserved [data-reveal] node keeps App.css's `opacity: 0` forever,
+    // which is exactly how the connect forms became invisible after clicking the gate CTA
+    // (2026-08-24 regression). Watch the subtree so post-mount targets get registered too.
+    const mutations = new MutationObserver((records) => {
+      records.forEach((record) => {
+        record.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.hasAttribute('data-reveal')) observeTarget(node, observer);
+          node.querySelectorAll<HTMLElement>('[data-reveal]').forEach((el) => observeTarget(el, observer));
+        });
+      });
+    });
+    mutations.observe(root, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      mutations.disconnect();
+    };
   }, []);
 
   return ref;

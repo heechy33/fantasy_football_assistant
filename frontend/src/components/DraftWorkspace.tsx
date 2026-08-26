@@ -35,8 +35,6 @@ export interface DraftWorkspaceProps {
   picksSignature: string;
   onTheClock: OnTheClock | null;
   boundaries: UserPickBoundaries | null;
-  /** Row-level "Edit pick" trigger threaded to the draft log (manual correction/takeover). */
-  onCorrect?: (overall: number) => void;
   /** Session-management actions (log a pick, edit setup, switch modes, reconnect, choose another
    * draft) rendered in the board's `⋯` menu, next to the card/row presentation toggle. */
   sessionActions?: ReadonlyArray<SessionAction>;
@@ -60,7 +58,6 @@ export function DraftWorkspace({
   picksSignature,
   onTheClock,
   boundaries,
-  onCorrect,
   sessionActions = [],
 }: DraftWorkspaceProps) {
   const adpBoardKey = useMemo(() => adpBoardKeyFor(activeProvider, adpFormat), [activeProvider, adpFormat]);
@@ -127,7 +124,6 @@ export function DraftWorkspace({
       playersById={playersById}
       onTheClock={onTheClock}
       onViewPlayer={handleViewDetails}
-      onCorrect={onCorrect}
       userNextOverall={boundaries?.decisionPick ?? null}
       picksUntilUserTurn={picksUntilUserTurn}
       roundPick={roundPick}
@@ -141,7 +137,6 @@ export function DraftWorkspace({
       myTeamId={draftInit.myTeamId}
       playersById={playersById}
       projections={projections}
-      rounds={draftInit.rounds}
       onViewPlayer={handleViewDetails}
     />
   );

@@ -135,6 +135,12 @@ export function buildGameLogRows(
   return rows;
 }
 
+export interface RecentGame {
+  week: number;
+  opponent: string | null;
+  points: number;
+}
+
 /** Only `played` weeks -- the same no-zero-fill contract the old WeeklyPointsChart
  * enforced against `weekly-ppr.json` (a missing week is never assumed to be a 0). */
 export function buildSparklinePoints(

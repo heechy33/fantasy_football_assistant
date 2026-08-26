@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { AdpEntry, PlayerMeta, PlayerWeeklyStatsArtifact } from '../../../shared/types';
+import type { AdpEntry, LeagueSettings, PlayerMeta, PlayerWeeklyStatsArtifact } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import type { Recommendation } from '../engine/recommend';
 import { PlayerDetailDrawer } from './PlayerDetailDrawer';
@@ -37,6 +37,14 @@ function baseAdpEntry(): AdpEntry {
     adpSource: 'sleeper', stdevSource: 'fitted',
   };
 }
+
+const settings: LeagueSettings = {
+  provider: 'sleeper', leagueId: 'l1', name: 'Fixture', season: '2026', teams: 12,
+  startingSlots: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'],
+  rosterSlots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DEF: 1 },
+  scoring: { rush_yd: 0.1 },
+  format: { reception: 'ppr', qb: 'one-qb', draft: 'snake' },
+};
 
 function Harness() {
   const [open, setOpen] = useState(false);
@@ -76,19 +84,20 @@ describe('PlayerDetailDrawer accessibility', () => {
 
   it('closes when the backdrop is clicked, not the panel', () => {
     const onClose = vi.fn();
-    const { container } = render(
+    render(
       <PlayerDetailDrawer player={player} usage={undefined} feedStatus="ready" onClose={onClose} />,
     );
     fireEvent.mouseDown(screen.getByRole('dialog'));
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.mouseDown(container.querySelector('.drawer-backdrop')!);
+    // The Drawer portals its backdrop to document.body, so it is not in the render container.
+    fireEvent.mouseDown(document.body.querySelector('.drawer-backdrop')!);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('PlayerDetailDrawer content', () => {
   it('renders the overview hero with market comparison following it', () => {
-    const { container } = render(
+    render(
       <PlayerDetailDrawer
         player={player}
         usage={undefined}
@@ -99,10 +108,11 @@ describe('PlayerDetailDrawer content', () => {
       />,
     );
     expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
-    const hero = container.querySelector('.player-detail-hero')!;
+    // Portaled to document.body by Drawer — queried there, not from the render container.
+    const hero = document.body.querySelector('.player-detail-hero')!;
     expect(hero.querySelector('.player-portrait')).toBeNull();
     expect(screen.queryByText('Full context')).not.toBeInTheDocument();
-    const market = container.querySelector('.market-comparison')!;
+    const market = document.body.querySelector('.market-comparison')!;
     expect(hero.compareDocumentPosition(market) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText('Diagnostics')).not.toBeInTheDocument();
     expect(screen.queryByText('Engine explanation')).not.toBeInTheDocument();
@@ -173,7 +183,7 @@ describe('PlayerDetailDrawer content', () => {
         topGap: null, crossTeamTop: false, contested: false, nearTie: false, season: 2025,
       },
     };
-    const { container } = render(
+    render(
       <PlayerDetailDrawer
         player={player}
         usage={undefined}
@@ -183,8 +193,9 @@ describe('PlayerDetailDrawer content', () => {
         onClose={vi.fn()}
       />,
     );
-    const hero = container.querySelector('.player-detail-hero')!;
-    const depth = container.querySelector('.team-depth-role-row')!;
+    // Portaled to document.body by Drawer — queried there, not from the render container.
+    const hero = document.body.querySelector('.player-detail-hero')!;
+    const depth = document.body.querySelector('.team-depth-role-row')!;
     expect(hero.contains(depth)).toBe(true);
     expect(depth.parentElement).toBe(hero);
     expect(screen.getByText('Depth chart')).toBeInTheDocument();
@@ -193,7 +204,7 @@ describe('PlayerDetailDrawer content', () => {
   });
 
   it('renders a single compact status tag next to team and slot without mojibake', () => {
-    const { container } = render(
+    render(
       <PlayerDetailDrawer
         player={{
           ...player,
@@ -212,7 +223,7 @@ describe('PlayerDetailDrawer content', () => {
         onClose={vi.fn()}
       />,
     );
-    const meta = container.querySelector('.player-context-meta')!;
+    const meta = document.body.querySelector('.player-context-meta')!;
     expect(meta.textContent).toContain('DEN');
     expect(meta.textContent).toContain('LWR');
     expect(meta.textContent).toContain('#2');
@@ -354,7 +365,10 @@ describe('PlayerDetailDrawer content', () => {
         onClose={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Engine ADP 5 · ESPN/)).toBeInTheDocument();
+    // The engine tile now also carries a ProviderBadge, and espn.svg renders its own "ESPN"
+    // text node — so 'ESPN' matches twice; assert against the tile-name span specifically.
+    expect(screen.getByText('ESPN', { selector: '.market-tile-name' })).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
   });
 
   it('labels a spliced Sleeper-tail player honestly instead of a board-wide ESPN', () => {
@@ -369,7 +383,8 @@ describe('PlayerDetailDrawer content', () => {
         onClose={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Engine ADP 5 · Sleeper \(ESPN board tail\)/)).toBeInTheDocument();
+    expect(screen.getByText('Sleeper (ESPN board tail)')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
   });
 
   it('keeps the engine ADP anchor visible in market mode from the board entry', () => {
@@ -382,6 +397,72 @@ describe('PlayerDetailDrawer content', () => {
         onClose={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Engine ADP 73 · Sleeper/)).toBeInTheDocument();
+    expect(screen.getByText('Sleeper')).toBeInTheDocument();
+    expect(screen.getByText('73')).toBeInTheDocument();
+  });
+
+  it('shows no positional-rank/spread caption in the Market ADP section', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        adpBoard={[{ ...baseAdpEntry(), adp: 73, adpSource: 'sleeper' }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/Std\. dev/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Range/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sample/)).not.toBeInTheDocument();
+    expect(screen.queryByText('RB1')).not.toBeInTheDocument();
+  });
+
+  it('shows the Underdog tile (attribution in its title) when the Underdog board has this player', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        adpBoard={[{ ...baseAdpEntry(), adp: 73, adpSource: 'sleeper' }]}
+        underdogAdp={[{ ...baseAdpEntry(), adpSource: 'underdog', adp: 41.2, stdev: 6 }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Underdog')).toBeInTheDocument();
+    expect(screen.getByText('41.2')).toBeInTheDocument();
+  });
+
+  it('shows the FFToday tile from fallbackProjectedPoints when there is no recommendation (deep market-only row)', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        settings={settings}
+        providerProjectionsArtifact={null}
+        fallbackProjectedPoints={110.2}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Projections' })).toBeInTheDocument();
+    expect(screen.getByText('FFToday')).toBeInTheDocument();
+    expect(screen.getByText('110.2')).toBeInTheDocument();
+  });
+
+  it('prefers the recommendation\'s own projectedPoints over the fallback when both are present', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        recommendation={baseRecommendation({ projectedPoints: 200 })}
+        settings={settings}
+        providerProjectionsArtifact={null}
+        fallbackProjectedPoints={110.2}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('200')).toBeInTheDocument();
+    expect(screen.queryByText('110.2')).not.toBeInTheDocument();
   });
 });

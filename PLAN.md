@@ -7,7 +7,7 @@ implementation notes live in `archive/PLAN-history.md`. Repo conventions/command
 
 ## Status and decision
 
-**Plan last revised:** August 21, 2026
+**Plan last revised:** August 25, 2026
 **Active objective:** prove that the recommendation engine creates a measurable drafting edge in
 **PPR redraft snake drafts on Sleeper** before expanding the product.
 
@@ -38,6 +38,16 @@ not ship**: it improved the bot cohort but regressed the held-out human Brier on
 more real human drafts make the strict-improvement gate meaningful. Availability stays labeled
 experimental per the Phase 2c decision rule.
 
+**Since Phase 2 closed (2026-08-21 through 08-25):** the evaluation-layer-A gating run has run and
+**passed all three pre-declared gates** — see "Evaluation layers" below for the full result, the
+closed C1/blend research spinoffs, and the still-open engine-vs-B1 question. The FantasyPros
+stars/SOS decoration pipeline was measured as near-zero predictive value and removed entirely
+(`DECISIONS.md`, 2026-08-23/24); a display-only Underdog best-ball ADP lane was added in its place
+(never blended into the recommendation engine). Outside the gate track, the player-card and drawer
+UI had a design pass: STACKED-style percentile rankings on the Role tab and card-bottom stat slots
+(`frontend/src/data/percentileRankings.ts`, `cardRoleStats.ts`, `PercentileBar.tsx`), provider-logo
+badges on every ADP/projection tile, and an EPA zero-vs-unknown pipeline fix — all display-only, no
+engine input. See `DECISIONS.md`'s 2026-08-24/08-25 entries for detail.
 
 The **ESPN draft-day exception** (see `DECISIONS.md`'s 2026-08-14 entry) is closed — that August 15
 draft has completed. Active work is Sleeper-first again; the two remaining leagues' drafts continue
@@ -100,8 +110,13 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
   normalized into `SeasonProjection`, behind the `SeasonProjectionProvider` boundary
 - Draft Score (`recommend.ts`) as a residual near-tie breaker and card-display composite — see
   `DECISIONS.md`'s 2026-08-11 entry; it is not the primary sort
-- Weekly PPR history artifact (`data/weekly-ppr.json`) and a local-only FantasyPros stars/context
-  decoration pipeline (display-only, never an engine input)
+- Weekly PPR history artifact (`data/weekly-ppr.json`); a display-only Underdog best-ball ADP lane
+  (`data/adp-underdog-bestball.json`, republished via Sharp Football Analysis, never blended into
+  the engine — `DECISIONS.md`, 2026-08-24); STACKED-style percentile rankings on the Role tab and
+  card-bottom stat slots (`frontend/src/data/percentileRankings.ts`/`qbPercentileRankings.ts`/
+  `cardRoleStats.ts`, `PercentileBar.tsx`, all display-only) — the FantasyPros stars/context
+  decoration pipeline that previously filled this role was measured near-zero predictive value and
+  removed entirely (`DECISIONS.md`, 2026-08-23/24)
 - Historical 2025 draft-strategy backtest harness (Edge Validation Gate, evaluation layer A): a pure
   TypeScript `frontend/src/engine/backtest.ts` + opt-in runner (`npm run backtest`) that drafts six
   arms (engine / C1 Stage C lookahead sort, informational / B4 MRV+tiers / B3 static VOR / B2 raw
@@ -131,8 +146,10 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
   pin/avoid/custom-rank, and a consolidated source/freshness panel (S4) — engine/ADP board modes,
   position tabs, cards/rows presentation, data-health status, and the card's next-up tier chip are built
 - Reliability/clock testing under real conditions (S5-S6) — the historical-out-of-sample edge
-  validation (layer A) is implemented (`npm run backtest`); the remaining edge-gate work is layers
-  B-D and the pending N ≥ 1,000 gating run
+  validation (layer A) is implemented and its N ≥ 1,000 gating run has **passed all three
+  pre-declared gates** (`DECISIONS.md`, 2026-08-24); the remaining edge-gate work is layers B-D
+  (layer D's retention piece is stood up; its accuracy analysis awaits in-season outcomes) and the
+  user-review step before any roadmap expansion
 - Provider adapters beyond Sleeper and the ESPN draft-day-only path, Cosmos DB, SWA auth (roadmap,
   gated by the Edge Validation Gate)
 - The cross-adapter contract suite described in `CLAUDE.md`'s testing notes — each adapter is

@@ -15,6 +15,7 @@ import type {
 import type { UserPickBoundaries } from '../adapters/draftOrder';
 import { picksMade } from '../adapters/draftOrder';
 import type { AdpBoardKey } from '../data/adpBoard';
+import { buildCardRoleStatsIndex } from '../data/cardRoleStats';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import type { NextUpInfo } from './NextUpChip';
 import { pointsPerGame } from '../data/pprProduction';
@@ -27,6 +28,8 @@ import { scoreProjection } from '../engine/scoring';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRecommendationRefinement } from '../hooks/useRecommendationRefinement';
 import { useBoardWeeklyStats, useWeeklyStats } from '../hooks/useWeeklyStats';
+import { useUnderdogAdp } from '../hooks/useUnderdogAdp';
+import { useProviderAdpBoards } from '../hooks/useProviderAdpBoards';
 import { BoardFilters, type BoardMode, type BoardPresentation } from './BoardFilters';
 import { BoardFilmstrip } from './BoardFilmstrip';
 import { BoardRows } from './BoardRows';
@@ -75,6 +78,7 @@ function nextUpAt(
     const theirs = candidate.recommendation?.projectedPoints ?? null;
     return {
       name,
+      position,
       gap: mine != null && theirs != null ? Math.max(0, mine - theirs) : null,
       tierBoundaryGap: current.recommendation?.tierBoundaryGap ?? 0,
       nearTie: current.recommendation?.nearTie ?? false,
@@ -150,8 +154,10 @@ export function RecommendationBoard({
   sessionActions = [],
 }: RecommendationBoardProps) {
   const [displayPosition, setDisplayPosition] = useState<Position | null>(null);
-  // "All" excludes K/D-ST — they stay reachable via their own tabs, whose rows (already correctly
-  // scoped by the engine/ADP source) are left untouched by this exclusion.
+  // "All" excludes K/D-ST *except when their reserved late-draft window arrives* — see the
+  // `specialTeamsDuePositions` note at the filtered lists below. Non-due K/D-ST stay reachable
+  // via their own tabs, whose rows (already correctly scoped by the engine/ADP source) are left
+  // untouched by this exclusion.
   const isSpecialTeamsPosition = (position: Position | null | undefined) => position === 'K' || position === 'DEF';
   // Display-only, same shape as the K/D-ST exclusion above: once the one-QB starting slot(s) are
   // filled, a backup QB is bad redraft advice (bench a bye, don't roster one) even though the
@@ -305,6 +311,22 @@ export function RecommendationBoard({
   const board = refinement.result ?? (fallbackBoard.requestKey === refinementKey ? fallbackBoard.result : null);
   const allRecommendations = board?.recommendations ?? [];
   const viewKey = displayPosition ?? 'ALL';
+  const diagnostics = board?.diagnostics ?? null;
+  const specialTeams = diagnostics?.specialTeamsDraft ?? null;
+  // Late-draft gate: D/ST is due at the penultimate selection and kicker at the final one
+  // (engine's special-teams schedule). When a position is due, its rows surface on "All" —
+  // the engine already sorts them to the top of its own ordering — instead of hiding behind
+  // their position tab exactly when the user must draft them.
+  const specialTeamsDuePositions = useMemo(
+    () => new Set(specialTeams?.due ?? []),
+    [specialTeams],
+  );
+  const visibleOnAllBoard = (position: Position | null | undefined): boolean => {
+    if (position == null) return true; // unmatched player — never silently dropped
+    if (qbSlotsFilled && position === 'QB') return false;
+    if (!isSpecialTeamsPosition(position)) return true;
+    return specialTeamsDuePositions.has(position);
+  };
   const rankedRecommendationsForView = board?.recommendationViews?.[viewKey]
     ?? (displayPosition == null
       ? allRecommendations
@@ -313,20 +335,17 @@ export function RecommendationBoard({
   // view, or the main-thread filter fallback) — so the K/QB/RB/... tabs' own rows pass through
   // untouched regardless of which one served this render.
   const rankedRecommendations = displayPosition == null
-    ? rankedRecommendationsForView.filter((row) => {
-        const position = playersById.get(row.playerId)?.position;
-        return !isSpecialTeamsPosition(position) && !(qbSlotsFilled && position === 'QB');
-      })
+    ? rankedRecommendationsForView.filter((row) => visibleOnAllBoard(playersById.get(row.playerId)?.position))
     : rankedRecommendationsForView;
   const cardRecommendations = rankedRecommendations.slice(0, cardsVisibleCount);
-  const diagnostics = board?.diagnostics ?? null;
-  const specialTeams = diagnostics?.specialTeamsDraft ?? null;
   const specialTeamsRemaining = specialTeams ? specialTeams.remaining.K + specialTeams.remaining.DEF : 0;
   const selectedPlayer = selectedPlayerId ? playersById.get(selectedPlayerId) : undefined;
   const draftSeason = manifest != null ? Number(manifest.season) : null;
   const validDraftSeason = Number.isFinite(draftSeason) ? draftSeason : null;
   const weeklyStats = useWeeklyStats(selectedPlayerId, validDraftSeason);
   const boardWeeklyStats = useBoardWeeklyStats(validDraftSeason);
+  const underdogAdp = useUnderdogAdp();
+  const providerAdpLanes = useProviderAdpBoards(adpFormat);
   const avgPointsPerGameByPlayer = useMemo(() => {
     const map = new Map<PlayerId, number>();
     const artifact = boardWeeklyStats.artifact;
@@ -338,6 +357,15 @@ export function RecommendationBoard({
     }
     return map;
   }, [boardWeeklyStats, players]);
+
+  // Per-card role-page stats for the card-bottom slot (see cardRoleStats.ts / PlayerCard's slot
+  // rule): RB/WR/TE from the usage artifact already in memory, QB from the weekly game log's
+  // STACKED percentile view, K/DEF from their weekly series. Computed once here — not inside
+  // each memoized PlayerCard — so a board redraw never recomputes cohort percentiles per card.
+  const roleStatsByPlayer = useMemo(() => {
+    const weeklyArtifact = boardWeeklyStats.status === 'ready' ? boardWeeklyStats.artifact : null;
+    return buildCardRoleStatsIndex({ players, usage, weeklyArtifact });
+  }, [boardWeeklyStats, players, usage]);
 
   // Off-clock (and manually-toggled ADP mode) fallback for Proj: `buildMarketRecommendations`
   // attaches `recommendation: null` to any player the worker hasn't scored, which is every player
@@ -353,14 +381,16 @@ export function RecommendationBoard({
     return map;
   }, [projections, playersById, draftInit.settings]);
 
-  // Off-clock fallback for the next-pick availability meter, same reasoning as above.
-  // `estimateAvailability`'s `nextPick` means different picks depending on whether it's currently
-  // the user's turn (see App.tsx's `boundaries`/`currentOverall` doc): on the clock the relevant
-  // future decision is the *following* turn (followUpPick), because the current turn is already
-  // being decided right now; off the clock it's the very next turn (decisionPick).
+  // Exact next-pick survival percentage renders ONLY while the user is on the clock — then
+  // `nextPick` is the *following* turn (followUpPick), because the current turn is already
+  // being decided right now. Off the clock the map stays empty: cards fall through to the
+  // profile line, and the rows' Avail cell reads em dash. Rationale: the mid-band estimate is
+  // experimental (see benchmarks/reports/2026-08-10-availability-calibration.md's calibration
+  // caveat) and showing it everywhere crowded out recent form on every card.
   const marketAvailabilityByPlayer = useMemo(() => {
     const map = new Map<PlayerId, number>();
-    const nextPick = isMyTurn ? boundaries?.followUpPick : boundaries?.decisionPick;
+    if (!isMyTurn) return map;
+    const nextPick = boundaries?.followUpPick;
     const currentPick = currentOverall ?? picksMade(effectivePicks) + 1;
     if (nextPick == null) return map;
     for (const entry of adp) {
@@ -409,12 +439,9 @@ export function RecommendationBoard({
           scoredIds,
         });
     return displayPosition == null
-      ? all.filter((row) => {
-          const position = playersById.get(row.playerId)?.position;
-          return !isSpecialTeamsPosition(position) && !(qbSlotsFilled && position === 'QB');
-        })
+      ? all.filter((row) => visibleOnAllBoard(playersById.get(row.playerId)?.position))
       : all.filter((row) => playersById.get(row.playerId)?.position === displayPosition);
-  }, [adp, board, currentOverall, displayPosition, drafted, picksMade(effectivePicks), evaluatedById, playersById, qbSlotsFilled, scoredIds]);
+  }, [adp, board, currentOverall, displayPosition, drafted, picksMade(effectivePicks), evaluatedById, playersById, qbSlotsFilled, scoredIds, specialTeamsDuePositions]);
   const visibleMarketRows = marketRows.slice(0, cardsVisibleCount);
   const hasMoreCards = effectiveBoardMode === 'adp'
     ? marketRows.length > cardsVisibleCount
@@ -455,10 +482,13 @@ export function RecommendationBoard({
   return (
     <>
       <section className="recommendation-panel">
+        <div className="section-heading">
+          <h2 className="section-title-accent">Recommendations</h2>
+        </div>
         <BoardFilters
-          boardMode={boardMode}
+          boardMode={effectiveBoardMode}
           onBoardModeChange={setBoardMode}
-          modeToggleVisible={isMyTurn}
+          modeEnabled={isMyTurn}
           positionTabs={POSITION_TABS}
           displayPosition={displayPosition}
           onDisplayPositionChange={setDisplayPosition}
@@ -498,12 +528,6 @@ export function RecommendationBoard({
                 Only {specialTeams.remainingPicks} selection{specialTeams.remainingPicks === 1 ? '' : 's'} remain for {specialTeamsRemaining} unfilled K/DEF slots. Overdue D/ST slots stay ahead of kicker.
               </p>
             )}
-            {qbSlotsFilled && displayPosition == null && (
-              <p className="board-advisory" role="status">
-                You already have a starting QB — backup QBs aren't recommended in 1-QB leagues. See the QB tab.
-              </p>
-            )}
-
             {showSkeleton ? (
               <div className="recommendation-loading-skeleton" aria-hidden={true}>
                 <span />
@@ -544,7 +568,6 @@ export function RecommendationBoard({
                             playerId={recommendation.playerId}
                             recommendation={recommendation}
                             player={playersById.get(recommendation.playerId)}
-                            rank={recommendation.rank}
                             adpBoard={adp}
                             adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
                             usage={usage[recommendation.playerId]}
@@ -552,6 +575,7 @@ export function RecommendationBoard({
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
+                            availabilityVisible={isMyTurn}
                             nextUp={nextUpAt(rankedRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             selected={selectedPlayerId === recommendation.playerId}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
@@ -563,7 +587,6 @@ export function RecommendationBoard({
                             playerId={row.playerId}
                             recommendation={row.recommendation}
                             player={playersById.get(row.playerId)}
-                            rank={row.rank}
                             adp={row.adp}
                             adpBoard={adp}
                             adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
@@ -572,6 +595,7 @@ export function RecommendationBoard({
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
+                            availabilityVisible={isMyTurn}
                             nextUp={nextUpAt(marketRows, index, playersById)}
                             selected={selectedPlayerId === row.playerId}
                             onViewDetails={() => onViewDetails(row.playerId)}
@@ -597,14 +621,15 @@ export function RecommendationBoard({
                             playerId={recommendation.playerId}
                             recommendation={recommendation}
                             player={playersById.get(recommendation.playerId)}
-                            rank={recommendation.rank}
                             adpBoard={adp}
                             adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
                             usage={usage[recommendation.playerId]}
                             depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
+                            roleStats={roleStatsByPlayer.get(recommendation.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
+                            availabilityVisible={isMyTurn}
                             nextUp={nextUpAt(cardRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
                           />
@@ -615,15 +640,16 @@ export function RecommendationBoard({
                             playerId={row.playerId}
                             recommendation={row.recommendation}
                             player={playersById.get(row.playerId)}
-                            rank={row.rank}
                             adp={row.adp}
                             adpBoard={adp}
                             adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
                             usage={usage[row.playerId]}
                             depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
                             avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
+                            roleStats={roleStatsByPlayer.get(row.playerId) ?? null}
                             projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
+                            availabilityVisible={isMyTurn}
                             nextUp={nextUpAt(visibleMarketRows, index, playersById)}
                             onViewDetails={() => onViewDetails(row.playerId)}
                           />
@@ -640,12 +666,16 @@ export function RecommendationBoard({
         <PlayerDetailDrawer
           player={selectedPlayer}
           usage={usage[selectedPlayer.playerId]}
+          usageArtifact={usage}
+          players={players}
           feedStatus={contextFeedStatus}
           recommendation={selectedRecommendation}
+          fallbackProjectedPoints={selectedPlayerId ? projectedPointsByPlayer.get(selectedPlayerId) ?? null : null}
           adpDisclosure={adpDisclosure}
-          currentPick={currentOverall}
           weeklyStats={weeklyStats}
           adpBoard={adp}
+          underdogAdp={underdogAdp.entries}
+          providerAdpLanes={providerAdpLanes.filter((lane) => lane.status === 'ready')}
           providerProjectionsArtifact={providerProjectionsArtifact}
           settings={draftInit.settings}
           depthRole={selectedPlayerId ? depthRoleByPlayer.get(selectedPlayerId) ?? null : null}

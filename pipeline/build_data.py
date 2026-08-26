@@ -54,14 +54,19 @@ ESPN_ADP_MIN_ROWS = 120
 # Underdog's best-ball ADP is a SEPARATE LANE, never blended into the redraft
 # composites above: its own artifact / board key (half-PPR TE-premium), used
 # for display/decoration and as raw market-spread material only — never an
-# engine input. The endpoint is community-discovered and undocumented (and
-# currently bot-guarded against this UA), so the gate below is deliberately
-# strict: any drift or shortfall fails open and leaves the prior committed
-# board byte-identical.
-UNDERDOG_ADP_URL = "https://api.underdogfantasy.com/beta/draft_boards/nfl-best-ball"
+# engine input. Underdog's own draft boards sit behind login and their pick'em
+# API exposes no ADP path (every candidate endpoint 404s, verified 2026-08),
+# so this lane points at Sharp Football Analysis's server-rendered republication
+# of Underdog ADP — a THIRD-PARTY source, and the frontend labels it as such
+# (the repo's honesty convention, cf. the per-player adpSource badge). The gate
+# below is deliberately strict: any drift or shortfall fails open and leaves the
+# prior committed board byte-identical.
+UNDERDOG_ADP_URL = (
+    "https://www.sharpfootballanalysis.com/fantasy/fantasy-football-adp-half-ppr-underdog-best-ball/"
+)
 UNDERDOG_BOARD_FILENAME = "adp-underdog-bestball.json"
 # A real Underdog best-ball draft is ~20 rounds x 12+ teams of distinct
-# players; below this many crosswalk-matched rows the payload is considered
+# players; below this many crosswalk-matched rows the page is considered
 # degenerate (drift / truncated response), not merely sparse.
 UNDERDOG_ADP_MIN_ROWS = 150
 
@@ -515,22 +520,22 @@ def _build_espn_adp_board(
     return entries, diagnostics
 
 
-def _fetch_underdog_adp(url: str = UNDERDOG_ADP_URL) -> dict[str, Any]:
-    """CLI-boundary fetch for the Underdog best-ball ADP payload.
+def _fetch_underdog_adp(url: str = UNDERDOG_ADP_URL) -> str:
+    """CLI-boundary fetch for the Underdog best-ball ADP page HTML.
 
     Lives here (not in sources.py) because this is the only consumer, the
-    endpoint is undocumented/community-maintained, and keeping the URL next
-    to the gate that polices it makes the fragility explicit. One GET, no
-    retries — the strict fail-open below is cheaper than hammering a
-    bot-guarded host.
+    page is a third-party republication with no API contract, and keeping the
+    URL next to the gate that polices it makes the fragility explicit. One
+    GET, no retries — the strict fail-open below is cheaper than hammering a
+    site we don't pay for.
     """
     resp = requests.get(url, headers={"User-Agent": sources.USER_AGENT}, timeout=sources.TIMEOUT)
     resp.raise_for_status()
-    return resp.json()
+    return resp.text
 
 
 def _build_underdog_adp_board(
-    payload: dict[str, Any] | None,
+    page_html: str | None,
     payload_error: str | None,
     *,
     sleeper_index: dict[Any, str],
@@ -548,7 +553,7 @@ def _build_underdog_adp_board(
     beats leaving consumers with no disclosure at all.
 
     On success returns (entries, diagnostics); diagnostics always carries
-    `upstreamUpdatedAt` (None when the payload publishes no freshness stamp).
+    `upstreamUpdatedAt` (None when the page publishes no freshness stamp).
     """
     if payload_error is not None:
         return None, {
@@ -558,8 +563,8 @@ def _build_underdog_adp_board(
             "matchedRows": 0,
         }
     try:
-        rows = underdog_adp.parse_underdog_adp_rows(payload)
-        upstream_updated_at = underdog_adp.extract_upstream_updated_at(payload)
+        rows = underdog_adp.parse_underdog_adp_rows(page_html)
+        upstream_updated_at = underdog_adp.extract_upstream_updated_at(page_html)
         entries, diagnostics = underdog_adp.build_underdog_adp_entries(
             rows,
             sleeper_index=sleeper_index,
@@ -951,6 +956,18 @@ def main() -> int:
     # committed artifact stays byte-identical (no write, no delete).
     if underdog_entries is not None:
         sizes[UNDERDOG_BOARD_FILENAME] = _write_json(out_dir / UNDERDOG_BOARD_FILENAME, underdog_entries)
+
+    # FFC display lane: the per-format FFC-derived boards are already built every run
+    # (ffc_entries_by_format feeds select_active_adp's fallback and the CV-band fitting);
+    # ship them as their own display-only artifacts so the drawer's Market ADP section can
+    # show every provider the pipeline actually talks to. Display-only like Underdog —
+    # never an engine input: the redraft engine board stays adp-<fmt>.json
+    # (Sleeper head, or FFC wholesale only when Sleeper's endpoint fails).
+    for fmt, ffc_display_entries in ffc_entries_by_format.items():
+        if ffc_display_entries:
+            sizes[f"adp-ffc-{fmt}.json"] = _write_json(
+                out_dir / f"adp-ffc-{fmt}.json", ffc_display_entries
+            )
 
     sleeper_upstream = history.sleeper_upstream_updated_at(sleeper_adp_rows)
     for fmt in sources.ADP_FORMATS:

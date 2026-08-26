@@ -137,6 +137,35 @@ describe('PlayerRolePanel', () => {
     expect(screen.queryByText('Role stats are for offensive skill positions.')).not.toBeInTheDocument();
   });
 
+  it('renders the STACKED QB percentile rankings from the weekly game log cohort', () => {
+    const qb: PlayerMeta = { ...rb, playerId: 'qb1', position: 'QB', eligiblePositions: ['QB'] };
+    const artifact: PlayerWeeklyStatsArtifact = {
+      schemaVersion: 1, season: 2025, weeksFetched: [1],
+      columns: {
+        QB: ['pts', 'opp', 'snp', 'fin', 'pass_cmp', 'pass_att', 'cmp_pct', 'pass_yd', 'pass_ypa', 'pass_td',
+          'pass_int', 'pass_air_yd', 'pass_sack', 'pass_rtg', 'rush_att', 'rush_yd', 'rush_td'],
+      },
+      players: {
+        // qb1 is the passing-yards cohort max; qb2..qb6 step down so the cohort ranks.
+        qb1: { p: 'QB', bye: 9, w: [[1, 25.0, '@KC', 95, 3, 22, 30, 73.3, 280, 9.3, 2, 1, 200, 2, 110.5, 3, 15, 0]] },
+        qb2: { p: 'QB', bye: 6, w: [[1, 22.0, 'DAL', 92, 4, 20, 30, 66.7, 260, 8.7, 2, 0, 190, 1, 105.0, 2, 12, 0]] },
+        qb3: { p: 'QB', bye: 5, w: [[1, 20.0, 'NYG', 90, 5, 19, 30, 63.3, 240, 8.0, 1, 1, 180, 1, 100.0, 2, 10, 0]] },
+        qb4: { p: 'QB', bye: 8, w: [[1, 18.0, 'CHI', 88, 6, 18, 30, 60.0, 220, 7.3, 1, 1, 170, 0, 95.0, 1, 8, 0]] },
+        qb5: { p: 'QB', bye: 11, w: [[1, 16.0, 'LV', 85, 7, 17, 30, 56.7, 200, 6.7, 1, 2, 160, 0, 90.0, 1, 5, 0]] },
+        qb6: { p: 'QB', bye: 12, w: [[1, 14.0, 'TEN', 82, 8, 16, 30, 53.3, 180, 6.0, 0, 2, 150, 0, 85.0, 0, 2, 0]] },
+      },
+      heat: {},
+    };
+    render(<PlayerRolePanel player={qb} usage={undefined} feedStatus="ready" weeklyStats={readyWeeklyStats(artifact)} />);
+    expect(screen.getByRole('heading', { name: '2025 QB percentile rankings' })).toBeInTheDocument();
+    expect(screen.getByText('Passing Volume')).toBeInTheDocument();
+    expect(screen.getByText('Passing Efficiency')).toBeInTheDocument();
+    expect(screen.getByText('Rushing')).toBeInTheDocument();
+    const yardsRow = screen.getByText('Passing Yards').closest('.percentile-row')!;
+    expect(yardsRow.querySelector('.percentile-badge')?.textContent).toBe('100');
+    expect(yardsRow.querySelector('.percentile-value')?.textContent).toBe('280.00');
+  });
+
   it('builds K Volume/Accuracy/Distance/Form columns from the weekly game log', () => {
     const k: PlayerMeta = { ...rb, playerId: 'k1', position: 'K', eligiblePositions: ['K'] };
     const artifact: PlayerWeeklyStatsArtifact = {
@@ -181,5 +210,78 @@ describe('PlayerRolePanel', () => {
     };
     render(<PlayerRolePanel player={k} usage={undefined} feedStatus="ready" weeklyStats={readyWeeklyStats(artifact)} />);
     expect(screen.getByText('No 2025 weekly game log for this player.')).toBeInTheDocument();
+  });
+
+  describe('with usageArtifact + players (STACKED percentile rankings)', () => {
+    const cohortPlayers: PlayerMeta[] = ['rb1', 'rb2', 'rb3', 'rb4', 'rb5', 'rb6'].map((id) => ({
+      ...rb, playerId: id, name: `Rush ${id}`,
+    }));
+
+    function cohortUsage(): Record<string, PlayerUsage> {
+      const artifact: Record<string, PlayerUsage> = {};
+      cohortPlayers.forEach((player, index) => {
+        artifact[player.playerId] = {
+          ...usage,
+          opportunity: {
+            ...usage.opportunity!,
+            season: period({ carriesPerGame: 11.25 - index * 2.1 }),
+          },
+        };
+      });
+      return artifact;
+    }
+
+    it('renders the STACKED layout for an RB: heading, group headers, and percentile badges', () => {
+      render(
+        <PlayerRolePanel
+          player={rb}
+          usage={usage}
+          feedStatus="ready"
+          usageArtifact={cohortUsage()}
+          players={cohortPlayers}
+        />,
+      );
+      expect(screen.getByRole('heading', { name: '2025 RB percentile rankings' })).toBeInTheDocument();
+      expect(screen.getByText('Fantasy')).toBeInTheDocument();
+      expect(screen.getByText('Backfield Volume')).toBeInTheDocument();
+      expect(screen.getByText('Rushing Efficiency')).toBeInTheDocument();
+      expect(screen.getByText('Goal Line & Red Zone')).toBeInTheDocument();
+      expect(screen.getByText('Fantasy Points')).toBeInTheDocument();
+      expect(screen.getByText('Rush EPA / Carry')).toBeInTheDocument();
+      // rb1 is the carries/g cohort max → badge 100, raw AVG value shown beside it.
+      const carriesRow = screen.getByText('Carries').closest('.percentile-row')!;
+      expect(carriesRow.querySelector('.percentile-badge')?.textContent).toBe('100');
+      expect(carriesRow.querySelector('.percentile-value')?.textContent).toBe('11.25');
+    });
+
+    it('renders the receiving-only shape for a WR and keeps QB on the weekly columns', () => {
+      render(
+        <PlayerRolePanel
+          player={{ ...rb, position: 'WR', eligiblePositions: ['WR'] }}
+          usage={usage}
+          feedStatus="ready"
+          usageArtifact={cohortUsage()}
+          players={cohortPlayers.map((player) => ({ ...player, position: 'WR' as const }))}
+        />,
+      );
+      expect(screen.getByRole('heading', { name: '2025 WR percentile rankings' })).toBeInTheDocument();
+      expect(screen.getByText('Target Earners')).toBeInTheDocument();
+      expect(screen.queryByText('Backfield Volume')).not.toBeInTheDocument();
+      expect(screen.queryByText('Carries')).not.toBeInTheDocument();
+    });
+
+    it('falls back to the legacy columns when the cohort is too thin to rank', () => {
+      render(
+        <PlayerRolePanel
+          player={rb}
+          usage={usage}
+          feedStatus="ready"
+          usageArtifact={cohortUsage()}
+          players={cohortPlayers.slice(0, 3)}
+        />,
+      );
+      expect(screen.queryByText(/percentile rankings/)).not.toBeInTheDocument();
+      expect(screen.getByText('Carry share')).toBeInTheDocument();
+    });
   });
 });

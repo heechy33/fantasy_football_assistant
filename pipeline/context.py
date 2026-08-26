@@ -243,6 +243,9 @@ def _opportunity_period(
     player_carries: Counter[tuple[str, tuple[int, int, str]]],
     player_air_yards: Counter[tuple[str, tuple[int, int, str]]],
     player_yac: Counter[tuple[str, tuple[int, int, str]]],
+    player_rush_epa: Counter[tuple[str, tuple[int, int, str]]],
+    player_rec_epa: Counter[tuple[str, tuple[int, int, str]]],
+    epa_available: bool,
     team_targets: Counter[tuple[int, int, str]],
     team_carries: Counter[tuple[int, int, str]],
     team_air_yards: Counter[tuple[int, int, str]],
@@ -257,6 +260,8 @@ def _opportunity_period(
     carries = sum(player_carries[(pid, key)] for key in keys)
     air_yards = sum(player_air_yards[(pid, key)] for key in keys)
     yac = sum(player_yac[(pid, key)] for key in keys)
+    rush_epa = sum(player_rush_epa[(pid, key)] for key in keys)
+    rec_epa = sum(player_rec_epa[(pid, key)] for key in keys)
     target_denominator = sum(team_targets[key] for key in keys)
     carry_denominator = sum(team_carries[key] for key in keys)
     air_yards_denominator = sum(team_air_yards[key] for key in keys)
@@ -281,6 +286,10 @@ def _opportunity_period(
         "airYardsPerGame": air_yards / games if games and air_yards_denominator_exists(air_yards_denominator) else None,
         "airYardsShare": air_yards / air_yards_denominator if air_yards_denominator_exists(air_yards_denominator) else None,
         "receivingYardsAfterCatch": yac,
+        "rushingEpa": rush_epa if epa_available else None,
+        "rushingEpaPerGame": rush_epa / games if games and epa_available else None,
+        "receivingEpa": rec_epa if epa_available else None,
+        "receivingEpaPerGame": rec_epa / games if games and epa_available else None,
         "redZoneTargets": sum(pbp_metrics["redZoneTargets"][(pid, key)] for key in keys) if pbp_available else None,
         "endZoneTargets": sum(pbp_metrics["endZoneTargets"][(pid, key)] for key in keys) if pbp_available else None,
         "goalLineCarries": sum(pbp_metrics["goalLineCarries"][(pid, key)] for key in keys) if pbp_available else None,
@@ -472,8 +481,17 @@ def build_player_context(
     player_rec_tds: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     player_rush_yards: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     player_rush_tds: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_rush_epa: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    player_rec_epa: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     player_pass_completions: Counter[tuple[str, tuple[int, int, str]]] = Counter()
     player_pass_attempts: Counter[tuple[str, tuple[int, int, str]]] = Counter()
+    # `_number()` coerces a missing/non-numeric value to 0.0, which is indistinguishable from a
+    # genuinely observed zero. If nflverse ever renames or drops these columns, every player would
+    # silently report 0.0 EPA rather than "unknown" — so gate on whether the source actually
+    # carries the columns at all, the same way `pbp_available` gates the red-zone fields below.
+    epa_available = any(
+        "rushing_epa" in row or "receiving_epa" in row for row in player_stats
+    )
     for row in player_stats:
         key = _team_week(row)
         if key is None:
@@ -481,6 +499,8 @@ def build_player_context(
         targets, carries = _number(row.get("targets")), _number(row.get("carries"))
         air_yards = _number(row.get("receiving_air_yards"))
         yac = _number(row.get("receiving_yards_after_catch"))
+        rush_epa = _number(row.get("rushing_epa"))
+        rec_epa = _number(row.get("receiving_epa"))
         team_targets[key] += targets
         team_carries[key] += carries
         team_air_yards[key] += air_yards
@@ -490,6 +510,8 @@ def build_player_context(
             player_carries[(pid, key)] += carries
             player_air_yards[(pid, key)] += air_yards
             player_yac[(pid, key)] += yac
+            player_rush_epa[(pid, key)] += rush_epa
+            player_rec_epa[(pid, key)] += rec_epa
             player_receptions[(pid, key)] += _number(row.get("receptions"))
             player_rec_yards[(pid, key)] += _number(row.get("receiving_yards"))
             player_rec_tds[(pid, key)] += _number(row.get("receiving_tds"))
@@ -633,7 +655,8 @@ def build_player_context(
         if prior_snap_games:
             season_period = _opportunity_period(
                 pid, usage_season, prior_snap_games, player_targets, player_carries,
-                player_air_yards, player_yac, team_targets, team_carries, team_air_yards,
+                player_air_yards, player_yac, player_rush_epa, player_rec_epa, epa_available,
+                team_targets, team_carries, team_air_yards,
                 team_snap_totals, offensive_snaps, pbp_metrics, pbp_available,
                 meta.position,
             )
@@ -642,7 +665,8 @@ def build_player_context(
             )[-5:])
             final_period = _opportunity_period(
                 pid, usage_season, final_keys, player_targets, player_carries,
-                player_air_yards, player_yac, team_targets, team_carries, team_air_yards,
+                player_air_yards, player_yac, player_rush_epa, player_rec_epa, epa_available,
+                team_targets, team_carries, team_air_yards,
                 team_snap_totals, offensive_snaps, pbp_metrics, pbp_available,
                 meta.position,
             ) if final_keys else None

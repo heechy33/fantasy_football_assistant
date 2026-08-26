@@ -35,7 +35,7 @@ function pick(overall: number, teamId: string, playerId: string): Pick {
 }
 
 function baseProps(overrides: Partial<Parameters<typeof MyTeamRail>[0]> = {}) {
-  return { settings, effectivePicks: [] as Pick[], myTeamId: 'me', playersById, projections, rounds: 15, ...overrides };
+  return { settings, effectivePicks: [] as Pick[], myTeamId: 'me', playersById, projections, ...overrides };
 }
 
 function groupFor(buttonName: RegExp): HTMLElement {
@@ -52,14 +52,21 @@ describe('MyTeamRail', () => {
     expect(within(rbGroup).getAllByText('Empty')).toHaveLength(1);
   });
 
-  it('groups the roster by position with the drafted/total header counter', () => {
+  it('groups the roster by position with uncluttered headers (no counts, points, or byes)', () => {
     render(<MyTeamRail {...baseProps({ effectivePicks: [pick(1, 'me', 'rb1')] })} />);
 
-    expect(screen.getByText('1/15')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Quarterbacks \(1\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Running Backs \(2\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Wide Receivers \(1\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Tight Ends \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My Team' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Quarterbacks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Running Backs' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wide Receivers' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tight Ends' })).toBeInTheDocument();
+    // The decluttered rail drops the drafted/total counter, projected points, and per-group counts
+    // (including the "+ n FLEX" annotation). Bye keeps only its small column label — no "Bye N" cells.
+    expect(screen.queryByText('1/15')).not.toBeInTheDocument();
+    expect(screen.queryByText(/pts/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/FLEX/)).not.toBeInTheDocument();
+    expect(screen.getAllByText('Bye').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Bye \d+/)).not.toBeInTheDocument();
   });
 
   it('starts the higher-value WR and lists multiple bench players in draft order', () => {
@@ -104,7 +111,7 @@ describe('MyTeamRail', () => {
     expect(filledSlot.getAttribute('style')).toContain('--team-logo: none');
   });
 
-  it('shows bye week on filled starter and bench rows instead of projected points', () => {
+  it('shows the bare bye-week number on starter and bench rows (no "Bye" label)', () => {
     const byId = new Map(playersById);
     byId.set('wr1', { ...players[1]!, byeWeek: 7 });
     byId.set('wr2', { ...players[2]!, byeWeek: 12 });
@@ -112,13 +119,15 @@ describe('MyTeamRail', () => {
     render(<MyTeamRail {...baseProps({ effectivePicks, playersById: byId })} />);
 
     const wrGroup = groupFor(/Wide Receivers/);
-    expect(within(wrGroup).getByText('Bye 7')).toBeInTheDocument();
+    expect(within(wrGroup).getByText('7')).toBeInTheDocument();
+    const benchGroup = groupFor(/Bench/);
+    expect(within(benchGroup).getByText('12')).toBeInTheDocument();
+    expect(within(benchGroup).getByText('\u2014')).toBeInTheDocument(); // wr3 has no bye week
+    // Cells are bare numbers — the "Bye" text lives only in the small column labels.
+    expect(within(wrGroup).queryByText(/Bye \d+/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Bye /)).not.toBeInTheDocument();
     expect(screen.queryByText('140.0')).not.toBeInTheDocument();
     expect(screen.queryByText('20.0')).not.toBeInTheDocument();
-
-    const benchGroup = groupFor(/Bench/);
-    expect(within(benchGroup).getByText('Bye 12')).toBeInTheDocument();
-    expect(within(benchGroup).getByText('Bye —')).toBeInTheDocument();
   });
 
   it('keeps the bench height with an empty-state placeholder row', () => {

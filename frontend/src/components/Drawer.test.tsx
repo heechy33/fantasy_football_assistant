@@ -8,6 +8,17 @@ describe('Drawer', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('portals the open backdrop to document.body so it escapes workspace stacking contexts', () => {
+    // Workspace columns carry `z-index` (App.css `.workspace-column`), which creates a stacking
+    // context that would trap a fixed backdrop rendered inline and let a sibling rail paint on
+    // top of the open drawer — the portaled backdrop must live outside the render tree.
+    const { container } = render(<Drawer open label="Draft log" onClose={vi.fn()}><p>content</p></Drawer>);
+    const backdrop = document.body.querySelector('.drawer-backdrop');
+    expect(backdrop).not.toBeNull();
+    expect(container.contains(backdrop)).toBe(false);
+    expect(screen.getByRole('dialog', { name: 'Draft log' })).toBeInTheDocument();
+  });
+
   it('renders labeled dialog content and moves initial focus into the dialog when open', () => {
     render(<Drawer open label="Draft log" onClose={vi.fn()}><button type="button">Inside</button></Drawer>);
     const dialog = screen.getByRole('dialog', { name: 'Draft log' });
@@ -20,12 +31,12 @@ describe('Drawer', () => {
 
   it('closes on Escape and on backdrop click, not on panel click', () => {
     const onClose = vi.fn();
-    const { container, rerender } = render(<Drawer open label="Draft log" onClose={onClose}><p>content</p></Drawer>);
+    const { rerender } = render(<Drawer open label="Draft log" onClose={onClose}><p>content</p></Drawer>);
 
     fireEvent.mouseDown(screen.getByRole('dialog'));
     expect(onClose).not.toHaveBeenCalled();
 
-    fireEvent.mouseDown(container.querySelector('.drawer-backdrop')!);
+    fireEvent.mouseDown(screen.getByRole('dialog').closest('.drawer-backdrop')!);
     expect(onClose).toHaveBeenCalledTimes(1);
 
     onClose.mockClear();

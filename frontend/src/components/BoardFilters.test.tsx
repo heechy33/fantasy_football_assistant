@@ -66,11 +66,29 @@ describe('BoardFilters presentation control', () => {
 });
 
 describe('BoardFilters mode control', () => {
-  it('hides Engine/ADP tabs when modeToggleVisible is false', () => {
-    render(<BoardFilters {...defaultProps()} modeToggleVisible={false} />);
-    expect(screen.queryByRole('tab', { name: 'Engine' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'ADP' })).not.toBeInTheDocument();
+  it('keeps Engine/ADP visible but disables Engine when modeEnabled is false', async () => {
+    const onBoardModeChange = vi.fn();
+    const user = userEvent.setup();
+    render(<BoardFilters {...defaultProps()} onBoardModeChange={onBoardModeChange} modeEnabled={false} />);
+
+    const engine = screen.getByRole('tab', { name: 'Engine' });
+    expect(engine).toBeDisabled();
+    // A disabled tab must not fire the callback (clicking it can't switch the board the engine
+    // isn't computing anyway).
+    await user.click(engine).catch(() => undefined);
+    expect(onBoardModeChange).not.toHaveBeenCalled();
+
+    const adp = screen.getByRole('tab', { name: 'ADP' });
+    expect(adp).not.toBeDisabled();
+    await user.click(adp);
+    expect(onBoardModeChange).toHaveBeenCalledWith('adp');
     expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument();
+  });
+
+  it('enables Engine when modeEnabled is true', () => {
+    render(<BoardFilters {...defaultProps()} modeEnabled />);
+    expect(screen.getByRole('tab', { name: 'Engine' })).not.toBeDisabled();
+    expect(screen.getByRole('tab', { name: 'ADP' })).not.toBeDisabled();
   });
 });
 

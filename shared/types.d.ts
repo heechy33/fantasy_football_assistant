@@ -386,6 +386,14 @@ export interface OpportunityPeriod {
   airYardsPerGame: number | null;
   airYardsShare: number | null;
   receivingYardsAfterCatch: number | null;
+  /** Season rushing EPA (nflverse `stats_player` weekly `rushing_epa`, summed over the same
+   * appearance weeks as the rest of this period). Display-only percentile input — never a
+   * ranking input. Null-safe on artifacts written before this field existed. */
+  rushingEpa?: number;
+  rushingEpaPerGame?: number | null;
+  /** Season receiving EPA (nflverse `stats_player` weekly `receiving_epa`), same semantics. */
+  receivingEpa?: number;
+  receivingEpaPerGame?: number | null;
   redZoneTargets: number | null;
   endZoneTargets: number | null;
   goalLineCarries: number | null;

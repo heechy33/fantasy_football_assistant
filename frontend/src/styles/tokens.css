@@ -23,6 +23,23 @@
  * frontend/public/fonts/ (both SIL OFL 1.1 — see OFL.txt). No CDN dependency, honoring the
  * $0/month hosting target. `--font-display` replaces the old handwriting face (Architects
  * Daughter, previously `--font-hand`) on the two Bob headings.
+ *
+ * Font hierarchy (the app's type ramp — keep new styles on it):
+ *   - App name / hero / splash-scale display text
+ *       → Archivo 700–800 at font-stretch: 125% ("Expanded"). The shipped archivo.woff2 is a
+ *         Latin-subset variable build carrying BOTH axes (wght 100–900, wdth 62–125), subset
+ *         from google/fonts' Archivo[wdth,wght].ttf (SIL OFL 1.1) with fontTools; the
+ *         `font-stretch` descriptor above makes browser matching deterministic instead of
+ *         synthesized. Previous file was wght-only (~13 KB); this one is ~79 KB, still one
+ *         cached request.
+ *   - Section headers / major UI labels / nav / card titles → Archivo 600–800, standard width.
+ *   - Body text / descriptions / form fields → Inter 400 (the :root default via --font-sans).
+ *   - Stats, scores, rankings, percentages — ALL numeric data → Inter with
+ *     `font-variant-numeric: tabular-nums` (already applied throughout App.css). Deliberately
+ *     NOT a monospace family: a third family costs another download and mono renders poorly
+ *     at this UI's micro sizes (.55–.74rem).
+ *   - Dense-row player names (draft log rows, profile lines) stay Inter 700–800 so they keep
+ *     vertical rhythm with adjacent numeric data; Archivo is reserved for titles/nav.
  */
 
 @font-face {
@@ -45,6 +62,7 @@
   font-family: "Archivo";
   font-style: normal;
   font-weight: 100 900;
+  font-stretch: 62% 125%;
   font-display: swap;
   src: url("/fonts/archivo.woff2") format("woff2-variations");
 }
@@ -194,6 +212,11 @@
   /* Shadows */
   --shadow-modal: 0 24px 70px rgb(0 0 0 / .45);
   --shadow-drawer: -24px 0 60px rgb(0 0 0 / .45);
+  /* War-room panel elevation (draft-workspace columns hanging off the navy band). */
+  --shadow-panel: 0 16px 38px rgb(0 0 0 / .38), 0 2px 10px rgb(0 0 0 / .3);
+  /* Shared height of the workspace panel-header bars AND the navy strip behind them — one token so
+     the band's bottom edge and the headers can never drift apart (no stray line in the gaps). */
+  --panel-header-h: 2.6rem;
 
   /* Team identity chrome — per-team --team-{code}/-ink values live in styles/teamColors.css (a
      32-row lookup table, not a palette). These two are the shared strength knobs so every consumer

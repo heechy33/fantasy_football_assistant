@@ -1,8 +1,11 @@
-import type { PlayerMeta, PlayerUsage } from '../../../shared/types';
+import type { PlayerMeta, PlayerUsage, PlayerUsageArtifact } from '../../../shared/types';
+import { buildPercentileRankings } from '../data/percentileRankings';
+import { buildQbPercentileRankings } from '../data/qbPercentileRankings';
 import { buildRoleColumns } from '../data/playerRole';
 import { buildSparklinePoints } from '../data/weeklyGameLog';
 import type { WeeklyStatsState } from '../hooks/useWeeklyStats';
 import type { PlayerContextFeedStatus } from './PlayerDetailDrawer';
+import { PercentileBar } from './PercentileBar';
 import { RoleColumnHeader } from './RoleColumnHeader';
 import { StatBar } from './StatBar';
 
@@ -11,21 +14,31 @@ export interface PlayerRolePanelProps {
   usage: PlayerUsage | undefined;
   feedStatus: PlayerContextFeedStatus;
   weeklyStats?: WeeklyStatsState;
+  /** Full prior-season usage artifact + player pool. When both are given, RB/WR/TE render the
+   * STACKED-style position-cohort percentile rankings (see `percentileRankings.ts`) instead of
+   * the legacy 2x2 role columns. Optional so existing callers/tests keep compiling. */
+  usageArtifact?: PlayerUsageArtifact;
+  players?: readonly PlayerMeta[];
 }
 
 /**
- * First-class prior-season role + PPR production panel. Position-aware 2x2
- * cards; each card gets a visible title + rating chip (RoleColumnHeader) over
- * its StatBar rows -- see RoleColumnHeader's doc for why the old semicircle
- * gauge was removed. Fail-opens when usage/weekly data is missing. Display-only
- * -- never a ranking input.
+ * First-class prior-season role + PPR production panel. Display-only -- never a ranking input.
  *
- * RB/WR/TE columns are derived from `usage.opportunity` (a season aggregate,
- * unchanged from before). QB/K/DEF columns are derived entirely from the
- * weekly game log instead -- see playerRole.ts's `buildRoleColumns` doc for why
- * that's a deliberate split, not an oversight.
+ * RB/WR/TE (with `usageArtifact` + `players`): STACKED-style grouped percentile rows —
+ * each metric's per-game value percent-ranked 0-100 within the same-position cohort.
+ * QB (with a ready weekly-stats artifact): the same STACKED view, percent-ranked within the
+ * weekly game log's QB cohort (`qbPercentileRankings.ts` — `player-usage.json` has no QB
+ * passing/rushing fields). RB/WR/TE without the pool and QB without weekly stats: the legacy
+ * position-aware 2x2 cards. K/DEF: always the weekly-game-log columns (`weeklyRoleColumns.ts`).
  */
-export function PlayerRolePanel({ player, usage, feedStatus, weeklyStats }: PlayerRolePanelProps) {
+export function PlayerRolePanel({
+  player,
+  usage,
+  feedStatus,
+  weeklyStats,
+  usageArtifact,
+  players,
+}: PlayerRolePanelProps) {
   if (feedStatus === 'loading') {
     return (
       <section className="player-role-panel">
@@ -39,6 +52,51 @@ export function PlayerRolePanel({ player, usage, feedStatus, weeklyStats }: Play
       <section className="player-role-panel">
         <h3>Role</h3>
         <p className="muted">Prior-season role is temporarily unavailable. Core projections and ADP are unaffected.</p>
+      </section>
+    );
+  }
+
+  const rankings = usageArtifact != null && players != null
+    ? buildPercentileRankings({ player, usage: usageArtifact, players })
+    : null;
+  // QB gets the same STACKED percentile view as RB/WR/TE, but sourced from the weekly game log
+  // cohort (see qbPercentileRankings.ts — `player-usage.json` has no QB passing/rushing fields).
+  const qbRankings = player.position === 'QB' && weeklyStats?.status === 'ready' && weeklyStats.artifact != null
+    ? buildQbPercentileRankings({ player, artifact: weeklyStats.artifact })
+    : null;
+  const stacked = rankings ?? qbRankings;
+  if (stacked != null) {
+    const season = usage?.season ?? weeklyStats?.artifact?.season;
+    return (
+      <section className="player-role-panel">
+        <h3>{season != null ? `${season} ${player.position} percentile rankings` : `${player.position} percentile rankings`}</h3>
+        {usage?.teamChanged && (
+          <p className="muted">Team changed since the latest {season} appearance ({usage.recentTeam}).</p>
+        )}
+        <div className="percentile-groups">
+          {stacked.groups.map((group) => (
+            <div className="percentile-group" key={group.id}>
+              <div className="percentile-group-head">{group.label}</div>
+              {group.stats.map((stat) => {
+                const unit = stat.ratio ? '' : ' per game';
+                const ariaLabel = stat.percentile != null
+                  ? `${stat.label}: ${Math.round(stat.percentile)}th percentile, ${stat.display ?? 'n/a'}${unit}`
+                  : `${stat.label}: percentile unavailable, ${stat.display ?? 'n/a'}${unit}`;
+                return (
+                  <div
+                    className="percentile-row"
+                    key={stat.key}
+                    data-missing={stat.percentile == null || undefined}
+                  >
+                    <span className="percentile-label">{stat.label}</span>
+                    <PercentileBar percentile={stat.percentile} ariaLabel={ariaLabel} />
+                    <span className="percentile-value">{stat.display ?? 'n/a'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </section>
     );
   }

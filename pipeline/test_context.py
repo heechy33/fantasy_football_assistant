@@ -120,6 +120,37 @@ def test_usage_handles_team_changes_weighted_shares_zeros_and_known_absence():
     assert opportunity["roleEvolution"]["targetsPerGameDelta"] == 0
 
 
+def test_epa_sums_when_present_and_nulls_rather_than_zeros_when_absent():
+    players = {"1": player("1", team="BUF", gsis="g1", pfr="p1")}
+    snaps = [snap(2025, 1, "BUF", "p1", 30, .5), snap(2025, 2, "BUF", "p1", 30, .5)]
+    rosters = [roster(2025, 1, "BUF", "g1", "ACT"), roster(2025, 2, "BUF", "g1", "ACT")]
+
+    # Source rows carry rushing_epa/receiving_epa: the fields sum and average normally.
+    stats_with_epa = [
+        stat(2025, 1, "BUF", "g1", 2, 3, rushing_epa=1.5, receiving_epa=0.5),
+        stat(2025, 2, "BUF", "g1", 2, 3, rushing_epa=2.5, receiving_epa=-0.5),
+    ]
+    usage = context.build_player_context(players, stats_with_epa, snaps, rosters, [], 2026).usage
+    season = usage["1"]["opportunity"]["season"]
+    assert season["rushingEpa"] == 4.0
+    assert season["rushingEpaPerGame"] == 2.0
+    assert season["receivingEpa"] == 0.0
+    assert season["receivingEpaPerGame"] == 0.0
+
+    # Source rows lack the EPA columns entirely: fields must be None, never a coerced 0.0 that
+    # would read as an observed (replacement-level) EPA.
+    stats_without_epa = [
+        stat(2025, 1, "BUF", "g1", 2, 3),
+        stat(2025, 2, "BUF", "g1", 2, 3),
+    ]
+    usage = context.build_player_context(players, stats_without_epa, snaps, rosters, [], 2026).usage
+    season = usage["1"]["opportunity"]["season"]
+    assert season["rushingEpa"] is None
+    assert season["rushingEpaPerGame"] is None
+    assert season["receivingEpa"] is None
+    assert season["receivingEpaPerGame"] is None
+
+
 def test_qb_completion_pct_aggregates_completions_over_attempts():
     players = {"qb": player("qb", position="QB", gsis="gqb", pfr="pqb")}
     snaps = [

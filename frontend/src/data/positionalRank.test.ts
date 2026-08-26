@@ -20,9 +20,9 @@ const board: AdpEntry[] = [
 
 describe('adpPositionalRank', () => {
   it('ranks by same-position ADP, counting rows at or before this player', () => {
-    expect(adpPositionalRank('rb-a', 'RB', board)).toBe('ADP RB1');
-    expect(adpPositionalRank('rb-b', 'RB', board)).toBe('ADP RB3');
-    expect(adpPositionalRank('wr-a', 'WR', board)).toBe('ADP WR1');
+    expect(adpPositionalRank('rb-a', 'RB', board)).toBe('RB1');
+    expect(adpPositionalRank('rb-b', 'RB', board)).toBe('RB3');
+    expect(adpPositionalRank('wr-a', 'WR', board)).toBe('WR1');
   });
 
   it('returns null without a position, ADP row, or board', () => {

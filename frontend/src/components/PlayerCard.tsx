@@ -2,11 +2,13 @@
 import type { AdpEntry, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import { adpPositionalRank } from '../data/positionalRank';
+import type { CardRoleStat } from '../data/cardRoleStats';
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { teamLogoUrl } from '../data/playerPortrait';
 import type { Recommendation } from '../engine/recommend';
 import { NextUpChip, type NextUpInfo } from './NextUpChip';
 import { NextPickSurvivalMeter } from './NextPickSurvivalMeter';
+import { PercentileBar } from './PercentileBar';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
 import { boardFaceValues, boardUsageStat, formatBoardStat } from './playerBoardFace';
@@ -16,8 +18,6 @@ export interface PlayerCardProps {
   /** `null` for a market-only row: an undrafted, ADP-ranked player with no FFToday projection. */
   recommendation: Recommendation | null;
   player: PlayerMeta | undefined;
-  /** Card-face rank - engine rank in Engine mode, market-board rank in ADP mode. */
-  rank: number;
   /** Market ADP for an ADP-mode row with no engine recommendation. */
   adp?: number | null;
   /** Full ADP board for the positional-rank face label. */
@@ -41,7 +41,14 @@ export interface PlayerCardProps {
   projectedPoints?: number | null;
   /** Off-clock/market fallback when `recommendation` is null (see boardFaceValues). */
   availableNextPickProbability?: number | null;
-
+  /** Whether the exact next-pick survival percentage may render. Shown ONLY while the user is
+   * on the clock (the estimate targets the follow-up pick then). Defaults to true so isolated
+   * card usage (landing demo, direct renders) keeps meter semantics. */
+  availabilityVisible?: boolean;
+  /** Headline role-page stats for the card-bottom slot (see `cardRoleStats.ts`). Computed by
+   * the caller (RecommendationBoard) once per board render. The slot rule governs how many
+   * render — see the JSX comment above the slot. Omitted/empty → the slot stays blank. */
+  roleStats?: readonly CardRoleStat[] | null;
   onViewDetails: () => void;
 }
 
@@ -70,7 +77,8 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 /** Compact card face: labeled 2Ã—2 stats, small headshot beside the name, contained team logo watermark. */
 export function PlayerCard(props: PlayerCardProps) {
   const {
-    playerId, recommendation, player, rank, adpBoard, nextUp, usage, depthRole, avgPointsPerGame, onViewDetails,
+    playerId, recommendation, player, adpBoard, nextUp, usage, depthRole, avgPointsPerGame,
+    availabilityVisible = true, roleStats, onViewDetails,
   } = props;
   const values = boardFaceValues(props);
   const name = player?.name ?? playerId;
@@ -100,7 +108,6 @@ export function PlayerCard(props: PlayerCardProps) {
         <img className="player-card-watermark" src={logoUrl} alt="" />
       )}
       <header className="player-card-head">
-        <span className="player-card-board-rank">#{rank}</span>
         {positionalRank && <span className="player-card-pos-rank">{positionalRank}</span>}
         {logoUrl && (
           <img className="player-card-logo" src={logoUrl} alt="" width={28} height={28} />
@@ -136,18 +143,54 @@ export function PlayerCard(props: PlayerCardProps) {
             : 'Average Draft Position \u2014 the pick where this player is typically taken. Lower is earlier.'}
         >
           <dt>ADP</dt>
-          <dd>
-            {formatStat(adpValue)}
-            {adpSource && <span className="player-card-adp-source">{adpSource}</span>}
-          </dd>
+          <dd>{formatStat(adpValue)}</dd>
         </div>
         {usageStat && <div><dt>{usageStat.label}</dt><dd>{usageStat.value}</dd></div>}
       </dl>
 
-      <NextPickSurvivalMeter probability={availabilityValue} />
+      {/* Card-bottom slot rule (2026-08-25 user spec) — how much of the card's remaining room
+          each draft state gets, filled with headline role-page stats (cardRoleStats.ts):
+          - On the clock + next-up chip: meter only — the chip closes the card, no room left.
+          - On the clock + no next-up: the meter, then 2 stats below the percentage.
+          - Off the clock + next-up chip: 2 stats (the chip takes the bottom field).
+          - Off the clock + no next-up: 4 stats — the slot has the most room, and 4 rows fill it
+            without the dead space a shorter block left in the card's middle (user follow-up).
+          The chip still renders LAST in every state where it exists. No stats data → the slot
+          stays blank rather than showing a placeholder (see cardRoleStats.ts). */}
+      {(() => {
+        const onClock = availabilityValue != null && availabilityVisible;
+        const statCount = onClock || nextUp ? 2 : 4;
+        const slotStats = (roleStats ?? []).slice(0, statCount);
+        const showStats = slotStats.length > 0 && !(onClock && nextUp);
+        return (
+          <>
+            {onClock && <NextPickSurvivalMeter probability={availabilityValue} />}
+            {showStats && (
+              <div className="player-card-role-stats" data-count={slotStats.length}>
+                {slotStats.map((stat) => (
+                  <div
+                    className="player-card-role-stat"
+                    key={stat.label}
+                    title={stat.title}
+                    data-missing={stat.percentile == null || undefined}
+                  >
+                    <span className="player-card-role-stat-label">{stat.label}</span>
+                    <PercentileBar
+                      percentile={stat.percentile}
+                      ariaLabel={stat.percentile != null
+                        ? `${stat.label}: ${Math.round(stat.percentile)}th percentile, ${stat.display}`
+                        : `${stat.label}: percentile unavailable, ${stat.display}`}
+                    />
+                    <span className="player-card-role-stat-value">{stat.display}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {nextUp && <NextUpChip nextUp={nextUp} referencePoints={projectionValue} />}
-
     </article>
   );
 }

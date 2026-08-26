@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type {
+  AdpEntry,
   PlayerMeta,
   ProviderProjectionsArtifact,
   ScoringMap,
@@ -10,8 +11,22 @@ import { ProviderBadge } from './ProviderBadge';
 
 export interface BoardAdpAnchor {
   adp: number;
-  /** Which upstream actually produced the board's committed ADP (Sleeper / FFC fallback). */
+  /** Which upstream actually produced the board's committed ADP (Sleeper / FFC fallback / ESPN).
+   * Kept as a free string (not just the brand key) because it carries nuance a brand key can't,
+   * e.g. "Sleeper (ESPN board tail)". */
   source: string;
+  /** Brand key for the logo badge on this tile — always resolvable to one of the real upstreams
+   * ('sleeper' | 'espn' | 'ffc'), never a synthetic key. */
+  brandKey: ProviderBrandKey;
+}
+
+/** Underdog's best-ball ADP for this player — a separate best-ball, half-PPR, TE-premium lane,
+ * never blended into the engine board or the redraft composites (`pipeline/underdog_adp.py`).
+ * Deliberately a plain number, not a `BoardAdpAnchor`: it carries none of the redraft board's
+ * range/positional-rank context, and showing that shape here would imply a second opinion on
+ * redraft value rather than a different format entirely. */
+export interface UnderdogAdpAnchor {
+  adp: number;
 }
 
 /** The engine's projected points for this player (FFToday scored in the user's league). */
@@ -22,9 +37,17 @@ export interface FftodayAnchor {
 
 interface PlayerMarketComparisonProps {
   boardAdp?: BoardAdpAnchor | null;
-  /** Current overall pick, shown as plain context next to Engine ADP. Undefined
-   * when no draft is connected; the headline says n/a rather than guessing. */
-  currentPick?: number | null;
+  underdogAdp?: UnderdogAdpAnchor | null;
+  /** Display-only comparison ADP lanes beyond the active board (ESPN PPR, FFC mock drafts —
+   * see `useProviderAdpBoards`). Each renders one tile; a player absent from a lane's board
+   * shows an em dash rather than silently dropping the tile, so sparse coverage (FFC is
+   * ~267 rows vs Sleeper's ~1500) stays visible instead of looking like a broken load. */
+  providerAdpLanes?: ReadonlyArray<{
+    key: string;
+    label: string;
+    brandKey: ProviderBrandKey;
+    entries: readonly AdpEntry[];
+  }>;
   projectionsArtifact: ProviderProjectionsArtifact | null;
   player: PlayerMeta;
   scoring: ScoringMap;
@@ -36,6 +59,10 @@ interface ProjectionRow {
   label: string;
   points: number;
   stale: boolean;
+  /** `'engine'` for the single FFToday row (the number the recommendation engine actually uses,
+   * scored in this league); `'provider'` for the display-only Sleeper/ESPN/CBS rows. Drives the
+   * same `data-role="engine"` bold/quiet treatment the ADP tile above already uses. */
+  role: 'engine' | 'provider';
 }
 
 function formatAdp(value: number): string {
@@ -52,16 +79,17 @@ function brandLabel(key: string): string {
 }
 
 /**
- * The engine ADP headline plus a plain per-provider projections number tile grid
- * for the Overview tab. Display-only: never an engine input. Both sections are
- * read-at-a-glance grids of numbers — each provider is a compact tile (badge +
- * name above, value below) laid out horizontally with a wrapping responsive
- * grid, no dot plots or derived spread captions.
+ * A real market-ADP readout (the engine board number + its source, plus Underdog's separate
+ * best-ball number when available) and a plain per-provider projections number tile grid —
+ * the engine's own FFToday number first — for the Overview tab. Display-only: never an engine
+ * input. Both sections are read-at-a-glance grids of numbers — each entry is a compact tile
+ * (badge + name above, value below) laid out horizontally with a wrapping responsive grid.
  * Renders nothing when neither anchor/artifact has a row.
  */
 export function PlayerMarketComparison({
   boardAdp,
-  currentPick,
+  underdogAdp,
+  providerAdpLanes = [],
   projectionsArtifact,
   player,
   scoring,
@@ -71,6 +99,12 @@ export function PlayerMarketComparison({
     () => buildProjectionRows(projectionsArtifact, player, scoring, fftoday),
     [projectionsArtifact, player, scoring, fftoday],
   );
+  // One tile per comparison lane; `undefined` (player has no row on that board) renders as an
+  // em dash — honest absence, not a dropped provider.
+  const laneValues = providerAdpLanes.map((lane) => ({
+    ...lane,
+    adp: lane.entries.find((entry) => entry.playerId === player.playerId)?.adp,
+  }));
 
   const hasAdp = boardAdp != null;
   if (!hasAdp && projectionBuild.rows.length === 0 && projectionBuild.caption === '') return null;
@@ -80,10 +114,39 @@ export function PlayerMarketComparison({
       {hasAdp && (
         <div className="adp-summary">
           <h3>Market ADP</h3>
-          <p className="adp-headline">
-            Engine ADP {formatAdp(boardAdp!.adp)} · {boardAdp!.source}
-            {currentPick != null ? <> · current pick {currentPick}</> : <> · current pick n/a</>}
-          </p>
+          <dl className="market-tile-grid">
+            <div className="market-tile" data-role="engine">
+              <dt className="market-tile-label">
+                <ProviderBadge brandKey={boardAdp!.brandKey} size="sm" />
+                <span className="market-tile-name">{boardAdp!.source}</span>
+              </dt>
+              <dd className="market-tile-value">{formatAdp(boardAdp!.adp)}</dd>
+            </div>
+            {laneValues.map((lane) => (
+              <div key={lane.key} className="market-tile" data-role="provider" data-missing={lane.adp == null || undefined}>
+                <dt className="market-tile-label">
+                  <ProviderBadge brandKey={lane.brandKey} size="sm" />
+                  <span className="market-tile-name">{lane.label}</span>
+                </dt>
+                <dd className="market-tile-value">{lane.adp != null ? formatAdp(lane.adp) : '\u2014'}</dd>
+              </div>
+            ))}
+            {underdogAdp != null && (
+              <div
+                className="market-tile"
+                data-role="provider"
+                // Third-party attribution stays load-bearing (DECISIONS.md) but moves to the
+                // accessible title/label instead of visible text or a prose note.
+                title="Underdog best-ball ADP, republished by Sharp Football Analysis (a third party — Underdog exposes no public ADP API). A separate best-ball format, never blended into this board."
+              >
+                <dt className="market-tile-label">
+                  <ProviderBadge brandKey="underdog" size="sm" />
+                  <span className="market-tile-name">Underdog</span>
+                </dt>
+                <dd className="market-tile-value">{formatAdp(underdogAdp.adp)}</dd>
+              </div>
+            )}
+          </dl>
         </div>
       )}
       {projectionBuild.hasScoring && projectionBuild.rows.length > 0 && (
@@ -94,7 +157,7 @@ export function PlayerMarketComparison({
               <div
                 key={row.key}
                 className="market-tile"
-                data-role="provider"
+                data-role={row.role}
                 data-stale={row.stale || undefined}
               >
                 <dt className="market-tile-label">
@@ -123,20 +186,31 @@ function buildProjectionRows(
   scoring: ScoringMap,
   fftoday: FftodayAnchor | null,
 ): { rows: ProjectionRow[]; caption: string; hasScoring: boolean } {
-  if (artifact == null) return { rows: [], caption: '', hasScoring: false };
-  const providerStats = artifact.players[player.playerId];
-  if (!providerStats) return { rows: [], caption: '', hasScoring: false };
-
   const hasScoring = Object.values(scoring).some((weight) => Number.isFinite(weight) && weight !== 0);
+
+  // The engine row doesn't depend on the display-only providers artifact at all — it's the
+  // recommendation's own `projectedPoints`, already scored in this league. It renders whenever
+  // that number exists, even with no provider artifact loaded or no row for this player in it.
+  const engineRows: ProjectionRow[] = fftoday?.points != null
+    ? [{ key: 'fftoday', label: brandLabel('fftoday'), points: fftoday.points, stale: false, role: 'engine' }]
+    : [];
+
+  const providerStats = artifact?.players[player.playerId];
+  if (artifact == null || !providerStats) {
+    return engineRows.length > 0
+      ? { rows: engineRows, caption: '', hasScoring }
+      : { rows: [], caption: '', hasScoring: false };
+  }
+
   const providers = artifact.providers.filter((provider) => {
     if (provider.status === 'error' || provider.rows === 0) return false;
     return providerStats[provider.key] != null;
   });
-  if (providers.length === 0 && fftoday?.points == null) {
+  if (providers.length === 0 && engineRows.length === 0) {
     return { rows: [], caption: '', hasScoring };
   }
 
-  const rows: ProjectionRow[] = providers.flatMap((provider) => {
+  const providerRows: ProjectionRow[] = providers.flatMap((provider) => {
     const stats = providerStats[provider.key];
     if (stats == null) return [];
     const diagnostics = scoreStats(stats, scoring, player.position);
@@ -145,6 +219,7 @@ function buildProjectionRows(
       label: brandLabel(provider.key),
       points: diagnostics.points,
       stale: provider.status === 'stale',
+      role: 'provider' as const,
     }];
   });
 
@@ -152,5 +227,5 @@ function buildProjectionRows(
     ? ''
     : "This league's scoring settings aren't available, so provider points can't be computed — shown as raw stat comparison only.";
 
-  return { rows, caption, hasScoring };
+  return { rows: [...engineRows, ...providerRows], caption, hasScoring };
 }

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { useModalFocus } from '../hooks/useModalFocus';
 
@@ -10,11 +11,19 @@ interface DrawerProps {
   size?: 'default' | 'wide';
 }
 
-/** Accessible slide-over for the narrow-viewport log/team rails and for player details. */
+/**
+ * Accessible slide-over for the narrow-viewport log/team rails and for player details.
+ *
+ * The backdrop is portaled to `document.body`: drawers render inside workspace columns whose
+ * `z-index` (App.css `.workspace-column`) creates a stacking context, which would trap the
+ * fixed-position backdrop at that column's level and let a sibling rail paint on top of the
+ * open drawer. Portaling escapes every ancestor stacking context, so `z-index: 12` competes
+ * at the root level as intended.
+ */
 export function Drawer({ open, label, onClose, children, size = 'default' }: DrawerProps) {
   const panelRef = useModalFocus<HTMLDivElement>(onClose, open);
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target) onClose();
     }}>
@@ -33,6 +42,7 @@ export function Drawer({ open, label, onClose, children, size = 'default' }: Dra
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

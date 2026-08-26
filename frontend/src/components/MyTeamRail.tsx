@@ -10,8 +10,6 @@ export interface MyTeamRailProps {
   myTeamId: string | null;
   playersById: ReadonlyMap<PlayerId, PlayerMeta>;
   projections: SeasonProjection[];
-  /** Total rounds in this draft — the denominator of the "drafted / total" header counter. */
-  rounds: number;
   /** Row-click → player detail drawer (the same handler DraftLog's cards use). */
   onViewPlayer?: (playerId: PlayerId) => void;
 }
@@ -26,8 +24,6 @@ type GroupKey = Position | 'FLEX';
 interface RosterGroup {
   key: GroupKey;
   rows: SlotRow[];
-  /** How many of this group's rows are FLEX-like slots (folds into the "+ 1 FLEX" header count). */
-  flexCount: number;
 }
 
 const GROUP_ORDER: readonly Position[] = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
@@ -49,20 +45,13 @@ const FLEX_SLOTS: ReadonlySet<RosterSlot> = new Set(['FLEX', 'SUPER_FLEX', 'WRRB
  * rules). A background-image `::after`, not an `<img>`: a 404 on a renamed-franchise abbreviation
  * just doesn't paint, so there's no `onError`/fallback machinery to maintain and no a11y-tooling or
  * layout-shift risk from a broken image tag. */
-function byeLabel(byeWeek: number | null | undefined): string {
-  return byeWeek != null ? `Bye ${byeWeek}` : 'Bye \u2014';
-}
-
+/** Team-identity CSS custom property for the row's logo watermark (see App.css's `.my-team-slot`
+ * rules). A background-image `::after`, not an `<img>`: a 404 on a renamed-franchise abbreviation
+ * just doesn't paint, so there's no `onError`/fallback machinery to maintain and no a11y-tooling or
+ * layout-shift risk from a broken image tag. */
 function rowStyle(team: string | null): CSSProperties {
   const logo = teamLogoUrl(team);
   return { '--team-logo': logo ? `url(${logo})` : 'none' } as CSSProperties;
-}
-
-/** e.g. `(2 + 1 FLEX)` when FLEX rows folded into the group, else `(2)`. */
-function groupCountLabel(group: RosterGroup): string {
-  return group.flexCount > 0
-    ? `${group.rows.length - group.flexCount} + ${group.flexCount} FLEX`
-    : String(group.rows.length);
 }
 
 /**
@@ -72,7 +61,7 @@ function groupCountLabel(group: RosterGroup): string {
  * out through a prop — negligible extra cost, and keeps this a pure-presentation addition with no
  * engine surface change.
  */
-export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, myTeamId, playersById, projections, rounds, onViewPlayer }: MyTeamRailProps) {
+export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, myTeamId, playersById, projections, onViewPlayer }: MyTeamRailProps) {
   const projectionById = useMemo(() => new Map(projections.map((p) => [p.playerId, p])), [projections]);
 
   const myPicks = useMemo(
@@ -121,9 +110,8 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
   );
 
   // DraftSharks-style grouping built on top of `slotRows` (never replacing it — the slot-queue
-  // logic above is load-bearing). A FLEX row folds into the group of whoever fills it (that's where
-  // the "+ 1 FLEX" header count comes from); an empty FLEX gets its own Flex group so it stays
-  // visible even before anyone lands there.
+  // logic above is load-bearing). A FLEX row folds into the group of whoever fills it; an empty
+  // FLEX gets its own Flex group so it stays visible even before anyone lands there.
   const groups = useMemo<RosterGroup[]>(() => {
     const byKey = new Map<GroupKey, RosterGroup>();
     for (const row of slotRows) {
@@ -137,9 +125,8 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
         // remaining slot vocabulary here is the base Position set.
         key = row.slot as Position;
       }
-      const group = byKey.get(key) ?? { key, rows: [], flexCount: 0 };
+      const group = byKey.get(key) ?? { key, rows: [] };
       group.rows.push(row);
-      if (isFlex) group.flexCount += 1;
       byKey.set(key, group);
     }
     return [...byKey.values()].sort((a, b) => {
@@ -168,11 +155,7 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
   return (
     <section className="my-team-rail" aria-label="My team">
       <div className="section-heading">
-        <div className="my-team-heading-title">
-          <h2 className="section-title-accent">My Team</h2>
-          <span className="my-team-count">{myPicks.length}/{rounds}</span>
-        </div>
-        <span className="my-team-points">{lineup.value.toFixed(1)} pts</span>
+        <h2 className="section-title-accent">My Team</h2>
       </div>
 
       {groups.map((group) => {
@@ -188,8 +171,8 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
               >
                 <span className="my-team-chevron" data-open={!isCollapsed || undefined} aria-hidden="true" />
                 <span className="my-team-group-label">{GROUP_LABELS[group.key]}</span>
-                <span className="my-team-group-count">({groupCountLabel(group)})</span>
               </button>
+              {/* Column label for the bare bye-week numbers below (the cells carry no "Bye" prefix). */}
               <span className="my-team-group-bye">Bye</span>
             </h3>
             {!isCollapsed && (
@@ -212,7 +195,7 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
                         >
                           <span className="my-team-player-name">{player.name}</span>
                           <span className="my-team-player-team">{player.team ?? 'FA'}</span>
-                          <span className="my-team-bye">{byeLabel(player.byeWeek)}</span>
+                          <span className="my-team-bye">{player.byeWeek ?? '\u2014'}</span>
                         </button>
                       ) : (
                         <span className="my-team-row my-team-row-empty">Empty</span>
@@ -236,7 +219,6 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
           >
             <span className="my-team-chevron" data-open={!benchCollapsed || undefined} aria-hidden="true" />
             <span className="my-team-group-label">Bench</span>
-            <span className="my-team-group-count">({benchOrdered.length})</span>
           </button>
           <span className="my-team-group-bye">Bye</span>
         </h3>
@@ -263,7 +245,7 @@ export const MyTeamRail = memo(function MyTeamRail({ settings, effectivePicks, m
                     >
                       <span className="my-team-player-name">{player?.name ?? playerId}</span>
                       <span className="my-team-player-team">{player?.team ?? 'FA'}</span>
-                      <span className="my-team-bye">{byeLabel(player?.byeWeek)}</span>
+                      <span className="my-team-bye">{player?.byeWeek ?? '\u2014'}</span>
                     </button>
                   </li>
                 );

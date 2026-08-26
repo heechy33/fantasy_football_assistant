@@ -10,6 +10,8 @@ export interface PlayerBoardRowProps extends PlayerBoardFaceProps {
   /** Draft-state decoration: the next-best player at this position on the remaining board. */
   nextUp?: NextUpInfo | null;
   selected?: boolean;
+  /** Whether the exact next-pick survival percentage may render — see PlayerCard's doc. */
+  availabilityVisible?: boolean;
   onViewDetails: () => void;
 }
 
@@ -36,7 +38,6 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
       onClick={onViewDetails}
     >
       {logoUrl && <img className="player-board-row-watermark" src={logoUrl} alt="" />}
-      <span className="player-board-row-rank">#{props.rank}</span>
       <span className="player-board-row-identity">
         {props.player && <PlayerPortrait player={props.player} className="player-board-row-portrait" />}
         <span className="player-board-row-name">
@@ -65,7 +66,7 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
       </span>
       <span className="player-board-row-cell">{values.usageStat ? values.usageStat.value : '\u2014'}</span>
       <span className="player-board-row-cell">
-        {values.availabilityValue == null ? '\u2014' : `${Math.round(values.availabilityValue * 100)}%`}
+        {props.availabilityVisible === false || values.availabilityValue == null ? '\u2014' : `${Math.round(values.availabilityValue * 100)}%`}
       </span>
     </button>
   );

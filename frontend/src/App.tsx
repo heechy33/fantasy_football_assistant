@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DataManifest, DraftInit, OnTheClock, Pick, PlayerId, SleeperCred } from '../../shared/types';
 import type { DraftBoardState } from './state/draftBoardState';
 import { canonicalPicksSignature, computeOnTheClock, picksMade, roundForOverall, slotForOverall, userPickBoundaries, type UserPickBoundaries } from './adapters/draftOrder';
@@ -430,11 +430,6 @@ export default function App() {
     return ids;
   }, [board.effectivePicks, correcting?.overall]);
 
-  /** Stable row-level correction trigger so the memoized DraftLog rows don't reconcile on every render. */
-  const openCorrection = useCallback((overall: number) => {
-    setCorrecting({ mode: 'correct-existing', overall });
-  }, []);
-
   /** Session-management controls for the top bar's `⋯` menu — replaces the old `.draft-actions` row
    * and the `.manual-takeover-bar` chrome slab with the same handlers, just relocated. Recomputed
    * every render (cheap: a handful of closures) rather than memoized, since memoizing would freeze
@@ -537,7 +532,6 @@ export default function App() {
                   picksSignature={picksSignature}
                   onTheClock={onTheClock}
                   boundaries={boundaries}
-                  onCorrect={openCorrection}
                   sessionActions={sessionActions}
                 />
               )}
@@ -554,7 +548,6 @@ export default function App() {
               picksSignature={picksSignature}
               onTheClock={onTheClock}
               boundaries={boundaries}
-              onCorrect={openCorrection}
               sessionActions={sessionActions}
             />
           ) : (

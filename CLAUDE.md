@@ -1,8 +1,9 @@
 # Fantasy Football Assistant
 
 Live draft assistant + season co-pilot for Sleeper, ESPN, and Yahoo fantasy football. See
-`PLAN.md` for current status and sequencing, `DECISIONS.md` for the durable design-decision log,
-and `archive/PLAN-history.md` for completed-phase build detail — this file is conventions, repo
+`PLAN.md` for current status and sequencing, `DECISIONS.md` for the durable (condensed)
+design-decision log, `archive/DECISIONS-history.md` for that log's full unabridged detail, and
+`archive/PLAN-history.md` for completed-phase build detail — this file is conventions, repo
 layout, and commands only. Update this file whenever a structural thing changes (new top-level
 directory, new active adapter, new command, a scope exception opening/closing) — not on a
 schedule, and not for anything that's just "what's being worked on right now" (that belongs in
@@ -50,10 +51,12 @@ deliberately — future work, not dead code to delete.
 - `frontend/src/adapters/` — `sleeper.ts`/`draftOrder.ts` are the only in-season/live-poll
   adapters. `espn*.ts` are draft-day-only from the closed exception — **do not extend into an
   in-season ESPN adapter without a new decision**. Yahoo isn't created yet.
-- `frontend/src/data/` — context/data-health/player-pool helpers (not engine logic). `state/`,
-  `hooks/`, `components/`, `styles/tokens.css` — draft-board state, UI. `DraftWorkspace` +
-  `MyTeamRail` + `RecommendationCard`/`PlayerContextModal` are the current workspace components
-  (earlier `DraftBoard`/`RecommendationPanel` sketches were superseded; don't recreate them).
+- `frontend/src/data/` — context/data-health/player-pool helpers (not engine logic), incl.
+  `percentileRankings.ts`/`qbPercentileRankings.ts`/`cardRoleStats.ts` (Role-tab and card-bottom
+  cohort percentile ranking, display-only, never feeds `planValue`). `state/`, `hooks/`,
+  `components/`, `styles/tokens.css` — draft-board state, UI. `DraftWorkspace` + `MyTeamRail` +
+  `RecommendationCard`/`PlayerContextModal` are the current workspace components (earlier
+  `DraftBoard`/`RecommendationPanel` sketches were superseded; don't recreate them).
   `RecommendationBoard.tsx`'s "All" tab always excludes K/DEF, and excludes QBs once
   `format.qb === 'one-qb'` and the starting QB slot is filled (see `DECISIONS.md`, 2026-08-22) —
   both are presentation filters, not engine changes; position tabs are never filtered.
@@ -62,10 +65,17 @@ deliberately — future work, not dead code to delete.
 - `api/src/functions/health.ts` — the only endpoint. `shared/types.d.ts` — the frontend/api
   contract, type-only.
 - `pipeline/` (`build_data.py`, `sources.py`, …) → `data/` — committed JSON consumed by the app
-  (incl. `weekly-ppr.json`).
+  (incl. `weekly-ppr.json`). `data/adp-ffc-*.json` and `data/adp-underdog-bestball.json` are
+  **display-only** lanes (Market ADP tile only) — never an engine input, never blended into
+  `data/adp-*.json`'s redraft-engine boards (`DECISIONS.md`, 2026-08-24). The FantasyPros stars/SOS
+  decoration pipeline was cut entirely (`DECISIONS.md`, 2026-08-23/24) — do not re-add it without a
+  new decision.
 - `fixtures/sleeper/` — **hand-authored** fixtures (not yet a real recorded draft; open item).
-  `fixtures/espn/` — gitignored recon captures, not contract fixtures. `infra/main.bicep` —
-  roadmap. `archive/` — completed-phase history + gitignored cursor-plan scratch.
+  `fixtures/underdog/` — a committed contract fixture (recorded Sharp Football Analysis HTML,
+  read by `pipeline/test_underdog_adp.py`), not recon scratch. `fixtures/espn/` — gitignored recon
+  captures, not contract fixtures. `infra/main.bicep` — roadmap. `archive/` — completed-phase
+  history (`PLAN-history.md`), the condensed-away decision detail (`DECISIONS-history.md`), and
+  gitignored cursor-plan scratch.
 - Not yet built: `workers/draftEngine.worker.ts` and `api/_shared/providers/` — don't create
   either until in-season work actually starts.
 

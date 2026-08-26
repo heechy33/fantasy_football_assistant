@@ -1,4 +1,4 @@
-﻿import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
@@ -352,7 +352,7 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     await user.click(screen.getByText('Kick'));
     const dialog = screen.getByRole('dialog', { name: 'Kick One' });
     expect(within(dialog).getByRole('heading', { name: 'Kick One' })).toBeInTheDocument();
-    expect(within(dialog).getByText(/Engine ADP/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Market ADP' })).toBeInTheDocument();
   });
 
   it('opens the player context drawer with the market comparison for the selected card', async () => {
@@ -366,8 +366,9 @@ describe('DraftWorkspace recommendation cards and tabs', () => {
     expect(dialog).toHaveAttribute('data-size', 'wide');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(within(dialog).getByRole('heading', { name: 'Rush One' })).toBeInTheDocument();
-    expect(within(dialog).getByText(/Engine ADP/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/current pick 1/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Market ADP' })).toBeInTheDocument();
+    // The current-pick caption was removed with the tiles-only Market ADP redesign.
+    expect(within(dialog).queryByText(/Current pick/)).not.toBeInTheDocument();
   });
 
   it('shows draft-complete copy instead of a loading snapshot message when the board is full', () => {
@@ -497,8 +498,11 @@ describe('DraftWorkspace draft-log clock wiring', () => {
     expect(cards).toHaveLength(2);
     expect(within(cards[0]!).getByText('Two')).toBeInTheDocument();
     expect(within(cards[1]!).getByText('Three')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Engine' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'ADP' })).not.toBeInTheDocument();
+    // The Engine/ADP toggle stays visible between turns, but Engine is disabled (the engine only
+    // computes on the user's pick — the board is honestly in ADP mode here).
+    expect(screen.getByRole('tab', { name: 'Engine' })).toBeDisabled();
+    expect(screen.getByRole('tab', { name: 'ADP' })).toBeEnabled();
+    expect(screen.getByRole('tab', { name: 'ADP' })).toHaveAttribute('aria-selected', 'true');
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('tab', { name: 'K' }));
@@ -507,7 +511,7 @@ describe('DraftWorkspace draft-log clock wiring', () => {
     expect(buildRecommendationBoard).not.toHaveBeenCalled();
   });
 
-  it('shows real Proj and next-pick Avail numbers off-clock, not the removed banner', () => {
+  it('shows real Proj numbers off-clock with no survival meter (meters are on-clock only)', () => {
     // rb2 gets real stats (not the file-level fixture's empty {}) so Proj is a distinctive,
     // non-zero number rather than a coincidental 0.0 that would look like a missing value.
     mockProjections = [{ playerId: 'rb2', source: 'fftoday', stats: { rec: 50, rush_yd: 200 } }];
@@ -518,14 +522,12 @@ describe('DraftWorkspace draft-log clock wiring', () => {
     }];
     render(<DraftWorkspace {...defaultProps({ effectivePicks: afterMyFirstPick })} />);
 
-    // 1 pick made: currentOverall=2 (them on the clock), isMyTurn=false, decisionPick=4 â€” the
-    // off-clock rule from App.tsx's boundaries doc ("the very next turn").
-    const expected = estimateAvailability(mockAdp[0]!, { currentPick: 2, nextPick: 4 });
+    // 1 pick made: currentOverall=2 (them on the clock), isMyTurn=false â€” off-clock cards
+    // never render the next-pick meter; the survival percentage is an on-clock-only readout now.
     const card = screen.getByText('Two').closest('.player-card') as HTMLElement;
     expect(within(card).getByText('70.0')).toBeInTheDocument();
     expect(within(card).queryByText(/No projection/)).not.toBeInTheDocument();
-    const meter = within(card).getByRole('meter');
-    expect(meter).toHaveAttribute('aria-valuenow', String(Math.round(expected!.probability * 100)));
+    expect(within(card).queryByRole('meter')).not.toBeInTheDocument();
   });
 
   it('passes decisionPick through to DraftLog without recomputing in the log', () => {
@@ -726,7 +728,7 @@ describe('DraftWorkspace board mode and pagination', () => {
     expect(screen.getAllByRole('article')).toHaveLength(6);
   });
 
-  it('switches to ADP mode: card numbers become market-board rank, and a projection-less player never shows the removed No-projection banner', async () => {
+  it('switches to ADP mode without a board-rank badge, and a projection-less player never shows the removed No-projection banner', async () => {
     buildRecommendationBoard.mockReturnValue({
       recommendations: [makeRecommendation({ playerId: 'rb1', rank: 1 })],
       diagnostics: baseDiagnostics,
@@ -738,16 +740,19 @@ describe('DraftWorkspace board mode and pagination', () => {
     const user = userEvent.setup();
     render(<DraftWorkspace {...defaultProps()} />);
 
-    // Engine mode with a single recommendation: same-size PlayerCard carrying the engine rank.
+    // Engine mode with a single recommendation: same-size PlayerCard. No `#N` board-rank
+    // badge in either mode — the number changed meaning across the Engine/ADP toggle (and
+    // gapped after All-view filters), so ordering is carried by card position alone.
     expect(within(screen.getAllByRole('article')[0]!).getByText('One')).toBeInTheDocument();
-    expect(within(screen.getAllByRole('article')[0]!).getByText('#1')).toBeInTheDocument();
+    expect(within(screen.getAllByRole('article')[0]!).queryByText(/^#/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'ADP' }));
 
-    // ADP mode uses the same card component; ranks are league-wide market rank, not engine rank.
+    // ADP mode uses the same card component; each card keeps its market ADP value.
     const adpCards = screen.getAllByRole('article');
-    expect(within(adpCards[0]!).getByText('#3')).toBeInTheDocument();
-    expect(within(adpCards[1]!).getByText('#4')).toBeInTheDocument();
+    expect(within(adpCards[0]!).getByText('5.0')).toBeInTheDocument();
+    expect(within(adpCards[1]!).getByText('8.0')).toBeInTheDocument();
+    expect(within(adpCards[0]!).queryByText(/^#/)).not.toBeInTheDocument();
     // rb2 has no engine recommendation, but still gets the main-thread projected-points fallback
     // (its mocked SeasonProjection carries empty stats, so it scores to 0 rather than being
     // absent) \u2014 the banner explaining an absent Proj number is gone entirely, not re-gated.
@@ -949,7 +954,7 @@ describe('DraftWorkspace QB gating (1-QB leagues, display-only)', () => {
     expect(cards).toHaveLength(1);
     expect(within(cards[0]!).getByText('Two')).toBeInTheDocument();
     expect(screen.queryByText('Mahomes')).not.toBeInTheDocument();
-    expect(screen.getByText(/backup QBs aren't recommended in 1-QB leagues/)).toBeInTheDocument();
+    expect(screen.queryByText(/backup QBs aren't recommended/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'QB' }));
     expect(screen.getAllByRole('article')).toHaveLength(1);
@@ -997,5 +1002,107 @@ describe('DraftWorkspace QB gating (1-QB leagues, display-only)', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByText('Rodgers')).toBeInTheDocument();
     expect(screen.queryByText(/backup QBs aren't recommended/)).not.toBeInTheDocument();
+  });
+});
+
+
+describe('DraftWorkspace late-draft K/DST surfacing and survival gating', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function adpEntry(playerId: string, adp: number): AdpEntry {
+    return {
+      playerId, name: playerId, position: 'RB', team: 'BUF', adp, stdev: 4,
+      high: null, low: null, timesDrafted: null, byeWeek: null,
+      adpSource: 'sleeper', stdevSource: 'fitted',
+    };
+  }
+
+  function stubWeeklyStats(): void {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ schemaVersion: 1, season: 2025, weeksFetched: [], columns: {}, players: {}, heat: {} }),
+    }));
+  }
+
+  it('surfaces a due D/ST on the All board during the final picks', () => {
+    const defense = makePlayer('def1', 'Green Bay Defense', 'DEF');
+    mockPlayers = [...players, defense];
+    mockPlayersById = new Map([...playersById, [defense.playerId, defense]]);
+    buildRecommendationBoard.mockReturnValue({
+      recommendations: [
+        makeRecommendation({ playerId: 'def1', rank: 1 }),
+        makeRecommendation({ playerId: 'rb1', rank: 2 }),
+      ],
+      diagnostics: {
+        ...baseDiagnostics,
+        specialTeamsDraft: { ...baseDiagnostics.specialTeamsDraft!, due: ['DEF'] },
+      },
+    });
+    render(<DraftWorkspace {...defaultProps()} />);
+
+    // The engine sorts the due D/ST first; the All tab must show it rather than
+    // silently deferring it to the D/ST tab during the last picks of the draft.
+    // ('Defense' also matches MyTeamRail's group label — scope to the board's cards.)
+    const defCards = screen.getAllByRole('article').filter((c) => c.getAttribute('data-position') === 'DEF');
+    expect(defCards).toHaveLength(1);
+    expect(screen.getAllByRole('article')[0]).toHaveAttribute('data-position', 'DEF');
+  });
+
+  it('keeps non-due kickers off the All board', () => {
+    buildRecommendationBoard.mockReturnValue({
+      recommendations: [
+        makeRecommendation({ playerId: 'k1', rank: 1 }),
+        makeRecommendation({ playerId: 'rb1', rank: 2 }),
+      ],
+      diagnostics: baseDiagnostics,
+    });
+    render(<DraftWorkspace {...defaultProps()} />);
+
+    expect(screen.getByText('Rush')).toBeInTheDocument();
+    expect(screen.queryByText('Kick')).not.toBeInTheDocument();
+  });
+
+  it('shows next-pick survival meters only while on the clock', async () => {
+    stubWeeklyStats();
+    mockAdp = [adpEntry('rb2', 2), adpEntry('rb3', 6)];
+    buildRecommendationBoard.mockReturnValue(allBoard);
+
+    // On the clock (no picks yet, slot 1 is mine): engine cards carry the
+    // follow-up-pick availability estimate.
+    const onClock = render(<DraftWorkspace {...defaultProps()} />);
+    expect(onClock.container.querySelector('.survival-meter')).not.toBeNull();
+    onClock.unmount();
+
+    // Off the clock after my overall-1 pick: no meter anywhere — the ADP-mode board shows the
+    // card's role-page stats instead. The stats derive from committed artifact data (no extra
+    // fetch), but the board resolves asynchronously, so wait for the async state update.
+    const myPick: Pick[] = [
+      { overall: 1, round: 1, slot: 1, teamId: 'me', playerId: 'qbx1', providerPlayerId: 'qbx1' },
+    ];
+    mockUsage = {
+      rb2: makeUsage({
+        opportunity: {
+          season: {
+            season: 2025, games: 16, targets: 40, carries: 180, touches: 220,
+            targetsPerGame: 2.5, carriesPerGame: 11.25, touchesPerGame: 13.8,
+            targetShare: 0.08, carryShare: 0.28, airYards: null, airYardsPerGame: null,
+            airYardsShare: null, receivingYardsAfterCatch: 120,
+            redZoneTargets: 10, endZoneTargets: 1, goalLineCarries: 9, snapPct: 0.55,
+          },
+          finalFive: null,
+          roleEvolution: {
+            targetsPerGameDelta: null, targetShareDelta: null,
+            airYardsShareDelta: null, touchesPerGameDelta: null,
+          },
+        },
+      }),
+    };
+    const offClock = render(<DraftWorkspace {...defaultProps({ effectivePicks: myPick })} />);
+    expect(offClock.container.querySelector('.survival-meter')).toBeNull();
+    await waitFor(() => {
+      expect(offClock.container.querySelector('.player-card-role-stats')).not.toBeNull();
+    });
   });
 });

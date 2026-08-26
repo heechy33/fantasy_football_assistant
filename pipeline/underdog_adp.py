@@ -1,8 +1,14 @@
 """Underdog best-ball ADP adapter (the separate best-ball lane).
 
-Parses the draft-board payload from Underdog's *undocumented* community
-endpoint — this module is pure (no HTTP); the CLI boundary in build_data.py
-owns the single fetch and the fail-open wiring, same split as espn_adp.py.
+Parses the server-rendered ADP table that Sharp Football Analysis republishes
+(https://www.sharpfootballanalysis.com/fantasy/fantasy-football-adp-half-ppr-underdog-best-ball/).
+This is a THIRD-PARTY REPUBLICATION of Underdog ADP, not Underdog's own feed:
+the api.underdogfantasy.com best-ball draft boards sit behind login and their
+pick'em API exposes no ADP path (verified 2026-08: every candidate endpoint
+404s while over_under_lines 200s). The frontend tile and attribution string
+label the lane accordingly. This module is pure (no HTTP); the CLI boundary in
+build_data.py owns the single fetch and the fail-open wiring, same split as
+espn_adp.py.
 
 Format separation IS the design: Underdog drafts are best-ball half-PPR
 TE-premium, a different market from every redraft format this repo serves.
@@ -11,20 +17,22 @@ Its output lands in its own artifact / board key
 as raw material for market-spread analysis — it is NEVER blended into the
 redraft ADP composites and NEVER fed to the recommendation engine.
 
-Fragility expectation: the endpoint is community-discovered with no published
-schema. Like parse_espn_adp_rows, structural drift (missing players array /
-non-object rows) raises ValueError so the caller fails closed; per-row
-problems (missing/unusable ADP, unmapped positions) skip the row, not the
-board. The caller additionally enforces a minimum matched-row count before
-the artifact ships.
+Fragility expectation: the page is a third-party WordPress-table render with
+no published schema. Like parse_espn_adp_rows, structural drift (no table
+with the expected Player/POS/Team header row) raises ValueError so the caller
+fails closed; per-row problems (missing/unusable ADP, unmapped positions)
+skip the row, not the board. The caller additionally enforces a minimum
+matched-row count before the artifact ships.
 """
 
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Any
 
+import html_table
 import match
 import transform
 from match import match_named_row
@@ -35,9 +43,20 @@ from transform import AdpEntry, fitted_stdev
 # matching again once the position normalizes into Sleeper's vocabulary).
 _UNDERDOG_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
 
-# Top-level freshness keys seen across community endpoint revisions, checked
-# in order; none present -> upstreamUpdatedAt stays None (honest unknown).
-_UPDATED_AT_KEYS = ("updated_at", "updatedAt", "last_updated")
+# The republication's column layout: Player | POS | Team | POS ADP | ADP |
+# Prev ADP | Δ. Matched on the first six headers (lowercased); Δ and any
+# trailing columns the publisher adds later are ignored. Column 4 ("ADP",
+# overall — not the POS ADP in column 3) is the number this lane ships.
+_EXPECTED_HEADER = ("player", "pos", "team", "pos adp", "adp", "prev adp")
+_AD_COLUMN = 4
+
+# Freshness lives in page prose, not metadata: "Underdog Fantasy ADP — Updated
+# August 21". The dash reaches us variously as a literal em/en/ascii dash or an
+# HTML entity (&#8212;) depending on how far upstream of the parser this runs.
+# The publisher prints no year, so none is invented.
+_UPDATED_AT_PATTERN = re.compile(
+    r"Underdog Fantasy ADP\s*(?:&#\d+;|&#x[0-9a-fA-F]+;|[—–-])\s*Updated\s+([A-Z][a-z]+ \d{1,2}(?:, \d{4})?)"
+)
 
 
 @dataclass(frozen=True)
@@ -49,63 +68,78 @@ class ParsedUnderdogRow:
     adp: float
 
 
-def parse_underdog_adp_rows(payload: dict[str, Any]) -> list[ParsedUnderdogRow]:
-    """Normalize Underdog's draft-board payload into Sleeper-vocab rows.
+def _coerce_adp(cell: str) -> float | None:
+    """Parse an ADP cell; None for anything unusable (skipped, never raised)."""
+    try:
+        value = float(cell.strip())
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    return value
 
-    Raises ValueError on schema drift (missing players array / non-object
-    rows), same contract as parse_espn_adp_rows. Rows with no usable adp
-    (missing, <= 0, non-finite), no name, or a position outside
+
+def parse_underdog_adp_rows(page_html: str) -> list[ParsedUnderdogRow]:
+    """Normalize the republication's ADP table into Sleeper-vocab rows.
+
+    Raises ValueError on structural drift (no table whose header row matches
+    _EXPECTED_HEADER), same contract as parse_espn_adp_rows. Rows with no
+    usable adp (missing, <= 0, non-finite), no name, or a position outside
     _UNDERDOG_POSITIONS are skipped, not raised.
+
+    team is deliberately None on every row: match_named_row uses team only
+    for DEF-by-team resolution, Underdog drafts no DEF (_UNDERDOG_POSITIONS),
+    and the page publishes full team names ("Detroit Lions") that would need
+    an abbreviation mapping nobody consumes.
     """
-    raw_rows = payload.get("players")
-    if not isinstance(raw_rows, list):
-        raise ValueError("Underdog payload has no players array")
-    rows: list[ParsedUnderdogRow] = []
-    for raw in raw_rows:
-        # Community payloads have historically been flat objects (unlike
-        # ESPN's nested kona shape); anything else is drift worth failing on.
-        if not isinstance(raw, dict):
-            raise ValueError("Underdog player row is not an object")
-        first = raw.get("first_name") or ""
-        last = raw.get("last_name") or ""
-        name = f"{first} {last}".strip()
-        adp = raw.get("adp")
-        if not name:
+    parser = html_table.TableParser()
+    parser.feed(page_html)
+    for table in parser.tables:
+        if not table or len(table[0]) <= _AD_COLUMN:
             continue
-        if isinstance(adp, bool) or not isinstance(adp, (int, float)) or not math.isfinite(adp) or adp <= 0:
+        header = tuple(cell.strip().lower() for cell in table[0][: len(_EXPECTED_HEADER)])
+        if header != _EXPECTED_HEADER:
             continue
-        try:
-            position = match.normalize_position(str(raw.get("position") or ""))
-        except ValueError:
-            continue
-        if position not in _UNDERDOG_POSITIONS:
-            continue
-        team = match.normalize_team(str(raw.get("team"))) if raw.get("team") else None
-        underdog_id = str(raw["id"]) if raw.get("id") is not None else None
-        rows.append(
-            ParsedUnderdogRow(
-                name=name,
-                team=team,
-                position=position,
-                underdog_id=underdog_id,
-                adp=float(adp),
+        rows: list[ParsedUnderdogRow] = []
+        for raw in table[1:]:
+            if len(raw) <= _AD_COLUMN:
+                continue  # malformed row shape — skip the row, not the board
+            name = raw[0].strip()
+            if not name:
+                continue
+            adp = _coerce_adp(raw[_AD_COLUMN])
+            if adp is None:
+                continue
+            try:
+                position = match.normalize_position(raw[1])
+            except ValueError:
+                continue
+            if position not in _UNDERDOG_POSITIONS:
+                continue
+            rows.append(
+                ParsedUnderdogRow(
+                    name=name,
+                    team=None,
+                    position=position,
+                    underdog_id=None,  # the republication publishes no provider ids
+                    adp=adp,
+                )
             )
-        )
-    return rows
+        return rows
+    raise ValueError("Underdog page has no ADP table with the expected Player/POS/Team header")
 
 
-def extract_upstream_updated_at(payload: dict[str, Any]) -> str | None:
-    """Best-effort freshness stamp off the payload; None when absent.
+def extract_upstream_updated_at(page_html: str) -> str | None:
+    """Best-effort freshness stamp off the page prose; None when absent.
 
-    Deliberately shallow (top-level keys only) and type-checked: an int epoch
-    or nested object is NOT laundered into a fake ISO date — unknown stays
-    unknown, same honesty rule as history.upstream_updated_at.
+    The republication prints "*Underdog Fantasy ADP — Updated August 21"
+    above the table. Deliberately verbatim: the publisher prints no year, so
+    none is invented — unknown stays unknown, same honesty rule as
+    history.upstream_updated_at (an unparsable date is NOT laundered into a
+    fabricated ISO string).
     """
-    for key in _UPDATED_AT_KEYS:
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
+    found = _UPDATED_AT_PATTERN.search(page_html)
+    return found.group(1) if found else None
 
 
 def build_underdog_adp_entries(

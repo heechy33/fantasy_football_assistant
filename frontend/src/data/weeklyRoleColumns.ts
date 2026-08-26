@@ -17,7 +17,9 @@ import { deltaTone, formatCount, formatWhole, type RoleColumn, type RoleStat } f
 
 const FORM_WINDOW = 5;
 
-function columnValues(series: PlayerWeeklyStatSeries, columns: string[], key: string): number[] {
+/** Numeric values for one weekly column key, in week order. Exported for
+ * `qbPercentileRankings.ts`/`cardRoleStats.ts`, which aggregate the same series. */
+export function columnValues(series: PlayerWeeklyStatSeries, columns: string[], key: string): number[] {
   const index = columns.indexOf(key);
   if (index < 0) return [];
   const values: number[] = [];
@@ -28,12 +30,12 @@ function columnValues(series: PlayerWeeklyStatSeries, columns: string[], key: st
   return values;
 }
 
-function mean(values: number[]): number | null {
+export function mean(values: number[]): number | null {
   if (values.length === 0) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function sum(values: number[]): number {
+export function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 

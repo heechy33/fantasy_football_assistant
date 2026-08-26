@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import type { AdpEntry, LeagueSettings, PlayerMeta, PlayerUsage, ProviderProjectionsArtifact } from '../../../shared/types';
+import type { AdpEntry, LeagueSettings, PlayerMeta, PlayerUsage, PlayerUsageArtifact, ProviderProjectionsArtifact } from '../../../shared/types';
 import { playerBioItems } from '../data/playerBio';
 import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
 import { resolvePointsPerGame } from '../data/pprProduction';
@@ -7,7 +7,8 @@ import { buildGameLogRows, buildSparklinePoints } from '../data/weeklyGameLog';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import type { Recommendation } from '../engine/recommend';
 import type { WeeklyStatsState } from '../hooks/useWeeklyStats';
-import { PlayerMarketComparison } from './PlayerMarketComparison';
+import { PlayerMarketComparison, type BoardAdpAnchor, type UnderdogAdpAnchor } from './PlayerMarketComparison';
+import type { ProviderAdpLaneState } from '../hooks/useProviderAdpBoards';
 import { PlayerRolePanel } from './PlayerRolePanel';
 import { TeamDepthRoleRow } from './TeamDepthRoleRow';
 import { PositionBadge } from './PositionBadge';
@@ -42,12 +43,21 @@ const TAB_LABEL: Readonly<Record<DetailTab, string>> = {
 export interface PlayerDetailDrawerProps {
   player: PlayerMeta;
   usage: PlayerUsage | undefined;
+  /** The full prior-season usage artifact + player pool — enables the STACKED-style percentile
+   * rankings in the Role panel for RB/WR/TE (see `percentileRankings.ts`). Optional. */
+  usageArtifact?: PlayerUsageArtifact;
+  players?: readonly PlayerMeta[];
   feedStatus: PlayerContextFeedStatus;
   recommendation?: Recommendation;
+  /** Off-clock/market fallback for the engine (FFToday) projection tile — same pick-invariant
+   * number the card face's `Proj` tile falls back to (`playerBoardFace.ts`'s
+   * `recommendation?.projectedPoints ?? projectedPoints`) when this player has no `recommendation`
+   * because the bounded engine board never evaluated them (most market-only rows beyond the
+   * top-ranked players). Without this, the drawer's FFToday tile would only ever appear for the
+   * handful of players the engine actually scored, even though the card right behind it already
+   * shows a projection number for everyone with an FFToday row. */
+  fallbackProjectedPoints?: number | null;
   adpDisclosure?: AdpDisclosure | null;
-  /** Current overall pick, for the ADP steal/reach badge -- see
-   * `PlayerMarketComparison`'s `currentPick` prop doc. */
-  currentPick?: number | null;
   weeklyStats?: WeeklyStatsState;
   /** The active ADP board (the same `adp` array the board/cards render from). Lets the drawer
    * label the engine ADP with the *player's* provenance — the ESPN board is a mixed source
@@ -55,6 +65,13 @@ export interface PlayerDetailDrawerProps {
    * tail players — and keeps the engine anchor visible even off-clock in market mode when
    * `recommendation` is null. */
   adpBoard?: readonly AdpEntry[];
+  /** Underdog's best-ball ADP board (`data/adp-underdog-bestball.json`, fail-open — may be
+   * absent if the pipeline hasn't produced it yet). A SEPARATE lane from `adpBoard`: never
+   * merged into it, never used for the engine anchor, only for its own display tile. */
+  underdogAdp?: readonly AdpEntry[];
+  /** Display-only comparison ADP lanes (ESPN PPR / FFC mock drafts) for the Market ADP tile
+   * grid — see `useProviderAdpBoards`. Optional; omitted lanes render nothing. */
+  providerAdpLanes?: ReadonlyArray<ProviderAdpLaneState>;
   /** Committed multi-provider projections decoration (display-only). */
   providerProjectionsArtifact?: ProviderProjectionsArtifact | null;
   /** The connected draft's league settings â€” used to score provider projections
@@ -68,12 +85,16 @@ export interface PlayerDetailDrawerProps {
 export function PlayerDetailDrawer({
   player,
   usage,
+  usageArtifact,
+  players,
   feedStatus,
   recommendation,
+  fallbackProjectedPoints,
   adpDisclosure,
-  currentPick,
   weeklyStats,
   adpBoard,
+  underdogAdp,
+  providerAdpLanes = [],
   providerProjectionsArtifact,
   settings,
   depthRole,
@@ -106,13 +127,16 @@ export function PlayerDetailDrawer({
   // the board-wide adpDisclosure). Null only when the player has no board entry
   // and no recommendation.
   const adpEntry = adpBoard?.find((entry) => entry.playerId === player.playerId) ?? null;
-  const boardAdp = adpEntry != null
+  const boardAdp: BoardAdpAnchor | null = adpEntry != null
     ? {
         adp: recommendation?.availabilityAdp ?? adpEntry.adp,
         source: adpEntry.adpSource === 'espn' ? 'ESPN'
           : adpEntry.adpSource === 'sleeper' && adpDisclosure?.source === 'espn' ? 'Sleeper (ESPN board tail)'
           : adpEntry.adpSource === 'sleeper' ? 'Sleeper'
           : 'FFC fallback',
+        brandKey: adpEntry.adpSource === 'espn' ? 'espn'
+          : adpEntry.adpSource === 'sleeper' ? 'sleeper'
+          : 'ffc',
       }
     : recommendation != null && recommendation.availabilityAdp != null
       ? {
@@ -120,8 +144,15 @@ export function PlayerDetailDrawer({
           source: adpDisclosure?.source === 'ffc-fallback' ? 'FFC fallback'
             : adpDisclosure?.source === 'espn' ? 'ESPN'
             : 'Sleeper',
+          brandKey: adpDisclosure?.source === 'ffc-fallback' ? 'ffc'
+            : adpDisclosure?.source === 'espn' ? 'espn'
+            : 'sleeper',
         }
       : null;
+  // Underdog is a wholly separate lane (see UnderdogAdpAnchor's doc) — looked up by playerId only,
+  // never merged with adpEntry above.
+  const underdogEntry = underdogAdp?.find((entry) => entry.playerId === player.playerId) ?? null;
+  const underdogAnchor: UnderdogAdpAnchor | null = underdogEntry != null ? { adp: underdogEntry.adp } : null;
 
   useEffect(() => {
     setTab('overview');
@@ -200,11 +231,18 @@ export function PlayerDetailDrawer({
           </div>
           <PlayerMarketComparison
             boardAdp={boardAdp}
-            currentPick={currentPick}
+            underdogAdp={underdogAnchor}
+            providerAdpLanes={providerAdpLanes}
             projectionsArtifact={providerProjectionsArtifact ?? null}
             player={player}
             scoring={settings?.scoring ?? {}}
-            fftoday={recommendation ? { points: recommendation.projectedPoints, source: 'FFToday' } : null}
+            fftoday={
+              recommendation != null
+                ? { points: recommendation.projectedPoints, source: 'FFToday' }
+                : fallbackProjectedPoints != null
+                  ? { points: fallbackProjectedPoints, source: 'FFToday' }
+                  : null
+            }
           />
         </div>
       )}
@@ -214,6 +252,8 @@ export function PlayerDetailDrawer({
           <PlayerRolePanel
             player={player}
             usage={usage}
+            usageArtifact={usageArtifact}
+            players={players}
             feedStatus={feedStatus}
             weeklyStats={resolvedWeeklyStats}
           />

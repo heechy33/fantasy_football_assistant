@@ -18,14 +18,19 @@ export interface BoardFiltersProps {
   boardPresentation?: BoardPresentation;
   onBoardPresentationChange?: (presentation: BoardPresentation) => void;
   presentationToggleVisible?: boolean;
-  modeToggleVisible?: boolean;
+  /**
+   * Whether the recommendation engine is actually driving the board this turn. The engine only
+   * computes on the user's pick (off-turn the board is forced to ADP), so when this is false the
+   * Engine tab renders disabled — the toggle stays visible but never lies about what's on screen.
+   */
+  modeEnabled?: boolean;
   /** Session-management actions, rendered as the `⋯` menu next to the card/row toggle. */
   sessionActions?: ReadonlyArray<SessionAction>;
 }
 
 /**
- * Engine/ADP and position tablists that sit above the recommendation filmstrip â€” the Draft Sharks
- * filter row, not the sticky command bar.
+ * Filter row above the recommendation board: position tabs on the left; Engine/ADP, the cards/rows
+ * layout toggle, and the session menu share one right-aligned toolbar cluster.
  */
 export function BoardFilters({
   boardMode,
@@ -36,34 +41,11 @@ export function BoardFilters({
   boardPresentation = 'cards',
   onBoardPresentationChange,
   presentationToggleVisible = false,
-  modeToggleVisible = true,
+  modeEnabled = true,
   sessionActions = [],
 }: BoardFiltersProps) {
   return (
     <div className="board-filters">
-      {modeToggleVisible && <div className="board-mode-tabs" role="tablist" aria-label="Board mode">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={boardMode === 'engine'}
-          aria-controls="recommendation-board"
-          className={boardMode === 'engine' ? 'active' : undefined}
-          onClick={() => onBoardModeChange('engine')}
-        >
-          Engine
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={boardMode === 'adp'}
-          aria-controls="recommendation-board"
-          className={boardMode === 'adp' ? 'active' : undefined}
-          onClick={() => onBoardModeChange('adp')}
-        >
-          ADP
-        </button>
-      </div>}
-
       <div className="board-position-layout-row">
         <div className="position-tabs" role="tablist" aria-label="Recommendation position">
           {positionTabs.map((tab) => (
@@ -80,27 +62,49 @@ export function BoardFilters({
             </button>
           ))}
         </div>
-        {(presentationToggleVisible || sessionActions.length > 0) && (
-          <div className="board-toolbar-right">
-            {presentationToggleVisible && onBoardPresentationChange && (
-              <div className="board-presentation-toggle" role="radiogroup" aria-label="Board layout">
-                {(['cards', 'rows'] as const).map((presentation) => (
-                  <button
-                    key={presentation}
-                    type="button"
-                    role="radio"
-                    aria-checked={boardPresentation === presentation}
-                    className={boardPresentation === presentation ? 'active' : undefined}
-                    onClick={() => onBoardPresentationChange(presentation)}
-                  >
-                    {presentation === 'cards' ? 'Cards' : 'Rows'}
-                  </button>
-                ))}
-              </div>
-            )}
-            {sessionActions.length > 0 && <SessionMenu actions={sessionActions} />}
+        <div className="board-toolbar-right">
+          <div className="board-mode-tabs" role="tablist" aria-label="Board mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={boardMode === 'engine'}
+              aria-controls="recommendation-board"
+              className={boardMode === 'engine' ? 'active' : undefined}
+              disabled={!modeEnabled}
+              title={modeEnabled ? undefined : 'Engine rankings activate on your pick'}
+              onClick={() => onBoardModeChange('engine')}
+            >
+              Engine
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={boardMode === 'adp'}
+              aria-controls="recommendation-board"
+              className={boardMode === 'adp' ? 'active' : undefined}
+              onClick={() => onBoardModeChange('adp')}
+            >
+              ADP
+            </button>
           </div>
-        )}
+          {presentationToggleVisible && onBoardPresentationChange && (
+            <div className="board-presentation-toggle" role="radiogroup" aria-label="Board layout">
+              {(['cards', 'rows'] as const).map((presentation) => (
+                <button
+                  key={presentation}
+                  type="button"
+                  role="radio"
+                  aria-checked={boardPresentation === presentation}
+                  className={boardPresentation === presentation ? 'active' : undefined}
+                  onClick={() => onBoardPresentationChange(presentation)}
+                >
+                  {presentation === 'cards' ? 'Cards' : 'Rows'}
+                </button>
+              ))}
+            </div>
+          )}
+          {sessionActions.length > 0 && <SessionMenu actions={sessionActions} />}
+        </div>
       </div>
     </div>
   );

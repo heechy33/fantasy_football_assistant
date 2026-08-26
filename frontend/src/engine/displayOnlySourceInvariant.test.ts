@@ -5,10 +5,16 @@ import { describe, expect, it } from 'vitest';
 
 const ENGINE_DIR = dirname(fileURLToPath(import.meta.url));
 
-// The two display-only artifacts the engine must never consume. Built from
-// parts so this test file's own source does not contain the literal tokens it
-// is checking for (it lives inside the engine directory it scans).
-const FORBIDDEN_TOKENS = [`fantasypros-${'adp'}`, `projections-${'providers'}`];
+// The display-only artifacts the engine must never consume. Built from parts so this test
+// file's own source does not contain the literal tokens it is checking for (it lives inside the
+// engine directory it scans). The retired `fantasypros-adp` guard was dropped when that artifact
+// was deleted; its living successors are the FFC per-format boards and the Underdog best-ball
+// board (a third-party republication via Sharp Football Analysis).
+const FORBIDDEN_TOKENS = [
+  `projections-${'providers'}`,
+  `adp-${'ffc-'}`,
+  `adp-${'underdog-bestball'}`,
+];
 
 function engineSourceFiles(): string[] {
   const out: string[] = [];

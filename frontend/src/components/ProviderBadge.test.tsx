@@ -33,6 +33,17 @@ describe('ProviderBadge', () => {
     render(<ProviderBadge brandKey="sleeper" />);
     const img = screen.getByRole('img', { name: 'Sleeper' });
     expect(img.tagName).toBe('IMG');
-    expect(img.closest('.provider-badge-png')).not.toBeNull();
+    expect(img.closest('.provider-badge-img')).not.toBeNull();
+  });
+
+  it('renders the official Underdog AVIF mark instead of a placeholder or monogram', () => {
+    // The hand-drawn placeholder SVG was removed when the official asset landed —
+    // Underdog must resolve to the committed raster image, never the monogram chip.
+    render(<ProviderBadge brandKey="underdog" />);
+    const img = screen.getByRole('img', { name: 'Underdog' });
+    expect(img.tagName).toBe('IMG');
+    expect(img.getAttribute('src')).toMatch(/underdog.*\.avif$/);
+    expect(img.closest('.provider-badge-img')).not.toBeNull();
+    expect(document.querySelector('.provider-badge-monogram')).toBeNull();
   });
 });

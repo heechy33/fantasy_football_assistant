@@ -12,7 +12,7 @@ export function BoardRows({ children, itemCount, id = 'recommendation-board', la
   return (
     <section className="board-rows" id={id} role="region" aria-label={label}>
       <div className="board-rows-header">
-        <span>Rank</span><span>Player</span><span>Role</span><span>Proj</span><span>ADP</span><span>Usage</span><span>Avail</span>
+        <span>Player</span><span>Role</span><span>Proj</span><span>ADP</span><span>Usage</span><span>Avail</span>
       </div>
       <div className="board-rows-list">{children}</div>
       <span className="visually-hidden" aria-live="polite">Showing {itemCount} players</span>

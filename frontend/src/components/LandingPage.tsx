@@ -139,7 +139,6 @@ export function LandingPage({ active, leagueName, onConnect, onStartEspn, onResu
                   playerId={demo.player.playerId}
                   recommendation={demo.recommendation}
                   player={demo.player}
-                  rank={demo.rank}
                   adpSource="sleeper"
                   nextUp={demo.nextUp}
                   depthRole={demo.depthRole}

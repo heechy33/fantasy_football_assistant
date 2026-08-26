@@ -198,7 +198,7 @@ describe('DraftLog', () => {
     expect(onViewPlayerSecond).toHaveBeenCalledWith('p1');
   });
 
-  it('renders the round.pick clock banner and jumps to the on-the-clock row when clicked', async () => {
+  it('renders the round.pick clock banner, and the heading arrow jumps to the on-the-clock row', async () => {
     const scrollSpy = vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {});
     const user = userEvent.setup();
     render(
@@ -238,8 +238,29 @@ describe('DraftLog', () => {
 
   it('does not render the clock banner when no round.pick is available', () => {
     render(<DraftLog {...baseProps()} />);
+    expect(document.querySelector('.draft-log-clock-banner')).toBeNull();
     expect(screen.queryByText('Round')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Go to current pick' })).not.toBeInTheDocument();
+    // The heading's ↓ jump arrow is independent of the banner and always available.
+    expect(screen.getByRole('button', { name: 'Go to current pick' })).toBeInTheDocument();
+  });
+
+  it('renders the clock banner outside the panel box, above the heading and pick list', () => {
+    render(
+      <DraftLog
+        {...baseProps()}
+        roundPick="1.01"
+        onTheClock={{ teamId: 'me', slot: 1, round: 1, overall: 1 }}
+      />,
+    );
+    const banner = document.querySelector('.draft-log-clock-banner')!;
+    const section = document.querySelector('.draft-log')!;
+    const heading = section.querySelector('.section-heading')!;
+    const list = section.querySelector('.draft-log-list')!;
+    // The banner sits OUTSIDE the log panel (its own element above the box), which sits above
+    // the pick ledger.
+    expect(banner.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(banner.contains(heading)).toBe(false);
+    expect(heading.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('go-to-current-pick scrolls to the final pick when the draft is complete', async () => {
@@ -361,23 +382,5 @@ describe('DraftLog', () => {
   it('renders a placeholder when no draft is connected', () => {
     render(<DraftLog {...baseProps()} draftInit={null} />);
     expect(screen.getByText('No draft connected yet.')).toBeInTheDocument();
-  });
-
-  it('renders an Edit button only on drafted rows and calls onCorrect with the overall', async () => {
-    const user = userEvent.setup();
-    const onCorrect = vi.fn();
-    render(
-      <DraftLog
-        {...baseProps()}
-        effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
-        onCorrect={onCorrect}
-      />,
-    );
-
-    const editButton = screen.getByRole('button', { name: 'Edit pick #1' });
-    await user.click(editButton);
-    expect(onCorrect).toHaveBeenCalledWith(1);
-    // Future slots (overall 2-4) must not get an Edit affordance.
-    expect(screen.queryByRole('button', { name: 'Edit pick #2' })).not.toBeInTheDocument();
   });
 });

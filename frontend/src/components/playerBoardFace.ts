@@ -8,7 +8,6 @@ export interface PlayerBoardFaceProps {
   playerId: PlayerId;
   recommendation: Recommendation | null;
   player: PlayerMeta | undefined;
-  rank: number;
   adp?: number | null;
   adpBoard?: readonly AdpEntry[];
   /** Which upstream produced the ADP shown on the face (`AdpEntry.adpSource`), for
@@ -36,6 +35,7 @@ export function adpSourceLabel(source: AdpEntry['adpSource'] | null | undefined)
   if (source === 'espn') return 'ESPN';
   if (source === 'sleeper') return 'Sleeper';
   if (source === 'ffc') return 'FFC';
+  if (source === 'underdog') return 'Underdog';
   return null;
 }
 
@@ -58,7 +58,12 @@ export function boardFaceValues({
     adpValue: recommendation?.availabilityAdp ?? adp ?? null,
     adpSourceLabel: adpSourceLabel(adpSource),
     availabilityValue: recommendation?.availableNextPickProbability ?? availableNextPickProbability ?? null,
-    positionalRank: adpPositionalRank(playerId, player?.position, adpBoard),
+    // adpPositionalRank returns the bare label ("RB43"); the row cell has no adjacent ADP-tile
+    // context to lean on the way the card face does, so it spells "ADP" back out here.
+    positionalRank: (() => {
+      const rank = adpPositionalRank(playerId, player?.position, adpBoard);
+      return rank == null ? null : `ADP ${rank}`;
+    })(),
     usageStat: boardUsageStat(player?.position, usage),
     statusTag: player ? playerStatusTag(player, usage) : null,
     isRoleless,
