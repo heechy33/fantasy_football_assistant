@@ -1,32 +1,9 @@
-import type { Pick, PlayerId } from '../../../shared/types';
+import type { Pick, PickOverride } from '../../../shared/types';
 
-/**
- * An override always wins over a live-polled pick at the same `overall`. It's
- * the single mechanism behind both "universal manual mode" (every pick is a
- * `manual-entry` override, no live picks underneath) and "undo/correction"
- * (a `manual-correction` override sits on top of a live-polled pick) — same
- * merge function, unified data model.
- *
- * `round`/`slot`/`teamId` are optional because a correction can omit them and
- * inherit from the live pick underneath; a manual-entry override (no live
- * pick to inherit from) should supply all of them.
- */
-export interface PickOverride {
-  overall: number;
-  round?: number;
-  slot?: number;
-  teamId?: string;
-  playerId: PlayerId | null;
-  /**
-   * Provider's own player id, retained verbatim so a manual-entry override can round-trip the
-   * provider id a live pick carried (the atomic manual-takeover freeze depends on this). Falls
-   * back to the canonical id at read time.
-   */
-  providerPlayerId?: string;
-  providerPlayerName?: string;
-  source: 'manual-correction' | 'manual-entry';
-  correctedAt: number;
-}
+/** Re-exported so existing `from './draftBoardState'` imports keep working — the canonical
+ * definition moved to `shared/types.d.ts` in Phase 5, since `SavedDraft` needed the identical
+ * shape available to `api/` as well. */
+export type { PickOverride };
 
 export interface DraftBoardState {
   mode: 'live' | 'manual';

@@ -40,7 +40,6 @@ export function usePlayerBoardData(adpBoardKey: AdpBoardKey, adpFormat: AdpForma
 
   useEffect(() => {
     let active = true;
-    setResolvedAdpKey(adpBoardKey);
     Promise.all([
       loadPlayerPool(),
       fetch('/data/projections-season.json').then((response) => {
@@ -51,6 +50,10 @@ export function usePlayerBoardData(adpBoardKey: AdpBoardKey, adpFormat: AdpForma
     ]).then(([nextPlayers, nextProjections, adpBoard]) => {
       if (!active) return;
       setPlayers(nextPlayers); setProjections(nextProjections); setAdp(adpBoard.entries);
+      // `resolvedAdpKey` names the board ACTUALLY loaded (see PlayerBoardData's doc) — committed
+      // only on success, so between a key change and its resolution it still holds the PREVIOUS
+      // key. Consumers comparing it against their requested key see the honest answer ("the data
+      // on screen belongs to the old board"), never a request that hasn't landed yet.
       setResolvedAdpKey(adpBoard.resolvedKey); setLoadError(null);
     }).catch(() => { if (active) setLoadError('Projection board is unavailable; use the ADP board/manual tracker.'); });
     return () => { active = false; };

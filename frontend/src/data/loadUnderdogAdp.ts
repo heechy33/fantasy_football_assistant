@@ -21,10 +21,10 @@ function isJsonResponse(response: Response): boolean {
  * blended into redraft composites (see `pipeline/underdog_adp.py`'s header comment). A separate
  * loader keeps that guarantee structural rather than a convention callers have to remember.
  *
- * The file may not exist yet — as of 2026-08-24 the pipeline writes it but no committed snapshot
- * has run since. A 404, a non-JSON response, a malformed body, or a board that fails the same
- * `AdpEntry` invariants the rest of the app checks all resolve to `'unavailable'`, never a thrown
- * error — the same fail-open contract as `loadWeeklyStats.ts`.
+ * The file may not exist yet — a 404, a non-JSON response, a malformed body, or a board that
+ * fails the same `AdpEntry` invariants the rest of the app checks all resolve to
+ * `'unavailable'`, never a thrown error — the same fail-open contract as `loadWeeklyStats.ts`.
+ * (A committed snapshot has existed since 2026-08-25: ~250 rows, half-PPR best-ball only.)
  */
 export function loadUnderdogAdp(): Promise<UnderdogAdpLoadResult> {
   if (cached) return cached;
