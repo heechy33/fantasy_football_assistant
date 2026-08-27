@@ -17,7 +17,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": false,
-    "sourceMap": true
+    "sourceMap": true,
+
+    "types": ["node"]
   },
   "include": ["src/**/*.ts", "../shared/types.d.ts"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts"]

@@ -6,7 +6,12 @@
 
     "COSMOS_ENDPOINT": "",
     "COSMOS_KEY": "",
+    "COSMOS_DATABASE": "ffa",
+    "COSMOS_LEAGUES_CONTAINER": "leagues",
+    "COSMOS_DRAFTS_CONTAINER": "drafts",
     "CRED_ENCRYPTION_KEY": "",
+
+    "CLERK_ISSUER": "",
 
     "YAHOO_CLIENT_ID": "",
     "YAHOO_CLIENT_SECRET": "",

@@ -4,3 +4,5 @@
 // is explicit and greppable instead of relying on directory scanning.
 
 import './functions/health.js';
+import './functions/leagues.js';
+import './functions/drafts.js';
