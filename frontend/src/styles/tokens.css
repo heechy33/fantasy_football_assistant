@@ -80,30 +80,39 @@
   --font-display: "Archivo", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
 
   /* Surfaces — neutral (not navy) ramp, page background darkest. The surface-2/surface-3 pair is
-     the team-ink contrast gate (see header); surface-0/1 sit below it. */
-  --surface-0: #131518;
-  --surface-0-gradient: radial-gradient(circle at top, #1b1e22, #131518 42rem);
-  --surface-1: rgb(23 25 29 / .86); /* section/panel background */
-  --surface-2: #17191c;             /* card, input, dialog background */
-  --surface-3: #1b1d21;             /* inset row, stat tile, chip-row background */
+     the team-ink contrast gate (see header); surface-0/1 sit below it.
+     2026-08-26 (Broadcast Neon pass): darkened toward near-black per the landing/guide redesign —
+     see DECISIONS.md. --border-1/2/3 (the WCAG-gated functional borders below) were deliberately
+     left untouched by this pass; only the decorative surfaces/divider moved. */
+  --surface-0: #07090b;
+  --surface-0-gradient: radial-gradient(120% 80% at 50% -10%, #0e1319, #07090b 62%);
+  --surface-1: rgb(12 15 19 / .86); /* section/panel background */
+  --surface-2: #10141a;             /* card, input, dialog background */
+  --surface-3: #151a21;             /* inset row, stat tile, chip-row background */
 
   /* Raised surfaces for controls that previously carried inline navy literals in App.css — named
      so App.css stays literal-free past its header comment. */
-  --surface-quiet: #24272d;       /* quiet-button / tab backgrounds */
-  --surface-row: #141619;         /* inset player-board row */
-  --surface-row-hover: #26292e;   /* hover state for rows */
-  --surface-onclock: #1e2329;     /* draft-log row on the clock */
-  --surface-portrait: #0f1114;    /* player-portrait backdrop */
+  --surface-quiet: #1a1f26;       /* quiet-button / tab backgrounds */
+  --surface-row: #0b0e12;         /* inset player-board row */
+  --surface-row-hover: rgb(255 255 255 / .035); /* hover state for rows — whole-row wash, not a flat fill */
+  --surface-onclock: #171d24;     /* draft-log row on the clock */
+  --surface-portrait: #05070a;    /* player-portrait backdrop */
   --surface-selected: #1f4533;    /* selected player row (deep desaturated green) */
-  --scrim: rgb(8 9 11 / .76);     /* modal/drawer backdrop */
+  --scrim: rgb(4 5 7 / .8);       /* modal/drawer backdrop */
 
   /* Borders — neutral grays re-solved to clear WCAG 2.2 1.4.11 (3:1) against BOTH surface-2 and
-     surface-3 (the first neutral pass measured 1.57:1 and was rejected). The divider stays a
-     decorative ~2.2:1 row separator, matching the previous navy divider's behavior. */
+     surface-3 (the first neutral pass measured 1.57:1 and was rejected). Left exactly as originally
+     solved by the 2026-08-26 Broadcast Neon pass — these are FUNCTIONAL borders (inputs, focusable
+     controls) and re-darkening them would re-break the 3:1 gate; only --border-divider (decorative)
+     moved. */
   --border-1: #6e6e6e; /* card/section border; 3.45:1 on --surface-2 */
   --border-2: #6a6a6a; /* list-item, table-rule border; 3.12:1 on --surface-3 */
   --border-3: #767676; /* input border, pill outline; 3.72:1 on --surface-3 */
-  --border-divider: #525252;
+  /* Decorative row/panel hairline — deliberately low-contrast (an edge, not a functional border).
+     Darkened from #525252 in the 2026-08-26 Broadcast Neon pass so it reads as a hairline against
+     the new near-black surfaces instead of a visible box. */
+  --border-divider: #1e242b;
+  --hairline-strong: #2a323c; /* sticky thead underline, section rules that need a touch more weight */
 
   /* Text — neutral off-white ramp, each step clear of WCAG AA 4.5:1 on surface-3 at its smallest
      intended size (worst is --text-muted at 5.02:1). --text-ink pairs with the orange accent. */
@@ -121,19 +130,24 @@
   --accent: #f97316;
   --accent-strong: #fb923c;
 
-  /* Chrome family — navy structural rail (full-bleed top bar, sticky column headers) and the light
-     navy-blue non-urgency accent. Measured against this repo's own numeric gates:
-       - --chrome-ink (#e9eef5) 15.6:1 on --chrome (#0c1624)                >=4.5:1 text
-       - --chrome-ink 10.0:1 on --chrome-2 (#1f3a57)                        >=4.5:1 text
-       - --chrome-border (#5a7d9e) 4.2:1 on --chrome                        >=3:1 UI (WCAG 1.4.11)
-       - --accent-cool (#7fb2e5) 7.6:1 on --surface-2 and 7.6:1 on --surface-3
-         (and >=7.6:1 on --surface-1, whose composite is darker than surface-2)  >=4.5:1 text */
-  --chrome: #0c1624;
-  --chrome-2: #1f3a57;
-  --chrome-ink: #e9eef5;
-  --chrome-border: #5a7d9e;
-  --accent-cool: #7fb2e5;
-  --accent-cool: #7fb2e5;
+  /* Chrome family — near-black structural rail (full-bleed top bar, sticky column headers) and the
+     neon-blue non-urgency identity accent. --accent stays the ONLY urgency color (on-clock,
+     take-now, survival marker); --accent-cool is the app's structural identity color (nav active
+     state, eyebrows, live dot) — see DECISIONS.md 2026-08-26 for why the redesign saturates this
+     one and leaves --accent alone. Contrast, re-measured for the new near-black chrome:
+       - --chrome-ink (#f2f6fb) 18.8:1 on --chrome (#0a0d11)                >=4.5:1 text
+       - --chrome-ink 15.2:1 on --chrome-2 (#141a21)                        >=4.5:1 text
+       - --chrome-border (= --border-divider, #1e242b) is decorative only, not a functional edge
+       - --accent-cool (#35a7ff) 6.0:1 on --surface-0 and 5.3:1 on --surface-2  >=4.5:1 text
+       - --accent-cool-ink (#04070a) 15.9:1 on --accent-cool                    >=4.5:1 text-on-chip */
+  --chrome: #0a0d11;
+  --chrome-2: #141a21;
+  --chrome-ink: #f2f6fb;
+  --chrome-border: var(--border-divider);
+  --accent-cool: #35a7ff;
+  --accent-cool-bright: #7cc8ff;
+  --accent-cool-ink: #04070a;
+  --accent-cool-glow: rgb(53 167 255 / .3);
 
   /* Landing trophy chrome — presentation-only accent for the cinematic landing scene
      (LandingPage / LandingHeroCanvas). Bright/deep are the highlight/shadow ends of the same
@@ -183,13 +197,18 @@
   /** Text/glyph color on a SOLID position chip (e.g. PositionBadge's colored background). */
   --pos-ink: var(--text-ink);
 
-  /* Draft Score bands — presentation only (thresholds live in draftScore.ts). Desaturated to match
-     the status ramp: elite=success, fair=warn, poor=danger; good is the desaturated sky sibling. */
+  /* Score bands — presentation only (banding lives in data/scoreBand.ts's axisBand). Desaturated to
+     match the status ramp: elite=success, fair=warn, poor=danger; good is the desaturated sky sibling. */
   --score-elite: #7fb393;
   --score-good: #6fb0ce;
   --score-fair: #c7b458;
   --score-poor: #c98f8f;
   --score-unknown: #8c8c8c;
+
+  /* Draft Guide ADP-delta text (DraftGuideTable's guide-lane-delta) — named so App.css stays
+     literal-free; these replace two raw hex values that pre-dated the header's no-literal rule. */
+  --delta-up: #ff8a7a;
+  --delta-down: #6fe0a8;
 
   /* Spacing scale — named after the rem values already in use throughout App.css, smallest to
      largest, so a literal-to-token rewrite is a mechanical substitution. */

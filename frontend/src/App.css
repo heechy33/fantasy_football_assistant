@@ -17,13 +17,34 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: var(--surface-0-gradient); }
+/* Backstop for `100vw`-based full-bleed tricks (e.g. .landing-hero's edge-to-edge margin trick):
+   100vw includes the vertical scrollbar's width in Chrome, body's own box does not, so once a
+   page is tall enough to need that scrollbar the mismatch pushes a full-bleed element a few
+   pixels past each edge and produces a permanent horizontal scrollbar. Nothing in this app needs
+   page-level horizontal scroll — every legitimate case opts in on its own inner wrapper
+   (.guide-table-scroll, .weekly-stat-grid-scroll, .context-table-wrap, etc.), so this is safe. */
+body { margin: 0; min-width: 320px; overflow-x: hidden; background: var(--surface-0-gradient); }
+/* Slim, dark, no-arrow-buttons scrollbar site-wide, replacing the OS-default chunky widget —
+   applies everywhere by default; elements with their own scrollbar rules (e.g. .draft-log-list's
+   hidden scrollbar) still win via normal specificity. */
+html { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: var(--border-2); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--border-3); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-corner { background: transparent; }
 button, input { font: inherit; }
 button { cursor: pointer; border: 0; border-radius: 8px; padding: .62rem .85rem; color: var(--chrome-ink); background: var(--chrome-2); font-weight: 700; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 input { width: 100%; border: 1px solid var(--border-3); border-radius: 7px; padding: .55rem .65rem; color: inherit; background: var(--surface-2); }
 label { display: grid; gap: .4rem; }
-section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); border-radius: 14px; background: var(--surface-1); }
+/* Global link reset — every nav/CTA link in the app is a react-router <Link>, and without this the
+   browser default underline shows on all of them (brand, nav tabs, Sign in/Sign up). Individual
+   components opt back into a visible underline only where they want one (e.g. .guide-sort-button
+   on hover). */
+a { color: inherit; text-decoration: none; }
+section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divider); border-radius: 14px; background: var(--surface-1); }
 .app-shell { width: min(1680px, calc(100% - 1.5rem)); margin: 0 auto; padding: 1.5rem 0 3rem; }
 /* Full-bleed navy shell header (TopNav) â€” a two-tier cockpit. The identity row (brand +
    Home/Draft Room/Teams tabs) is always present; the status row (league/ADP/pick-count pill, top
@@ -45,37 +66,57 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   color: var(--chrome-ink);
 }
 /* Immersive variant (Home) — the bar dissolves into the cinematic scene: a fading scrim
-   instead of a solid slab, so the trophy reads as part of the page, not under chrome. */
+   instead of a solid slab, so the trophy reads as part of the page, not under chrome. Stronger
+   and longer-held than the original (which fell off by 60% and let scrolled-up section headings
+   show through, sharp and legible, right behind the nav text) — plus a blur so anything that
+   still peeks through reads as out-of-focus background, not overlapping text. */
 .top-nav-immersive {
   border-bottom-color: transparent;
-  background: linear-gradient(180deg, rgb(15 17 20 / .8), rgb(15 17 20 / .35) 60%, transparent);
+  background: linear-gradient(180deg, rgb(15 17 20 / .92), rgb(15 17 20 / .78) 75%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: none;
 }
 .top-nav-immersive .brand-button:hover, .top-nav-immersive .brand-button:focus-visible { background: rgb(255 255 255 / .07); }
-/* Signed-out auth CTAs — placeholder seam until real auth lands; pinned to the far edge of the
-   identity row so the bar reads brand left / account right, like any marketing shell. */
-.top-nav-auth { display: flex; align-items: center; gap: .55rem; margin-left: auto; }
+/* Signed-out auth CTAs — placeholder seam until real auth lands; sit in the identity row's right
+   grid cell (see .top-nav-identity below) so the bar reads brand / nav / account, left to right. */
+.top-nav-auth { display: flex; align-items: center; gap: .55rem; justify-self: end; }
 .nav-auth-signin {
   padding: .45rem .7rem;
   border-radius: var(--radius-md);
-  color: var(--chrome-ink);
+  color: var(--text-3);
   background: transparent;
   font-family: var(--font-display);
-  font-size: .95rem;
+  font-size: .9rem;
   font-weight: 700;
-  opacity: .75;
 }
-.nav-auth-signin:hover, .nav-auth-signin:focus-visible { opacity: 1; background: var(--chrome-2); }
-.nav-auth-signup { padding: .45rem .95rem; font-size: .92rem; }
+.nav-auth-signin:hover, .nav-auth-signin:focus-visible { color: var(--chrome-ink); }
+.nav-auth-signup {
+  padding: .45rem .95rem;
+  font-size: .88rem;
+}
+/* .primary-button.nav-auth-signup: TopNav combines both classes, and .primary-button's rule is
+   defined later in this file — see the matching comment on .primary-button.landing-hero-cta. */
+.primary-button.nav-auth-signup {
+  border: 0;
+  color: var(--accent-cool-ink);
+  background: var(--accent-cool);
+}
+.primary-button.nav-auth-signup:hover, .primary-button.nav-auth-signup:focus-visible { background: var(--accent-cool-bright); }
+/* Identity row — a three-cell grid (brand / nav / auth) so the nav sits dead center regardless of
+   how wide the brand or auth cell is, instead of the old left-packed flex row. */
 .top-nav-identity {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: .5rem 1.5rem;
   padding: .65rem max(.75rem, calc((100vw - 1680px) / 2));
 }
 .top-nav .brand { margin: 0; }
 .top-nav .brand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
   padding: .2rem .3rem;
   border-radius: var(--radius-md);
   color: var(--chrome-ink);
@@ -83,28 +124,38 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   font-family: var(--font-display);
   font-stretch: 125%; /* App-name role: Archivo Expanded, per the tokens.css font hierarchy. */
   font-weight: 800;
-  font-size: 1.35rem;
-  letter-spacing: .01em;
-  text-transform: none;
+  font-size: 1.2rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
-.top-nav .brand-button:hover, .top-nav .brand-button:focus-visible { background: var(--chrome-2); }
-.top-nav nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.top-nav .brand-button:hover, .top-nav .brand-button:focus-visible { background: rgb(255 255 255 / .06); }
+.brand-mark { flex-shrink: 0; color: var(--accent-cool); }
+/* Segmented pill nav — replaces the old underline-per-tab treatment (an active tab is now a raised
+   chip, matching the STACKED-style Draft View/Table View control seen elsewhere in the guide). */
+.top-nav nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: .2rem;
+  padding: .2rem;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / .03);
+}
 .nav-link {
-  padding: .45rem .6rem;
+  padding: .4rem .85rem;
   border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  color: var(--chrome-ink);
+  border-radius: var(--radius-pill);
+  color: var(--text-3);
   background: transparent;
   font-family: var(--font-display);
-  font-size: .95rem;
+  font-size: .88rem;
   font-weight: 700;
   letter-spacing: .02em;
-  opacity: .7;
 }
-.nav-link:hover, .nav-link:focus-visible { opacity: 1; }
-.nav-link[aria-current='page'] { opacity: 1; border-bottom-color: var(--accent-cool); }
+.nav-link:hover, .nav-link:focus-visible { color: var(--chrome-ink); }
+.nav-link[aria-current='page'] { color: var(--text-1); background: rgb(255 255 255 / .08); }
 /* Status row — now just the league/ADP/pick-count pill, pinned to the top-right corner. The
    round.pick clock and session `â‹¯` menu that used to share this row live in the draft log's
    banner and next to the board's card/row toggle, respectively (see the comment above `.top-nav`). */
@@ -134,6 +185,17 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 .session-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-nav-status-dot { width: .5rem; height: .5rem; flex-shrink: 0; border-radius: 50%; background: var(--success-text); box-shadow: 0 0 0 1px rgb(0 0 0 / .45); }
 .top-nav-status-dot[data-stale="true"] { background: var(--warn-text); }
+/* Narrow viewports — the three-cell grid has no room for brand / centered nav / auth on one line.
+   Stack brand+auth above a full-width, horizontally-scrollable, still-centered nav row. */
+@media (max-width: 720px) {
+  .top-nav-identity {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "brand auth" "nav nav";
+  }
+  .top-nav-identity > .brand { grid-area: brand; }
+  .top-nav-identity > .top-nav-auth { grid-area: auth; }
+  .top-nav-identity > nav { grid-area: nav; justify-content: flex-start; overflow-x: auto; }
+}
 .chrome-outline-button {
   padding: .4rem .8rem;
   border: 1px solid var(--chrome-border);
@@ -208,23 +270,22 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 .landing-page > footer { position: relative; z-index: 1; }
 .landing-scene { position: fixed; z-index: 0; inset: 0; pointer-events: none; }
 .landing-hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* Floor glow under the trophy — also the no-WebGL fallback that carries the scene alone. Two
-   faint color washes (cool floodlight left, warm end-zone glow right) sit inside the same radial
-   pool so the floor reads as lit concrete instead of flat black. */
+/* No glow shape here at all — any radial gradient in this spot, however faint, reads as a second
+   circular light floating behind the trophy (see DECISIONS.md, 2026-08-26). The trophy's own
+   material/bloom carries all the light in this scene now; this element is kept only as the
+   no-WebGL fallback's mount point (a flat dark scene + vignette + grain degrades fine on its
+   own — see the class list on `.landing-scene` in LandingPage.tsx). */
 .landing-scene-glow {
   position: absolute;
-  inset: auto 0 0;
-  height: 55%;
-  background:
-    radial-gradient(ellipse 30% 42% at 24% 96%, rgb(127 178 229 / .07), transparent 70%),
-    radial-gradient(ellipse 28% 40% at 78% 98%, rgb(224 165 96 / .06), transparent 70%),
-    radial-gradient(ellipse 50% 65% at 50% 100%, rgb(198 206 218 / .18), transparent 70%);
+  inset: 0;
 }
-/* Vignette keeps overlaid copy readable against moving chrome reflections. */
+/* Vignette keeps overlaid copy readable against moving chrome reflections. Eased down from the
+   original .6 now that the room itself (fog, no stadium-bowl wall) already falls off to true
+   black at the edges — the vignette no longer has to do that job alone. */
 .landing-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 95% 85% at 50% 24%, transparent 52%, rgb(10 11 13 / .6));
+  background: radial-gradient(ellipse 95% 85% at 50% 24%, transparent 52%, rgb(10 11 13 / .48));
 }
 /* Hero — full viewport, centered display type rising in staggered beats. */
 .landing-hero {
@@ -250,13 +311,14 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   align-items: center;
   gap: .5rem;
   margin: 0;
-  padding: .38rem .85rem;
-  border: 1px solid var(--border-2);
-  border-radius: 999px;
-  background: rgb(23 25 29 / .72);
-  color: var(--text-2);
-  font-size: .78rem;
-  font-weight: 600;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
   animation: landing-rise .8s .1s cubic-bezier(.2,.7,.2,1) backwards;
 }
 .landing-hero-pill .landing-feed-dot { width: .42rem; height: .42rem; }
@@ -266,15 +328,30 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   font-stretch: 125%; /* Hero display role: Archivo Expanded (see tokens.css hierarchy note). */
   font-size: clamp(2.5rem, 6vw, 4.6rem);
   font-weight: 800;
-  letter-spacing: .01em; /* Re-tuned from Inter's -.035em — negative tracking fights an expanded width. */
-  line-height: 1.02;
+  letter-spacing: -.01em;
+  line-height: .92;
   color: var(--text-1);
   animation: landing-rise 1s .28s cubic-bezier(.2,.7,.2,1) backwards;
 }
 .landing-hero-copy { max-width: 36rem; margin: 0; color: var(--text-2); font-size: 1.05rem; line-height: 1.55; animation: landing-rise 1s .5s cubic-bezier(.2,.7,.2,1) backwards; }
 .draft-room-empty p,
 .teams-page .teams-empty-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
-.landing-hero-cta { margin-top: .75rem; text-decoration: none; animation: landing-rise 1s .65s cubic-bezier(.2,.7,.2,1) backwards; }
+/* Landing-only accent CTA — solid neon-blue, distinct from the shared .primary-button (kept dark/
+   hairline everywhere else so out-of-scope pages don't pick up a bright fill they weren't asked
+   to change). */
+.landing-hero-cta {
+  margin-top: .75rem;
+  animation: landing-rise 1s .65s cubic-bezier(.2,.7,.2,1) backwards;
+}
+/* .primary-button.landing-hero-cta (not bare .landing-hero-cta): both usages in LandingPage.tsx
+   combine the two classes, and .primary-button's own rule is defined later in this file — an
+   equal-specificity single-class override would lose that source-order tie. */
+.primary-button.landing-hero-cta {
+  border-color: var(--accent-cool);
+  background: var(--accent-cool);
+  color: var(--accent-cool-ink);
+}
+.primary-button.landing-hero-cta:hover, .primary-button.landing-hero-cta:focus-visible { background: var(--accent-cool-bright); border-color: var(--accent-cool-bright); }
 /* Sections — plain numbered kickers, sentence-case headings, even rhythm. */
 .landing-section {
   position: relative;
@@ -317,14 +394,28 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   gap: 1.1rem;
 }
 @media (max-width: 900px) { .landing-beats { grid-template-columns: 1fr; } }
+/* No card box — a hairline-separated list entry per beat (lastdanceforglory.world's editorial
+   list pattern), so the trophy scene reads through instead of sitting behind flat frosted panels. */
 .landing-beat {
+  position: relative;
   margin: 0;
-  padding: 1.35rem 1.4rem;
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-lg);
-  background: rgb(23 25 29 / .86);
+  padding: 1.6rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-divider);
+  background: none;
 }
-.landing-beat h4 { margin: 0 0 .45rem; font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+.landing-beat-index {
+  display: block;
+  margin-bottom: .3rem;
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: 2.6rem;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--hairline-strong);
+}
+.landing-beat h4 { margin: 0 0 .5rem; font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
 .landing-beat p { margin: 0; color: var(--text-2); font-size: .9rem; line-height: 1.55; }
 /* Chapter II — the live board: a staged Draft-Room feed beside two demo player cards built from
    the REAL product faces (NextPickSurvivalMeter / NextUpChip). Show the app, don't describe it. */
@@ -336,12 +427,12 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 }
 @media (max-width: 940px) { .landing-board { grid-template-columns: 1fr; } }
 .landing-board-feed {
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-lg);
-  background: rgb(17 19 23 / .72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
 }
 .landing-feed-head {
   display: flex;
@@ -400,7 +491,19 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 .landing-demo-card-left { transform: rotate(-2.4deg); }
 .landing-demo-card-right { transform: rotate(2deg) translateY(.7rem); }
 .landing-demo-card:hover { transform: rotate(0deg) translateY(-.25rem); }
-.landing-demo-card .player-card { cursor: default; box-shadow: 0 24px 48px rgb(0 0 0 / .45); }
+/* Landing-only: the shared .player-card's white diagonal sheen + inset top-edge highlight read as
+   another "white outline box" on the marketing page, so this scope nulls them out without touching
+   the shared rule (the draft room still uses the metallic-card treatment). */
+.landing-demo-card .player-card {
+  cursor: default;
+  background-image: linear-gradient(160deg,
+    color-mix(in srgb, var(--team-primary, var(--surface-2)) var(--player-card-tint), var(--surface-2)),
+    color-mix(in srgb, var(--team-primary, var(--surface-2)) var(--player-card-content-tint), var(--surface-2)) 55%,
+    var(--surface-2));
+  box-shadow: 0 24px 48px rgb(0 0 0 / .45);
+}
+.landing-demo-card .player-card::before { display: none; }
+.landing-demo-card .player-card::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .landing-demo-card { transition: none; } }
 .landing-board-note { max-width: 34rem; margin: 1.6rem 0 0; color: var(--text-3); font-size: .88rem; }
 /* Chapter III — the integrations map: hub at center, a wiring stem down to a horizontal rail,
@@ -419,17 +522,14 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   place-items: center;
   width: 3.4rem;
   height: 3.4rem;
-  border: 1px solid var(--silver-deep);
+  border: 1px solid var(--border-divider);
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 18%, rgb(255 255 255 / .16), transparent 60%),
-    linear-gradient(180deg, #2b3038, #14171c);
-  color: var(--silver);
+  background: var(--surface-2);
+  color: var(--accent-cool);
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: .02em;
-  box-shadow: 0 0 0 1px rgb(255 255 255 / .04), 0 18px 36px rgb(0 0 0 / .5);
 }
 .integrations-hub-label {
   color: var(--text-2);
@@ -480,17 +580,6 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
   .integrations-rail { display: none; }
   .integrations-spokes { grid-template-columns: repeat(3, 1fr); row-gap: 1.2rem; }
 }
-/* Collapsed connect gate — the setup forms live behind this CTA. */
-.landing-connect-cta {
-  display: grid;
-  justify-items: center;
-  gap: .7rem;
-  padding: 1.5rem;
-  border: 1px dashed var(--border-3);
-  border-radius: var(--radius-lg);
-  background: rgb(19 21 24 / .5);
-}
-.landing-connect-note { margin: 0; color: var(--text-3); font-size: .85rem; }
 .provider-panel {
   display: grid;
   gap: 1rem;
@@ -505,6 +594,22 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-1); b
 .provider-panel:hover, .provider-panel:focus-within { transform: translateY(-2px); border-color: var(--border-3); }
 .provider-panel-active { border-color: var(--silver-deep); background: rgb(23 25 29 / .8); }
 .provider-panel-active:hover { border-color: var(--silver); }
+/* Landing-only override: these <section>s re-box themselves per the base rule above (shared with
+   /onboarding/league's real connect flow, which keeps its box — out of this redesign's scope). On
+   the landing they separate with a top hairline instead, like the rest of the page. */
+.landing-integrations .provider-panel,
+.landing-integrations .provider-panel:hover,
+.landing-integrations .provider-panel:focus-within,
+.landing-integrations .provider-panel-active,
+.landing-integrations .provider-panel-active:hover {
+  border: 0;
+  border-top: 1px solid var(--border-divider);
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+}
 /* Sign-off — a quiet credits line closing the story. */
 .landing-footer { margin-top: 5rem; padding: 2.4rem 0 3rem; border-top: 1px solid var(--border-divider); text-align: center; }
 .landing-footer p { margin: 0; color: var(--text-4); font-size: .8rem; letter-spacing: .04em; }
@@ -2088,4 +2193,154 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 .player-board-row-meta > span { overflow: hidden; text-overflow: ellipsis; }
 .player-board-row-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }
 .player-board-row-adp-source { margin-left: .3rem; color: var(--text-3); font-size: .62rem; font-weight: 700; letter-spacing: .03em; }
+
+/* --- Draft Guide (public /draft-guide) -------------------------------------
+   Broadcast Neon pass (2026-08-26, DECISIONS.md): de-boxed per the landing/guide redesign — the
+   page canvas replaces the boxed <section>/.guide-table-scroll double frame, prose moves out of
+   the above-the-fold flow into .guide-methodology-note at the bottom (still satisfies the
+   2026-08-25 marketing constraint — methodology text and the per-lane disclosure both still ship,
+   just not above the table), and every decorative border runs on --border-divider/--hairline-strong
+   instead of --border-1 (the WCAG-gated functional border token, left alone). */
+
+.draft-guide { max-width: 1280px; margin: 0 auto; padding: 0 16px 64px; border: 0; background: none; }
+
+.guide-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  margin: 4px 0 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+.guide-filter { display: flex; flex-direction: column; gap: 2px; font-size: .78rem; }
+.guide-filter > span { color: var(--text-3); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; }
+.guide-filter select {
+  min-width: 96px;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--radius-sm);
+  padding: .3rem .5rem;
+  background: var(--surface-2);
+}
+.guide-filter-positions { flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; }
+.guide-pos-button[aria-pressed='true'] { outline: 2px solid currentColor; }
+
+.guide-loading { padding: 32px 0; color: var(--text-3); }
+
+.guide-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.guide-table th, .guide-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-divider); }
+.guide-table td[data-missing] { color: var(--text-3); }
+.guide-sort-button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-align: left; }
+
+/* --- STACKED-style guide chrome (header / tabs / lane table) ---------------- */
+
+.guide-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.guide-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.guide-updated { font-size: .74rem; color: var(--text-3); margin: 0; }
+
+.guide-table-scroll { overflow-x: auto; border: 0; border-radius: 0; margin-top: 0; }
+.guide-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--hairline-strong);
+  color: var(--text-3);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.guide-table tbody tr:hover { background: var(--surface-row-hover); }
+.guide-col-rank { text-align: center; font-variant-numeric: tabular-nums; min-width: 56px; }
+.guide-col-player { min-width: 240px; }
+.guide-col-lane { text-align: center; min-width: 96px; }
+th.guide-col-lane[data-unavailable] { color: var(--text-3); }
+.guide-lane-header { display: inline-flex; align-items: center; gap: 6px; }
+.guide-sort-button { display: inline-flex; align-items: center; gap: 6px; text-transform: inherit; letter-spacing: inherit; }
+.guide-sort-button:hover { text-decoration: underline; }
+.guide-player-cell { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 2px; text-align: left; border-radius: var(--radius-sm); }
+.guide-player-portrait { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; background: var(--surface-portrait); border: 1px solid color-mix(in srgb, var(--team-ink, var(--border-divider)) 55%, transparent); }
+.guide-player-main { display: flex; flex-direction: column; min-width: 0; }
+.guide-player-team { display: inline-flex; align-items: center; gap: 4px; font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.guide-team-logo { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; }
+.guide-player-name { font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guide-lane-cell { display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
+.guide-lane-adp { font-variant-numeric: tabular-nums; color: var(--text-1); }
+.guide-lane-delta { font-size: .7rem; font-variant-numeric: tabular-nums; }
+.guide-lane-delta[data-sign='pos'] { color: var(--delta-up); }
+.guide-lane-delta[data-sign='neg'] { color: var(--delta-down); }
+.guide-lane-delta[data-sign='zero'], .guide-lane-missing { color: var(--text-3); }
+td.guide-col-lane[data-unavailable] { color: var(--text-3); }
+/* Merged position + positional-rank chip (e.g. "RB1") — an outlined pill in the position's own
+   identity color, replacing the old PositionBadge (solid "RB") + guide-grid-posrank ("RB1") pair. */
+.guide-pos-pill {
+  flex-shrink: 0;
+  padding: .12rem .45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--pos-rb);
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.guide-pos-pill[data-position='QB'] { color: var(--pos-qb); }
+.guide-pos-pill[data-position='RB'] { color: var(--pos-rb); }
+.guide-pos-pill[data-position='WR'] { color: var(--pos-wr); }
+.guide-pos-pill[data-position='TE'] { color: var(--pos-te); }
+.guide-pos-pill[data-position='K'] { color: var(--pos-k); }
+.guide-pos-pill[data-position='DEF'] { color: var(--pos-def); }
+
+.guide-view-toggle { display: flex; gap: 4px; margin: 24px 0 16px; align-items: center; flex-wrap: wrap; justify-content: center; padding: .2rem; border-radius: var(--radius-pill); background: rgb(255 255 255 / .03); width: fit-content; margin-left: auto; margin-right: auto; }
+.guide-view-button { padding: 6px 16px; border-radius: var(--radius-pill); font-size: .85rem; background: transparent; color: var(--text-3); }
+.guide-view-button[aria-pressed='true'] { color: var(--text-1); background: rgb(255 255 255 / .08); }
+.guide-view-note { font-size: .78rem; color: var(--text-3); }
+
+.guide-draft-scroll { overflow-x: auto; border: 0; border-radius: 0; }
+.guide-draft-grid { border-collapse: collapse; font-size: .72rem; min-width: 100%; }
+.guide-draft-grid thead th { position: sticky; top: 0; background: var(--surface-0); z-index: 1; border-bottom: 1px solid var(--hairline-strong); }
+.guide-draft-grid th, .guide-draft-grid td { border: 0; border-right: 1px solid var(--border-divider); border-bottom: 1px solid var(--border-divider); padding: 3px; text-align: left; vertical-align: top; }
+.guide-draft-grid th:last-child, .guide-draft-grid td:last-child { border-right: 0; }
+.guide-grid-round-label { color: var(--text-3); font-weight: 600; font-size: .68rem; text-align: center; min-width: 42px; }
+.guide-draft-grid td[data-empty] { background: var(--surface-1); }
+.guide-grid-empty { display: block; text-align: center; color: var(--text-3); }
+.guide-grid-cell { display: flex; gap: 5px; align-items: center; width: 100%; background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 3px 4px; text-align: left; min-width: 118px; border-radius: 6px; }
+.guide-grid-cell:hover { background: var(--surface-row-hover); }
+.guide-grid-cell:focus-visible { outline: 2px solid var(--text-1); outline-offset: -2px; }
+.guide-grid-main { display: flex; flex-direction: column; min-width: 0; }
+.guide-grid-overall { font-size: .62rem; color: var(--text-3); }
+.guide-grid-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.guide-grid-tags { display: flex; gap: 3px; align-items: center; margin-left: auto; flex: none; }
+.guide-grid-posrank { font-size: .6rem; color: var(--text-3); border: 1px solid var(--border-divider); border-radius: 4px; padding: 0 3px; }
+
+/* Methodology + per-lane data-source disclosure — moved below the board entirely (the guide's
+   marketing constraint, DECISIONS.md 2026-08-25, requires the copy stay reachable, not that it sit
+   above the fold). Collapsed by default so the board opens with zero explanatory prose. */
+.guide-methodology-note { margin: 32px 0 8px; padding-top: 20px; border-top: 1px solid var(--border-divider); color: var(--text-3); font-size: .82rem; }
+.guide-methodology-note summary { cursor: pointer; color: var(--text-2); font-weight: 700; font-size: .8rem; }
+.guide-methodology-note summary:hover { color: var(--text-1); }
+.guide-methodology { color: var(--text-3); font-size: .85rem; max-width: 72ch; margin: 12px 0 16px; }
+.guide-disclosure { display: flex; flex-direction: column; gap: 6px; font-size: .72rem; color: var(--text-3); margin: 0; padding: 0; list-style: none; }
+.guide-lane-note[data-status='unavailable'] strong { opacity: .55; }
+
+/* Monogram avatar chip (PlayerAvatar) — team-tinted via [data-team] custom properties. Used as the
+   Draft Guide's fallback for rows with no player record; the draft-grid view (dense, ~118px cells)
+   also keeps this instead of the full portrait used in the table view. */
+.player-avatar { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; font-size: .62rem; font-weight: 700; letter-spacing: .02em; flex: none; color: var(--team-ink, var(--text-2)); background: color-mix(in srgb, var(--team-primary, transparent) 24%, var(--surface-3, #151a21)); border: 1px solid color-mix(in srgb, var(--team-ink, var(--border-1)) 50%, transparent); }
+
+/* --- Onboarding (/onboarding/*) + landing public CTAs ---------------------- */
+
+.landing-hero-ctas { display: flex; flex-direction: column; gap: .5rem; align-items: center; margin-top: .75rem; }
+.landing-hero-cta-secondary { color: var(--text-1); font-size: .85rem; }
+
+.onboarding { max-width: 860px; margin: 0 auto; padding: 0 16px 48px; }
+.onboarding-rail { display: flex; gap: 8px; list-style: none; padding: 0; margin: 12px 0 24px; flex-wrap: wrap; }
+.onboarding-step { font-size: .78rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-1); color: var(--text-3); }
+.onboarding-step[data-state='current'] { color: var(--text-1); border-color: currentColor; }
+.onboarding-step[data-state='done'] { opacity: .65; }
+.onboarding-panel { display: grid; gap: 16px; }
+.onboarding-panel .provider-panel { display: grid; gap: 10px; padding: 14px; }
 

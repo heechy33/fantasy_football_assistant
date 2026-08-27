@@ -1,15 +1,24 @@
 import { useEffect, useState, type RefObject } from 'react';
+import { Link } from 'react-router-dom';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
 import { ProviderBadge } from './ProviderBadge';
 
 export const APP_NAME = 'Fantasy Bob';
 
-export type AppPage = 'home' | 'draft' | 'teams';
+export type AppPage = 'home' | 'guide' | 'draft' | 'teams';
+
+/** Page → path, owned here since the tabs became real links (Phase 3's deferred conversion:
+ * public pages need middle-click/open-in-new-tab nav targets). */
+const PATH_BY_PAGE: Readonly<Record<AppPage, string>> = {
+  home: '/',
+  guide: '/draft-guide',
+  draft: '/draft',
+  teams: '/teams',
+};
 
 export interface TopNavProps {
   active: AppPage;
-  onNavigate: (page: AppPage) => void;
   /** Status subline: league name + active ADP format + a freshness dot. Rendered top-right; the
    * round/pick clock and the session `⋯` menu live elsewhere now (the draft log's clock banner and
    * next to the board's card/row toggle, respectively) so this row is status-only. */
@@ -26,14 +35,23 @@ export interface TopNavProps {
   /** Home renders the landing's cinematic scene; the bar dissolves into it (fading scrim)
    * instead of sitting as a solid slab above it. */
   immersive?: boolean;
-  /** Auth gate seam: while false (the only state until real auth lands) the page tabs are hidden
-   * and placeholder Sign in / Sign up CTAs render instead — the app reads as a public marketing
-   * landing. Wiring a real session flips this to true and restores the full nav unchanged. */
+  /** True once the active AuthAdapter reports a signed-in user (Phase 4's `useAuth()`, wired by
+   * AppLayout). While false, account tabs (Draft Room, Teams) stay hidden and Sign in / Sign up
+   * links render instead — the app reads as a public marketing landing. */
   authenticated?: boolean;
+  /** Sign-out handler, present only while authenticated. Optional so TopNav still renders sanely
+   * in tests/stories that pass `authenticated: true` without wiring a real auth context. */
+  onSignOut?: () => void;
 }
 
-const NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
+const PUBLIC_NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
   { page: 'home', label: 'Home' },
+  { page: 'guide', label: 'Draft Guide' },
+];
+
+/** Account features — hidden entirely while signed out so they read as gated, matching the
+ * public/marketing-first flow (`DECISIONS.md`, 2026-08-25's public/gated split). */
+const PRIVATE_NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
   { page: 'draft', label: 'Draft Room' },
   { page: 'teams', label: 'Teams' },
 ];
@@ -61,16 +79,15 @@ function StaleStatus({ healthRef, fallbackIsStale, fallbackDataAgeMs }: {
 }
 
 /**
- * Two-tier app shell header. The identity row (brand +, when authenticated, the Home/Draft
- * Room/Teams tabs; otherwise placeholder Sign in / Sign up CTAs) is always present. The status
- * row (league/ADP/pick-count pill, top-right) renders only when the caller supplies draft state —
- * `App` only passes `leagueName`/`adpFormat`/etc while `page === 'draft'`, so Home gets brand+nav
- * and nothing else. No router — the app is a single screen, so navigation is a lifted `page`
- * state in App and buttons here.
+ * Two-tier app shell header. The identity row (brand + page tabs; placeholder Sign in / Sign up
+ * CTAs replace the account tabs while signed out) is always present. The status row
+ * (league/ADP/pick-count pill, top-right) renders only when the caller supplies draft state —
+ * `AppLayout` only passes `leagueName`/`adpFormat`/etc on `/draft`, so other routes get brand+nav
+ * and nothing else. Tabs and the brand are real `<Link>`s (middle-click/open-in-new-tab works,
+ * including on the public pages); `aria-current="page"` marks the active tab.
  */
 export function TopNav({
   active,
-  onNavigate,
   leagueName = null,
   adpFormat = null,
   isStale = false,
@@ -80,6 +97,7 @@ export function TopNav({
   pickCount = null,
   immersive = false,
   authenticated = false,
+  onSignOut,
 }: TopNavProps) {
   const showStatus = leagueName != null || adpFormat != null;
   const providerBadgeKey = statusProvider === 'espn' || statusProvider === 'sleeper' ? statusProvider : null;
@@ -88,41 +106,40 @@ export function TopNav({
     <header className={immersive ? 'top-nav top-nav-immersive' : 'top-nav'}>
       <div className="top-nav-identity">
         <h1 className="brand">
-          <button
-            type="button"
-            className="brand-button"
-            onClick={() => onNavigate('home')}
-            aria-label={`${APP_NAME} — go to Home`}
-          >
+          <Link to={PATH_BY_PAGE.home} className="brand-button" aria-label={`${APP_NAME} — go to Home`}>
+            <svg className="brand-mark" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+              <rect x="1" y="10" width="4" height="7" rx="1" fill="currentColor" />
+              <rect x="7" y="5" width="4" height="12" rx="1" fill="currentColor" />
+              <rect x="13" y="1" width="4" height="16" rx="1" fill="currentColor" />
+            </svg>
             {APP_NAME}
-          </button>
+          </Link>
         </h1>
-        {/* Signed-in nav tabs — hidden entirely while signed out so Draft Room / Teams read as
-            account features, matching the marketing-landing-first flow. */}
-        {authenticated && (
-          <nav aria-label="Primary">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.page}
-                type="button"
-                className="nav-link"
-                aria-current={active === item.page ? 'page' : undefined}
-                onClick={() => onNavigate(item.page)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-        )}
-        {/* Placeholder auth CTAs — visual-only until the real auth phase wires handlers. */}
+        {/* Signed-in nav shows public + account tabs; signed out, only the public surface so
+            Draft Room / Teams still read as gated account features. */}
+        <nav aria-label="Primary">
+          {(authenticated ? [...PUBLIC_NAV_ITEMS, ...PRIVATE_NAV_ITEMS] : PUBLIC_NAV_ITEMS).map((item) => (
+            <Link
+              key={item.page}
+              to={PATH_BY_PAGE[item.page]}
+              className="nav-link"
+              aria-current={active === item.page ? 'page' : undefined}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        {/* Real auth CTAs (Phase 4) — Link, not button, so the Sign in/Sign up destinations get
+            normal link semantics (middle-click, open-in-new-tab) like the rest of this nav. */}
         {!authenticated && (
           <div className="top-nav-auth">
-            <button type="button" className="nav-auth-signin" title="Sign in (coming soon)">
-              Sign in
-            </button>
-            <button type="button" className="primary-button nav-auth-signup" title="Create an account (coming soon)">
-              Sign up
-            </button>
+            <Link to="/sign-in" className="nav-auth-signin">Sign in</Link>
+            <Link to="/sign-up" className="primary-button nav-auth-signup">Sign up</Link>
+          </div>
+        )}
+        {authenticated && onSignOut && (
+          <div className="top-nav-auth">
+            <button type="button" className="nav-auth-signin" onClick={onSignOut}>Sign out</button>
           </div>
         )}
       </div>

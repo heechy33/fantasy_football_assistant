@@ -1,30 +1,34 @@
-import { useState } from 'react';
+import { lazy, Suspense } from 'react';
 import type { CSSProperties } from 'react';
-import type { SleeperCred } from '../../../shared/types';
+import { Link } from 'react-router-dom';
 import { useRevealOnScroll } from '../hooks/useRevealOnScroll';
+import type { ActiveProvider } from '../session/activeProvider';
 import { APP_NAME } from './TopNav';
-import { ConnectSleeper } from './ConnectSleeper';
-import { LandingHeroCanvas } from './LandingHeroCanvas';
 import { LANDING_DEMO_CARDS } from './landingDemoPlayers';
 import { PlayerCard } from './PlayerCard';
 import { ProviderBadge } from './ProviderBadge';
+import { SleeperIllustration, EspnIllustration } from './ProviderIllustration';
 
-type EspnSubTab = 'start' | 'extension';
+// Lazy: keeps the cinematic canvas (and everything it pulls) out of whatever entry chunk a
+// /draft-guide visitor downloads. three.js itself was ALREADY dynamically imported inside the
+// canvas module — this splits the canvas module too.
+const LandingHeroCanvas = lazy(() => import('./LandingHeroCanvas').then((m) => ({ default: m.LandingHeroCanvas })));
 
-export type LandingActiveProvider = 'none' | 'sleeper' | 'espn';
+/** Back-compat alias — the type's real home is `session/activeProvider.ts` (it is session
+ * vocabulary, not landing vocabulary). New code imports ActiveProvider directly. */
+export type LandingActiveProvider = ActiveProvider;
 
 /** Spokes of the integrations map — every platform the product reads from or aligns with. The
  * two live providers come first; the rest render brand-colored monogram chips. */
 const INTEGRATION_KEYS = ['espn', 'sleeper', 'cbs', 'rtsports', 'fantrax', 'fftoday'] as const;
 
 export interface LandingPageProps {
-  /** Which provider owns the current session, if any — derived by `App` from its `Session` union
-   * (a Sleeper takeover still counts as 'sleeper'; a pure-manual ESPN session counts as 'espn'). */
+  /** Which provider owns the current session, if any — derived by `AppLayout` from the draft
+   * session (a Sleeper takeover still counts as 'sleeper'; a pure-manual ESPN session counts as
+   * 'espn'). The connect forms themselves left the landing in Phase 3 — they render as inert
+   * illustrations here; the real flow lives at `/onboarding/league`. */
   active: LandingActiveProvider;
   leagueName: string | null;
-  onConnect: (cred: SleeperCred, draftId: string) => void;
-  onStartEspn: () => void;
-  onResume: () => void;
 }
 
 /**
@@ -33,27 +37,26 @@ export interface LandingPageProps {
  * everything. Structure:
  *
  *   Scene    one fixed full-viewport Three.js layer (LandingHeroCanvas) behind every section.
- *   Hero     pill badge + headline + one-line pitch + connect CTA over the trophy.
+ *   Hero     pill badge + headline + one-line pitch + public CTAs over the trophy.
  *   01       three short feature beats (live picks / ranked board / next-pick odds).
  *   02       a staged Draft-Room feed beside the REAL PlayerCard faces with static demo data.
- *   03       an integrations hub-and-spokes map; the Sleeper / ESPN setup forms stay collapsed
- *            behind a "Connect your league" CTA (an active session renders a Resume card first).
+ *   03       an integrations hub-and-spokes map; the Sleeper / ESPN connect cards render as
+ *            inert illustrations — the real flow lives at `/onboarding/league` (an active session
+ *            renders a Resume card first).
  *
  * Scroll reveals are native IntersectionObserver via useRevealOnScroll — no animation library.
  */
-export function LandingPage({ active, leagueName, onConnect, onStartEspn, onResume }: LandingPageProps) {
+export function LandingPage({ active, leagueName }: LandingPageProps) {
   const pageRef = useRevealOnScroll<HTMLDivElement>();
-  // The provider setup forms sit collapsed behind a CTA so the integrations story owns the
-  // chapter; an active session skips the gate (its Resume panel is the useful content).
-  const [connectOpen, setConnectOpen] = useState(active !== 'none');
-  const showProviderPanels = connectOpen || active !== 'none';
 
   return (
     <div className="landing-page" ref={pageRef}>
       {/* The scene is one fixed layer behind every section — a continuous shot, not a hero prop
           that vanishes after the first scroll. */}
       <div className="landing-scene" aria-hidden="true">
-        <LandingHeroCanvas />
+        <Suspense fallback={null}>
+          <LandingHeroCanvas />
+        </Suspense>
         <div className="landing-scene-glow" />
         <div className="landing-vignette" />
       </div>
@@ -69,13 +72,18 @@ export function LandingPage({ active, leagueName, onConnect, onStartEspn, onResu
           clock runs out.
         </p>
         {active !== 'none' ? (
-          <button type="button" className="primary-button landing-hero-cta" onClick={onResume}>
+          <Link to="/draft" className="primary-button landing-hero-cta">
             Return to your draft
-          </button>
+          </Link>
         ) : (
-          <a className="primary-button landing-hero-cta" href="#connect">
-            Connect your league
-          </a>
+          <div className="landing-hero-ctas">
+            <Link to="/draft-guide" className="primary-button landing-hero-cta">
+              Browse the Draft Guide — no account needed
+            </Link>
+            <Link to="/sign-up" className="landing-hero-cta-secondary">
+              Create free account
+            </Link>
+          </div>
         )}
       </section>
 
@@ -86,14 +94,17 @@ export function LandingPage({ active, leagueName, onConnect, onStartEspn, onResu
         </header>
         <div className="landing-beats">
           <article className="landing-beat" data-reveal>
+            <span className="landing-beat-index" aria-hidden="true">01</span>
             <h4>Live picks</h4>
             <p>Every pick lands on your board the second it happens — Sleeper directly, ESPN through the extension.</p>
           </article>
           <article className="landing-beat" data-reveal>
+            <span className="landing-beat-index" aria-hidden="true">02</span>
             <h4>Ranked for your pick</h4>
             <p>A clear take-next recommendation built from ADP, your roster needs, and positional scarcity.</p>
           </article>
           <article className="landing-beat" data-reveal>
+            <span className="landing-beat-index" aria-hidden="true">03</span>
             <h4>Next-pick odds</h4>
             <p>Know who&rsquo;s likely to survive to your next selection before you reach for anyone.</p>
           </article>
@@ -191,57 +202,41 @@ export function LandingPage({ active, leagueName, onConnect, onStartEspn, onResu
               <ProviderBadge brandKey={active} />
               <h3>{active === 'espn' ? 'ESPN' : 'Sleeper'}</h3>
             </div>
-            <ResumeCard leagueName={leagueName} onResume={onResume} />
+            <ResumeCard leagueName={leagueName} />
           </section>
         )}
 
-        {active === 'none' && !connectOpen && (
-          <div className="landing-connect-cta" data-reveal>
-            <button type="button" className="primary-button" onClick={() => setConnectOpen(true)}>
-              Connect your league
-            </button>
-            <p className="landing-connect-note">
-              Sleeper connects directly. ESPN syncs through the Chrome extension.
-            </p>
-          </div>
+        {/* The connect cards are inert illustrations now (Phase 3): the real flow lives at
+            /onboarding/league, so the landing shows what connecting LOOKS like without wiring. */}
+        {active !== 'sleeper' && (
+          <section className="provider-panel" data-reveal>
+            <div className="provider-panel-lede">
+              <ProviderBadge brandKey="sleeper" />
+              <div>
+                <h3>Sleeper</h3>
+                <p className="provider-card-copy">
+                  Connect your Sleeper account, pick a league or mock draft, and start tracking it live.
+                </p>
+              </div>
+            </div>
+            <div className="provider-panel-body">
+              <SleeperIllustration />
+            </div>
+          </section>
         )}
 
-        {showProviderPanels && (
-          <>
-            {active !== 'sleeper' && (
-              <section className="provider-panel" data-reveal>
-                <div className="provider-panel-lede">
-                  <ProviderBadge brandKey="sleeper" />
-                  <div>
-                    <h3>Sleeper</h3>
-                    <p className="provider-card-copy">
-                      Connect your Sleeper account, pick a league or mock draft, and start tracking it live.
-                    </p>
-                    {active === 'espn' && (
-                      <p className="muted provider-card-warning">Starting a Sleeper draft replaces your active ESPN draft.</p>
-                    )}
-                  </div>
-                </div>
-                <div className="provider-panel-body">
-                  <ConnectSleeper onConnect={onConnect} />
-                </div>
-              </section>
-            )}
-
-            {active !== 'espn' && (
-              <section className="provider-panel" data-reveal>
-                <div className="provider-panel-lede">
-                  <ProviderBadge brandKey="espn" />
-                  <div>
-                    <h3>ESPN</h3>
-                  </div>
-                </div>
-                <div className="provider-panel-body">
-                  <EspnSetupTabs active={active} onStartEspn={onStartEspn} />
-                </div>
-              </section>
-            )}
-          </>
+        {active !== 'espn' && (
+          <section className="provider-panel" data-reveal>
+            <div className="provider-panel-lede">
+              <ProviderBadge brandKey="espn" />
+              <div>
+                <h3>ESPN</h3>
+              </div>
+            </div>
+            <div className="provider-panel-body">
+              <EspnIllustration />
+            </div>
+          </section>
         )}
       </section>
 
@@ -259,68 +254,15 @@ const DEMO_FEED: { pick: string; name: string; meta: string; note: string; live?
   { pick: '2.02', name: 'Jonathan Taylor', meta: 'RB · IND', note: 'on the clock', live: true },
 ];
 
-function EspnSetupTabs({ active, onStartEspn }: { active: LandingActiveProvider; onStartEspn: () => void }) {
-  const [tab, setTab] = useState<EspnSubTab>('start');
-  return (
-    <>
-      <div className="provider-subtabs" role="tablist" aria-label="ESPN setup">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'start'}
-          className={tab === 'start' ? 'active' : undefined}
-          onClick={() => setTab('start')}
-        >
-          Start draft
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'extension'}
-          className={tab === 'extension' ? 'active' : undefined}
-          onClick={() => setTab('extension')}
-        >
-          Extension setup
-        </button>
-      </div>
-
-      <div className="provider-subtab-panel">
-        {tab === 'start' ? (
-          <>
-            <p className="provider-card-copy">
-              Set your league and draft position, then start tracking — picks stream live from
-              your ESPN draft tab via the Chrome extension as soon as setup is done.
-            </p>
-            {active === 'sleeper' && (
-              <p className="muted provider-card-warning">Starting an ESPN draft replaces your active Sleeper draft.</p>
-            )}
-            <button type="button" className="primary-button" onClick={onStartEspn}>Set up ESPN draft</button>
-            <p className="muted provider-card-note">
-              No extension connected yet? Picks can still be logged by hand from the Draft Room.
-            </p>
-          </>
-        ) : (
-          <ol className="provider-card-steps">
-            <li>Download the <code>extension</code> folder from the project repo.</li>
-            <li>
-              Open <code>chrome://extensions</code>, turn on Developer mode, click &quot;Load unpacked,&quot; and
-              select that folder.
-            </li>
-            <li>Open your ESPN live draft page in a tab — picks stream in automatically once the extension is loaded.</li>
-          </ol>
-        )}
-      </div>
-    </>
-  );
-}
-
-function ResumeCard({ leagueName, onResume }: { leagueName: string | null; onResume: () => void }) {
+/** A real link (not a button) so an in-progress draft is openable in a new tab — this is the
+ * "you have a draft in progress" signal now that rehydration no longer auto-navigates. */
+function ResumeCard({ leagueName }: { leagueName: string | null }) {
   return (
     <>
       <p className="provider-card-copy">
         {leagueName ? <>Your <strong>{leagueName}</strong> draft is loaded.</> : 'Your draft is loaded.'}
       </p>
-      <button type="button" className="primary-button" onClick={onResume}>Resume draft</button>
+      <Link to="/draft" className="primary-button">Resume draft</Link>
     </>
   );
 }
