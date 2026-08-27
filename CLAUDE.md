@@ -88,8 +88,11 @@ deliberately — future work, not dead code to delete.
   new decision.
 - `fixtures/sleeper/` — **hand-authored** fixtures (not yet a real recorded draft; open item).
   `fixtures/underdog/` — a committed contract fixture (recorded Sharp Football Analysis HTML,
-  read by `pipeline/test_underdog_adp.py`), not recon scratch. `fixtures/espn/` — gitignored recon
-  captures, not contract fixtures. `infra/main.bicep` — roadmap. `archive/` — completed-phase
+  read by `pipeline/test_underdog_adp.py`), not recon scratch. `fixtures/espn-contract/` — same
+  idea: two recorded-and-scrubbed ESPN live-stream slices read by `espnOffset.test.ts` — committed
+  because a test fixture has to survive a fresh checkout (CI has no `fixtures/espn/` on disk).
+  `fixtures/espn/` itself stays gitignored recon scratch, not contract fixtures — don't add a test
+  dependency on anything under it. `infra/main.bicep` — roadmap. `archive/` — completed-phase
   history (`PLAN-history.md`), the condensed-away decision detail (`DECISIONS-history.md`), and
   gitignored cursor-plan scratch.
 - Not yet built: `workers/draftEngine.worker.ts` and `api/_shared/providers/` — don't create

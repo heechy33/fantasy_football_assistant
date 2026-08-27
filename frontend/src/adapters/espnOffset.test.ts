@@ -6,7 +6,12 @@ import type { EspnDomPick, EspnLiveSnapshot, PlayerMeta, Position } from '../../
 import { buildEspnPlayerIndex } from './espn';
 import { deriveEspnStreamOffset } from './espnOffset';
 
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'fixtures', 'espn');
+// espn-contract/, not fixtures/espn/ (which stays gitignored draft-day recon scratch, per
+// CLAUDE.md) -- these two recorded slices are real committed test fixtures for
+// deriveEspnStreamOffset's crosswalk logic, so they need to survive a fresh checkout (CI never
+// had fixtures/espn/ on disk, which is why this test only ever passed locally before CI started
+// running the suite).
+const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'fixtures', 'espn-contract');
 
 function loadFixture<T>(fileName: string): T {
   return JSON.parse(readFileSync(join(fixturesDir, fileName), 'utf-8')) as T;

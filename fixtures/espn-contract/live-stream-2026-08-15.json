@@ -1,0 +1,50 @@
+{
+  "source": "Reconstructed from ffa-espn-recon-2026-08-15T19-38-03-210Z.json (league 1488579454, scrubbed of the SWID GUID {22B53191-EB08-4C1C-BC08-0875EBD26813}). This is the FIRST 10 of 20 distinct SELECTED frames the extension's mergeFrames bucketing kept (FRAME_BUCKET_CAPS.SELECTED = 20; a 147-pick draft overflows that cap and is trimmed to first-10/last-10 — see live-stream-late-attach-2026-08-15.json for the other half of the same draft). Player ids/positions verified against the committed crosswalk (data/players.json) and cross-checked against the DOM ticker + on-the-clock reading captured in the same export; see PLAN 'What the recon export proved' for the full chain.",
+  "notes": "This slice represents an ESPN tab attached from pick 1: the socket's arrival index equals the absolute overall for every pick here, so groundTruth.offset is 0 and domPicks is empty (the DOM pick-number ticker had nothing to show yet at pick 10 of 147).",
+  "groundTruth": {
+    "offset": 0,
+    "teams": 10,
+    "draftType": "snake",
+    "round1TeamOrderByPick": [5, 1, 6, 8, 7, 3, 9, 4, 2, 10],
+    "currentPickNumber": 11,
+    "currentPickTeam": 10,
+    "expectedResolution": [
+      { "arrival": 1, "absolute": 1, "playerId": "4429795", "resolvedName": "Jahmyr Gibbs", "position": "RB", "team": "DET" },
+      { "arrival": 2, "absolute": 2, "playerId": "4362628", "resolvedName": "Ja'Marr Chase", "position": "WR", "team": "CIN" },
+      { "arrival": 3, "absolute": 3, "playerId": "4426515", "resolvedName": "Puka Nacua", "position": "WR", "team": "LAR" },
+      { "arrival": 4, "absolute": 4, "playerId": "3117251", "resolvedName": "Christian McCaffrey", "position": "RB", "team": "SF" },
+      { "arrival": 5, "absolute": 5, "playerId": "4242335", "resolvedName": "Jonathan Taylor", "position": "RB", "team": "IND" },
+      { "arrival": 6, "absolute": 6, "playerId": "4374302", "resolvedName": "Amon-Ra St. Brown", "position": "WR", "team": "DET" },
+      { "arrival": 7, "absolute": 7, "playerId": "4430807", "resolvedName": "Bijan Robinson", "position": "RB", "team": "ATL" },
+      { "arrival": 8, "absolute": 8, "playerId": "4430878", "resolvedName": "Jaxon Smith-Njigba", "position": "WR", "team": "SEA" },
+      { "arrival": 9, "absolute": 9, "playerId": "4429160", "resolvedName": "De'Von Achane", "position": "RB", "team": "MIA" },
+      { "arrival": 10, "absolute": 10, "playerId": "4241389", "resolvedName": "CeeDee Lamb", "position": "WR", "team": "DAL" }
+    ]
+  },
+  "live": {
+    "schemaVersion": 2,
+    "epoch": 0,
+    "resetReason": "new",
+    "streamPicks": [
+      { "overall": 1, "slot": 5, "playerId": "4429795", "posToken": 2, "guid": null, "source": "frame" },
+      { "overall": 2, "slot": 1, "playerId": "4362628", "posToken": 4, "guid": null, "source": "frame" },
+      { "overall": 3, "slot": 6, "playerId": "4426515", "posToken": 4, "guid": null, "source": "frame" },
+      { "overall": 4, "slot": 8, "playerId": "3117251", "posToken": 2, "guid": null, "source": "frame" },
+      { "overall": 5, "slot": 7, "playerId": "4242335", "posToken": 2, "guid": null, "source": "frame" },
+      { "overall": 6, "slot": 3, "playerId": "4374302", "posToken": 4, "guid": null, "source": "frame" },
+      { "overall": 7, "slot": 9, "playerId": "4430807", "posToken": 2, "guid": null, "source": "frame" },
+      { "overall": 8, "slot": 4, "playerId": "4430878", "posToken": 4, "guid": null, "source": "frame" },
+      { "overall": 9, "slot": 2, "playerId": "4429160", "posToken": 2, "guid": null, "source": "frame" },
+      { "overall": 10, "slot": 10, "playerId": "4241389", "posToken": 4, "guid": null, "source": "frame" }
+    ],
+    "mySlot": 1,
+    "leagueId": "1488579454",
+    "lastHeartbeatAt": 1755286680000,
+    "domPicks": [],
+    "domMaxSeen": 0,
+    "domMaxAtStreamStart": 0,
+    "domSampledBeforeStream": true,
+    "currentPickNumber": 11,
+    "currentPickTeam": 10
+  }
+}
