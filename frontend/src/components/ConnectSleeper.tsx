@@ -8,9 +8,10 @@ export interface ConnectSleeperProps {
 
 const CURRENT_SEASON = '2026';
 
-/** Connection and draft-selection flow, embedded in the Sleeper landing card. Sleeper lists mock
- * drafts separately from leagues. The manual/ESPN path lives on the ESPN card now — this component
- * no longer offers a skip-connecting escape hatch. */
+/** Connection and draft-selection flow, hosted by `/onboarding/league` since Phase 3 (it used to
+ * live in the Sleeper landing card). Sleeper lists mock drafts separately from leagues. The
+ * manual/ESPN path lives on the ESPN card now — this component no longer offers a skip-connecting
+ * escape hatch. */
 export function ConnectSleeper({ onConnect }: ConnectSleeperProps) {
   const [usernameInput, setUsernameInput] = useState('');
   const [resolving, setResolving] = useState(false);

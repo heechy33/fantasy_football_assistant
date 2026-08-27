@@ -10,7 +10,7 @@ import { usePlayerBoardData } from '../hooks/usePlayerBoardData';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { Drawer } from './Drawer';
 import { DraftLog } from './DraftLog';
-import type { LandingActiveProvider } from './LandingPage';
+import type { ActiveProvider } from '../session/activeProvider';
 import { MyTeamRail } from './MyTeamRail';
 import { RecommendationBoard, type RecommendationBoardKind } from './RecommendationBoard';
 import type { SessionAction } from './SessionMenu';
@@ -28,7 +28,7 @@ export interface DraftWorkspaceProps {
   adpFormat: AdpFormat;
   /** Which provider owns the session — selects the ADP board (`'espn-ppr'` only for ESPN PPR
    * sessions; Sleeper connected and Sleeper-manual sessions stay on the plain format board). */
-  activeProvider: LandingActiveProvider;
+  activeProvider: ActiveProvider;
   /** Clock memos computed once in `App` â€” never recomputed here (see App's lift comments). The
    * signature is what stops the board rebuild on a no-op poll tick; `onTheClock`/`boundaries` are
    * what the board, pagination-reset, DraftLog you-up chip, and PlayerDetailDrawer all read. */

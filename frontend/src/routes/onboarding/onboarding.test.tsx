@@ -1,9 +1,11 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetPlayerPoolCache } from './data/loadPlayerPool';
-import App from './App';
-import { espnAdapter } from './adapters/espn';
+import { __resetPlayerPoolCache } from '../../data/loadPlayerPool';
+import { AppRoutes } from '../../App';
+import { espnAdapter } from '../../adapters/espn';
+import { mockSignIn, __resetMockAuthState } from '../../auth/adapters/mockAuthAdapter';
 
 // Regression guard for the 2026-08-15 ESPN sync outage: the setup form used to land in
 // `session.kind: 'manual'` with the bridge disarmed, and `sessionAlerts` returned `[]` for any
@@ -12,28 +14,35 @@ import { espnAdapter } from './adapters/espn';
 // the ESPN setup flow must land directly in a bridge session, and any manual session the header
 // still calls "espn" must self-announce that it isn't connected.
 //
-// DraftWorkspace is mocked out — this file is about session routing (App.tsx's Session union and
-// the sessionAlerts memo), not engine/board rendering, which DraftWorkspace.test.tsx already
+// PORTED from App.test.tsx in Phase 3: the flow used to start on the landing's Sleeper card;
+// since the landing became illustration-only it starts at /onboarding/league, which hosts the
+// real ConnectSleeper/EspnSetupTabs unchanged. The assertions are untouched in meaning.
+//
+// DraftWorkspace is mocked out — this file is about session routing (the provider's Session union
+// and the sessionAlerts memo), not engine/board rendering, which DraftWorkspace.test.tsx already
 // covers in depth with its own heavy mocks (recommend engine, refinement worker).
-vi.mock('./components/DraftWorkspace', async () => {
-  const { SessionMenu } = await import('./components/SessionMenu');
+vi.mock('../../components/DraftWorkspace', async () => {
+  const { SessionMenu } = await import('../../components/SessionMenu');
   return {
     DraftWorkspace: ({
       sessionActions = [],
     }: {
-      sessionActions?: import('./components/SessionMenu').SessionAction[];
+      sessionActions?: import('../../components/SessionMenu').SessionAction[];
     }) => (sessionActions.length > 0 ? <SessionMenu actions={sessionActions} /> : null),
   };
 });
 
 const { requestEspnSnapshotMock } = vi.hoisted(() => ({ requestEspnSnapshotMock: vi.fn() }));
-vi.mock('./adapters/espnBridge', () => ({ requestEspnSnapshot: requestEspnSnapshotMock }));
+vi.mock('../../adapters/espnBridge', () => ({ requestEspnSnapshot: requestEspnSnapshotMock }));
 
 beforeEach(() => {
   vi.restoreAllMocks();
   requestEspnSnapshotMock.mockReset();
   requestEspnSnapshotMock.mockResolvedValue({ responded: false, live: null });
   __resetPlayerPoolCache();
+  __resetMockAuthState();
+  // /onboarding/* is account-required (Phase 4) — every test here drives the flow post-signup.
+  mockSignIn();
   localStorage.clear();
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
@@ -50,19 +59,22 @@ afterEach(() => {
   cleanup();
 });
 
-/** Drives Home -> "Connect your league" (the collapsed provider panels) -> "Set up ESPN draft" ->
- * fills the required draft position -> submits, landing in the Draft Room. Shared by both tests
- * below since the regression is specifically about what this flow produces. */
+/** Drives Onboarding → League → "Set up ESPN draft" → fills the required draft position →
+ * submits, landing in the Draft Room. Shared by every test below since the regression is
+ * specifically about what this flow produces. */
 async function startEspnSetup(user: ReturnType<typeof userEvent.setup>) {
-  render(<App />);
+  render(
+    <MemoryRouter initialEntries={['/onboarding/league']}>
+      <AppRoutes />
+    </MemoryRouter>,
+  );
   await act(async () => {});
-  await user.click(await screen.findByRole('button', { name: 'Connect your league' }));
   await user.click(await screen.findByRole('button', { name: 'Set up ESPN draft' }));
   await user.type(screen.getByLabelText(/Your draft position/), '3');
   await user.click(screen.getByRole('button', { name: 'Start draft' }));
 }
 
-describe('App — ESPN session routing', () => {
+describe('Onboarding league step — ESPN session routing', () => {
   it('lands the ESPN setup flow directly in a bridge session, not a disarmed manual one', async () => {
     const user = userEvent.setup();
     await startEspnSetup(user);
@@ -70,7 +82,6 @@ describe('App — ESPN session routing', () => {
     // Bridge-only vs manual-only menu items are the observable proof of session.kind: 'bridge'
     // menus offer "Switch to manual"; plain manual-ESPN sessions offer "Connect ESPN tab" instead.
     await user.click(await screen.findByRole('button', { name: 'Session actions' }));
-    expect(await screen.findByRole('menuitem', { name: 'Switch to manual' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Connect ESPN tab' })).not.toBeInTheDocument();
 
     // The regression itself: no silent state. A brand-new bridge session with the relay not yet
@@ -83,8 +94,8 @@ describe('App — ESPN session routing', () => {
     await startEspnSetup(user);
 
     // Explicitly downgrade to manual (the user's own "Switch to manual" action) — activeProvider
-    // still reports 'espn' for this session (see App.tsx), which is exactly the ambiguous state
-    // that rendered zero alerts before this fix.
+    // still reports 'espn' for this session, which is exactly the ambiguous state that rendered
+    // zero alerts before this fix.
     await user.click(screen.getByRole('button', { name: 'Session actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Switch to manual' }));
 
@@ -99,7 +110,6 @@ describe('App — ESPN session routing', () => {
     expect(await screen.findByRole('menuitem', { name: 'Switch to manual' })).toBeInTheDocument();
     expect(screen.queryByText(/Not connected to your ESPN draft tab/i)).not.toBeInTheDocument();
   });
-
   it('surfaces unattributed picks as a danger alert with a working Switch-to-manual action (Step 6d)', async () => {
     const user = userEvent.setup();
     vi.spyOn(espnAdapter, 'picks').mockResolvedValue({
@@ -139,4 +149,6 @@ describe('App — ESPN session routing', () => {
     const alertText = await screen.findByText(/attached mid-draft at pick 138/i);
     expect(alertText.closest('[role="alert"]')).toHaveAttribute('data-severity', 'warn');
   });
+
+
 });

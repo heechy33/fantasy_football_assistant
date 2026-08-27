@@ -294,6 +294,37 @@ export interface OnTheClock {
   overall: number;
 }
 
+/**
+ * An override always wins over a live-polled pick at the same `overall`. It's the single
+ * mechanism behind both "universal manual mode" (every pick is a `manual-entry` override, no live
+ * picks underneath) and "undo/correction" (a `manual-correction` override sits on top of a
+ * live-polled pick) — same merge function, unified data model.
+ *
+ * Moved here from `frontend/src/state/draftBoardState.ts` (which re-exports it unchanged) once
+ * Phase 5 needed the identical shape on both sides of the wire — `SavedDraft` below carries an
+ * array of these to Cosmos, so `api/`'s handlers need the type too.
+ *
+ * `round`/`slot`/`teamId` are optional because a correction can omit them and inherit from the
+ * live pick underneath; a manual-entry override (no live pick to inherit from) should supply all
+ * of them.
+ */
+export interface PickOverride {
+  overall: number;
+  round?: number;
+  slot?: number;
+  teamId?: string;
+  playerId: PlayerId | null;
+  /**
+   * Provider's own player id, retained verbatim so a manual-entry override can round-trip the
+   * provider id a live pick carried (the atomic manual-takeover freeze depends on this). Falls
+   * back to the canonical id at read time.
+   */
+  providerPlayerId?: string;
+  providerPlayerName?: string;
+  source: 'manual-correction' | 'manual-entry';
+  correctedAt: number;
+}
+
 // ---------------------------------------------------------------------------
 // Season
 // ---------------------------------------------------------------------------
@@ -456,8 +487,8 @@ export interface PlayerUsage {
   durabilityScore: DurabilityScore | null;
   opportunity: OpportunityProfile | null;
   /**
-   * Last-season PPR production over the same appearance weeks as `opportunity`. Display-only â€”
-   * never a Draft Score, planValue, or sort input. Absent on older artifacts and on players with
+   * Last-season PPR production over the same appearance weeks as `opportunity`. Display-only —
+   * never a planValue, recommendation-board, or sort input. Absent on older artifacts and on players with
    * no usage-season snap evidence; the UI must fail open, not fabricate zeros.
    */
   production?: PlayerProduction | null;
@@ -561,7 +592,7 @@ export interface PlayerWeeklyStatsArtifact {
  * Display-only multi-provider season projections (committed, deployed). Stat
  * maps use Sleeper's vocabulary, keyed by playerId with no row-level source
  * field â€” structurally NOT `SeasonProjection[]`, so it cannot be handed to
- * buildRecommendationBoard / draftScore.ts by accident. Points are computed at
+ * buildRecommendationBoard by accident. Points are computed at
  * display time via scoreStats against the user's actual league scoring.
  */
 export interface ProviderProjectionsArtifact {
@@ -773,7 +804,8 @@ export type Cred = SleeperCred | EspnCred | YahooCred;
 /** Shape stored per user in Cosmos. Secrets are AES-GCM sealed before write. */
 export interface UserRecord {
   id: string;
-  /** From SWA's `/.auth/me` â€” `clientPrincipal.userId`. */
+  /** The auth provider's stable subject id (Clerk's `sub` claim, since the 2026-08-25/26 priority
+   * change replaced SWA's built-in `/.auth/*` auth with Clerk — see DECISIONS.md). */
   userId: string;
   userDetails: string;
   identityProvider: string;
@@ -782,6 +814,58 @@ export interface UserRecord {
   /** Base64 AES-GCM envelope, never plaintext. */
   espnSealed?: string;
   yahooSealed?: string;
+}
+
+/**
+ * A league the user has connected, kept indefinitely as a *pointer* — `providerLeagueId` lets the
+ * app reconnect and re-fetch live via `ProviderAdapter.rosters()`/`settings()` at any time. This is
+ * deliberately NOT an archive of draft results: Sleeper already remembers who's on a real league's
+ * roster forever, so nothing here duplicates that. `providerLeagueId` is `null` only for a manual/
+ * ESPN "league" with no upstream id to point at.
+ */
+export interface SavedLeague {
+  id: string;
+  userId: string;
+  provider: 'sleeper' | 'espn' | 'manual';
+  providerLeagueId: string | null;
+  name: string;
+  season: string;
+  teams: number;
+  rounds: number;
+  mySlot: number | null;
+  settings: LeagueSettings;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A draft's live-tracking transcript, synced only while it's useful:
+ *
+ * - Real Sleeper league draft: synced while `status: 'active'` purely so a second device can
+ *   resume mid-draft, then DELETED once the draft completes — the `SavedLeague` pointer above is
+ *   what survives, and any future feature reads the finished roster live from Sleeper rather than
+ *   from a stored copy that could drift.
+ * - Sleeper mock draft (`leagueId` starting `mock:`, see `adapters/sleeper.ts`): never written
+ *   here at all, active or complete — no roster persists on Sleeper's side after a mock ends, so
+ *   there's nothing worth reconnecting to.
+ * - Manual/ESPN-bridge session: the one case with no upstream API, so `frozenInit`/`overrides`
+ *   here are the only record that exists anywhere — kept durably, not auto-deleted.
+ *
+ * See DECISIONS.md's 2026-08-26 entry for the full reasoning.
+ */
+export interface SavedDraft {
+  id: string;
+  userId: string;
+  /** FK to `SavedLeague.id`. */
+  leagueId: string;
+  provider: 'sleeper' | 'espn' | 'manual';
+  providerDraftId: string | null;
+  mode: 'live' | 'manual' | 'espn';
+  frozenInit: DraftInit | null;
+  overrides: PickOverride[];
+  status: 'active' | 'complete';
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------

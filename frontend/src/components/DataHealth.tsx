@@ -3,7 +3,7 @@ import type { DataManifest, Pick } from '../../../shared/types';
 import { resolveDataMode, type DataMode } from '../data/dataHealth';
 import type { AdpFormat } from '../data/loadPlayerPool';
 import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
-import type { LandingActiveProvider } from './LandingPage';
+import type { ActiveProvider } from '../session/activeProvider';
 
 export interface DataHealthProps {
   manifest: DataManifest | null;
@@ -18,7 +18,7 @@ export interface DataHealthProps {
   /** Which provider owns the session — on an ESPN PPR session whose ESPN board actually shipped
    * (manifest `adp_active_espn_ppr` healthy), health resolves against that key instead of
    * `adp_active_ppr`; a fail-open ESPN→Sleeper fallback keeps the plain key. */
-  activeProvider: LandingActiveProvider;
+  activeProvider: ActiveProvider;
   /** Draft-day honesty: unmodeled custom-scoring categories, rendered as banner items. */
   scoringDiagnostics?: string[];
 }
