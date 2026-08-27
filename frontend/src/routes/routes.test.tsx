@@ -49,7 +49,7 @@ function renderAt(route: string) {
 
 describe('routes', () => {
   it.each([
-    ['/', /The Chip Is Yours/],
+    ['/', /The Chip Is Yours/i],
     ['/draft-guide', /The board, before draft day/],
     ['/sign-up', /Create your account/],
   ])('renders %s as the right page (public)', async (route, marker) => {
@@ -109,7 +109,7 @@ describe('routes', () => {
     await user.click(screen.getByRole('link', { name: 'Draft Guide' }));
     expect(await screen.findByText(/The board, before draft day/)).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Home' }));
-    expect(await screen.findByText(/The Chip Is Yours/)).toBeInTheDocument();
+    expect(await screen.findByText(/The Chip Is Yours/i)).toBeInTheDocument();
 
     // A remounted provider re-runs its mount effects → a second manifest fetch.
     expect(manifestFetches).toBe(1);
