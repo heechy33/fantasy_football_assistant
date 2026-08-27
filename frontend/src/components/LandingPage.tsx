@@ -4,10 +4,9 @@ import { Link } from 'react-router-dom';
 import { useRevealOnScroll } from '../hooks/useRevealOnScroll';
 import type { ActiveProvider } from '../session/activeProvider';
 import { APP_NAME } from './TopNav';
+import { IntegrationsMap } from './IntegrationsMap';
 import { LANDING_DEMO_CARDS } from './landingDemoPlayers';
 import { PlayerCard } from './PlayerCard';
-import { ProviderBadge } from './ProviderBadge';
-import { SleeperIllustration, EspnIllustration } from './ProviderIllustration';
 
 // Lazy: keeps the cinematic canvas (and everything it pulls) out of whatever entry chunk a
 // /draft-guide visitor downloads. three.js itself was ALREADY dynamically imported inside the
@@ -18,15 +17,12 @@ const LandingHeroCanvas = lazy(() => import('./LandingHeroCanvas').then((m) => (
  * vocabulary, not landing vocabulary). New code imports ActiveProvider directly. */
 export type LandingActiveProvider = ActiveProvider;
 
-/** Spokes of the integrations map — every platform the product reads from or aligns with. The
- * two live providers come first; the rest render brand-colored monogram chips. */
-const INTEGRATION_KEYS = ['espn', 'sleeper', 'cbs', 'rtsports', 'fantrax', 'fftoday'] as const;
-
 export interface LandingPageProps {
   /** Which provider owns the current session, if any — derived by `AppLayout` from the draft
    * session (a Sleeper takeover still counts as 'sleeper'; a pure-manual ESPN session counts as
-   * 'espn'). The connect forms themselves left the landing in Phase 3 — they render as inert
-   * illustrations here; the real flow lives at `/onboarding/league`. */
+   * 'espn'). The connect forms themselves left the landing in Phase 3 — the real flow lives at
+   * `/onboarding/league`. `leagueName` remains part of the contract (callers pass it) but the
+   * compact landing no longer renders it. */
   active: LandingActiveProvider;
   leagueName: string | null;
 }
@@ -36,17 +32,19 @@ export interface LandingPageProps {
  * instead of described, and the 3D trophy room kept as one persistent cinematic layer behind
  * everything. Structure:
  *
- *   Scene    one fixed full-viewport Three.js layer (LandingHeroCanvas) behind every section.
- *   Hero     pill badge + headline + one-line pitch + public CTAs over the trophy.
+ *   Scene    one fixed full-viewport Three.js layer (LandingHeroCanvas) behind every section,
+ *            with a CSS starfield carrying the first paint until the trophy GLB lands.
+ *   Hero     kicker + "The Chip Is Yours" + italic sub-line + public CTAs over the trophy.
  *   01       three short feature beats (live picks / ranked board / next-pick odds).
  *   02       a staged Draft-Room feed beside the REAL PlayerCard faces with static demo data.
- *   03       an integrations hub-and-spokes map; the Sleeper / ESPN connect cards render as
- *            inert illustrations — the real flow lives at `/onboarding/league` (an active session
- *            renders a Resume card first).
+ *   03       a data-sources map (IntegrationsMap): an animated hub-and-wires illustration showing
+ *            every platform the engine reads ADP/rankings/projections from — not a league-connect
+ *            claim. The connect rows themselves are gone — the real flow lives at
+ *            `/onboarding/league` and `/leagues/connect`.
  *
  * Scroll reveals are native IntersectionObserver via useRevealOnScroll — no animation library.
  */
-export function LandingPage({ active, leagueName }: LandingPageProps) {
+export function LandingPage({ active }: LandingPageProps) {
   const pageRef = useRevealOnScroll<HTMLDivElement>();
 
   return (
@@ -57,25 +55,18 @@ export function LandingPage({ active, leagueName }: LandingPageProps) {
         <Suspense fallback={null}>
           <LandingHeroCanvas />
         </Suspense>
-        <div className="landing-scene-glow" />
+        <div className="landing-stars" />
         <div className="landing-vignette" />
       </div>
 
       <section className={`landing-hero${active !== 'none' ? ' has-active' : ''}`}>
         <p className="landing-hero-pill">
           <span className="landing-feed-dot" aria-hidden="true" />
-          Live draft assistant · Sleeper + ESPN
+          Fantasy Bob · Live draft assistant
         </p>
-        <h2 className="landing-hero-title">Draft day, handled.</h2>
-        <p className="landing-hero-copy">
-          {APP_NAME} watches every pick, ranks the board, and tells you who to take before your
-          clock runs out.
-        </p>
-        {active !== 'none' ? (
-          <Link to="/draft" className="primary-button landing-hero-cta">
-            Return to your draft
-          </Link>
-        ) : (
+        <h2 className="landing-hero-title">THE CHIP IS YOURS</h2>
+        <p className="landing-hero-sub">with FANTASY BOB</p>
+        {active === 'none' && (
           <div className="landing-hero-ctas">
             <Link to="/draft-guide" className="primary-button landing-hero-cta">
               Browse the Draft Guide — no account needed
@@ -96,7 +87,7 @@ export function LandingPage({ active, leagueName }: LandingPageProps) {
           <article className="landing-beat" data-reveal>
             <span className="landing-beat-index" aria-hidden="true">01</span>
             <h4>Live picks</h4>
-            <p>Every pick lands on your board the second it happens — Sleeper directly, ESPN through the extension.</p>
+            <p>Every pick lands on your board the second it happens: Sleeper directly, ESPN through the extension.</p>
           </article>
           <article className="landing-beat" data-reveal>
             <span className="landing-beat-index" aria-hidden="true">02</span>
@@ -159,85 +150,26 @@ export function LandingPage({ active, leagueName }: LandingPageProps) {
             ))}
           </div>
         </div>
-        <p className="landing-board-note" data-reveal>
-          Projections, ADP, usage, survival odds, and ratings — one card per player, one glance per pick.
-        </p>
       </section>
 
       <section
         className="landing-section landing-integrations"
         id="connect"
-        aria-label="Integrations and connecting your league"
+        aria-label="Where the data comes from"
       >
         <header data-reveal>
-          <p className="landing-kicker">03 · Integrations</p>
-          <h3>One hub for all your leagues.</h3>
+          <p className="landing-kicker">03 · Data sources</p>
+          <h3>Every source. One board.</h3>
           <p className="landing-section-lede">
-            {APP_NAME} plugs into the platforms your league already lives on — synced draft state in,
-            ranked picks out.
+            {APP_NAME} pulls ADP, rankings, and projections from the platforms your league already
+            lives on, and reconciles them into one ranked board.
           </p>
         </header>
 
-        {/* Hub-and-spokes: the product at center, every supported platform hanging off it. Pure
-            CSS wiring (stem → rail → per-spoke stubs) so it stays crisp and responsive. */}
-        <div className="integrations-map" data-reveal>
-          <div className="integrations-hub">
-            <span className="integrations-hub-mark" aria-hidden="true">FB</span>
-            <span className="integrations-hub-label">{APP_NAME}</span>
-          </div>
-          <div className="integrations-stem" aria-hidden="true" />
-          <div className="integrations-rail" aria-hidden="true" />
-          <ul className="integrations-spokes">
-            {INTEGRATION_KEYS.map((key) => (
-              <li key={key}>
-                <ProviderBadge brandKey={key} />
-              </li>
-            ))}
-          </ul>
-        </div>
+        <IntegrationsMap />
 
-        {active !== 'none' && (
-          <section className="provider-panel provider-panel-active" data-reveal>
-            <div className="provider-card-heading">
-              <ProviderBadge brandKey={active} />
-              <h3>{active === 'espn' ? 'ESPN' : 'Sleeper'}</h3>
-            </div>
-            <ResumeCard leagueName={leagueName} />
-          </section>
-        )}
-
-        {/* The connect cards are inert illustrations now (Phase 3): the real flow lives at
-            /onboarding/league, so the landing shows what connecting LOOKS like without wiring. */}
-        {active !== 'sleeper' && (
-          <section className="provider-panel" data-reveal>
-            <div className="provider-panel-lede">
-              <ProviderBadge brandKey="sleeper" />
-              <div>
-                <h3>Sleeper</h3>
-                <p className="provider-card-copy">
-                  Connect your Sleeper account, pick a league or mock draft, and start tracking it live.
-                </p>
-              </div>
-            </div>
-            <div className="provider-panel-body">
-              <SleeperIllustration />
-            </div>
-          </section>
-        )}
-
-        {active !== 'espn' && (
-          <section className="provider-panel" data-reveal>
-            <div className="provider-panel-lede">
-              <ProviderBadge brandKey="espn" />
-              <div>
-                <h3>ESPN</h3>
-              </div>
-            </div>
-            <div className="provider-panel-body">
-              <EspnIllustration />
-            </div>
-          </section>
-        )}
+        {/* The connect rows are gone — this map plus the hero CTAs carry the whole story; the
+            real connect flow lives at /leagues/connect and /onboarding/league. */}
       </section>
 
       <footer className="landing-footer" data-reveal>
@@ -248,21 +180,8 @@ export function LandingPage({ active, leagueName }: LandingPageProps) {
 }
 
 const DEMO_FEED: { pick: string; name: string; meta: string; note: string; live?: boolean }[] = [
-  { pick: '1.09', name: 'Bijan Robinson', meta: 'RB · ATL', note: 'off the board' },
-  { pick: '1.10', name: 'Kyren Williams', meta: 'RB · LAR', note: 'off the board' },
-  { pick: '2.01', name: 'Josh Jacobs', meta: 'RB · GB', note: 'off the board' },
-  { pick: '2.02', name: 'Jonathan Taylor', meta: 'RB · IND', note: 'on the clock', live: true },
+  { pick: '2.04', name: 'Bijan Robinson', meta: 'RB · ATL', note: 'off the board' },
+  { pick: '2.05', name: 'Kyren Williams', meta: 'RB · LAR', note: 'off the board' },
+  { pick: '2.06', name: 'Josh Jacobs', meta: 'RB · GB', note: 'off the board' },
+  { pick: '2.07', name: 'Jonathan Taylor', meta: 'RB · IND', note: 'on the clock', live: true },
 ];
-
-/** A real link (not a button) so an in-progress draft is openable in a new tab — this is the
- * "you have a draft in progress" signal now that rehydration no longer auto-navigates. */
-function ResumeCard({ leagueName }: { leagueName: string | null }) {
-  return (
-    <>
-      <p className="provider-card-copy">
-        {leagueName ? <>Your <strong>{leagueName}</strong> draft is loaded.</> : 'Your draft is loaded.'}
-      </p>
-      <Link to="/draft" className="primary-button">Resume draft</Link>
-    </>
-  );
-}

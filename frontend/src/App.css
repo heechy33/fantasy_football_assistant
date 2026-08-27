@@ -270,14 +270,33 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 .landing-page > footer { position: relative; z-index: 1; }
 .landing-scene { position: fixed; z-index: 0; inset: 0; pointer-events: none; }
 .landing-hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* No glow shape here at all — any radial gradient in this spot, however faint, reads as a second
-   circular light floating behind the trophy (see DECISIONS.md, 2026-08-26). The trophy's own
-   material/bloom carries all the light in this scene now; this element is kept only as the
-   no-WebGL fallback's mount point (a flat dark scene + vignette + grain degrades fine on its
-   own — see the class list on `.landing-scene` in LandingPage.tsx). */
-.landing-scene-glow {
+/* Starfield — a static scatter of small dots that gives the first paint (and the no-WebGL
+   degradation) its own atmosphere while the trophy GLB streams in. Pure CSS multi radial-
+   gradients on one layer, kept faint so the WebGL scene always reads through. The twinkle is
+   a slow opacity breathe; reduced motion pins it (see the media query below). */
+.landing-stars {
   position: absolute;
   inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgb(255 255 255 / .55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 27% 62%, rgb(255 255 255 / .35) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 41% 31%, rgb(255 244 214 / .5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 78%, rgb(255 255 255 / .3) 50%, transparent 51%),
+    radial-gradient(2px 2px at 64% 12%, rgb(255 236 190 / .45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 47%, rgb(255 255 255 / .4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 83% 66%, rgb(255 255 255 / .3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 91% 25%, rgb(255 244 214 / .45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 84%, rgb(255 255 255 / .3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 48% 8%, rgb(255 255 255 / .4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 33% 90%, rgb(255 255 255 / .25) 50%, transparent 51%),
+    radial-gradient(1px 1px at 95% 88%, rgb(255 236 190 / .35) 50%, transparent 51%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .landing-stars { animation: landing-star-breathe 7s ease-in-out infinite alternate; }
+}
+@keyframes landing-star-breathe {
+  from { opacity: .75; }
+  to { opacity: 1; }
 }
 /* Vignette keeps overlaid copy readable against moving chrome reflections. Eased down from the
    original .6 now that the room itself (fog, no stadium-bowl wall) already falls off to true
@@ -333,7 +352,20 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   color: var(--text-1);
   animation: landing-rise 1s .28s cubic-bezier(.2,.7,.2,1) backwards;
 }
-.landing-hero-copy { max-width: 36rem; margin: 0; color: var(--text-2); font-size: 1.05rem; line-height: 1.55; animation: landing-rise 1s .5s cubic-bezier(.2,.7,.2,1) backwards; }
+/* Hero sub-line ("with FANTASY BOB") — same display face as the title, in neon blue to tie it
+   to the accent CTA below. Subtle glow keeps it legible over the trophy scene. */
+.landing-hero-sub {
+  margin: 0;
+  color: var(--accent-cool-bright);
+  font-family: var(--font-display);
+  font-stretch: 125%; /* matches .landing-hero-title's Archivo Expanded */
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px var(--accent-cool-glow);
+  animation: landing-rise 1s .5s cubic-bezier(.2,.7,.2,1) backwards;
+}
 .draft-room-empty p,
 .teams-page .teams-empty-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
 /* Landing-only accent CTA — solid neon-blue, distinct from the shared .primary-button (kept dark/
@@ -381,8 +413,10 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 [data-reveal].revealed { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1; transform: none; transition: none; }
-  .landing-hero-pill, .landing-hero-title, .landing-hero-copy, .landing-hero-cta { animation: none; }
-  .landing-feed-row, .landing-feed-dot { animation: none; }
+  .landing-hero-pill, .landing-hero-title, .landing-hero-sub, .landing-hero-cta { animation: none; }
+  .landing-feed-row, .landing-feed-dot, .landing-stars { animation: none; }
+  .integrations-pulse-head path, .integrations-pulse-tail path { animation: none; opacity: 0; }
+  .integrations-hub-glow { animation: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
@@ -505,80 +539,140 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 .landing-demo-card .player-card::before { display: none; }
 .landing-demo-card .player-card::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .landing-demo-card { transition: none; } }
-.landing-board-note { max-width: 34rem; margin: 1.6rem 0 0; color: var(--text-3); font-size: .88rem; }
-/* Chapter III — the integrations map: hub at center, a wiring stem down to a horizontal rail,
-   then one stub per platform spoke. Pure CSS so it stays crisp and reflows cleanly. The provider
-   panels below float as frosted glass over the scene so forms stay legible while the trophy
-   keeps moving behind them. */
+/* Chapter III — the data-sources map: a hub plate wired to one tile per platform, with an
+   animated comet traveling each wire (see IntegrationsMap.tsx). Geometry is an SVG so the wires
+   stay crisp and reflow with the tile grid; the comet itself is CSS dash animation (no rAF, no
+   animation library — matches the repo's zero-animation-library baseline, and .revealed-gated so
+   it doesn't run above the fold). The provider panels below float as frosted glass over the scene
+   so forms stay legible while the trophy keeps moving behind them. */
 .landing-integrations { display: grid; gap: 1.6rem; max-width: 56rem; }
-.integrations-map { display: grid; justify-items: center; }
+.integrations-map { display: grid; justify-items: center; gap: 0; }
 .integrations-hub {
-  display: grid;
-  justify-items: center;
-  gap: .45rem;
-}
-.integrations-hub-mark {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 3.4rem;
-  height: 3.4rem;
-  border: 1px solid var(--border-divider);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  margin-bottom: -.5rem;
+}
+.integrations-hub-glow {
+  position: absolute;
+  inset: -1.2rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-cool-glow), transparent 70%);
+  opacity: .4;
+  animation: integrations-hub-breathe 4s ease-in-out infinite alternate;
+}
+.integrations-hub-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 1px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--hairline-strong), var(--border-divider) 50%, var(--hairline-strong));
+}
+.integrations-hub-mark-inner {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius-md) - 1px);
+  background: var(--surface-portrait);
+  box-shadow: inset 0 0 24px rgb(255 255 255 / .09), 0 2px 3px rgb(0 0 0 / .3);
   color: var(--accent-cool);
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: .02em;
 }
-.integrations-hub-label {
-  color: var(--text-2);
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+@keyframes integrations-hub-breathe { from { opacity: .4; } to { opacity: .75; } }
+.integrations-wires { display: block; width: 100%; height: 5.5rem; overflow: visible; }
+.integrations-trace path { stroke: var(--border-divider); stroke-width: 1; fill: none; stroke-linejoin: round; }
+.integrations-pulse-tail path,
+.integrations-pulse-head path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation-duration: 6.4s;
+  animation-delay: var(--branch-delay);
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(.25, .6, .35, 1);
 }
-/* Wiring: one stem from the hub, one rail across the spoke centers, one stub per spoke — drawn
-   with plain borders/backgrounds and a faint silver sheen, like the reference diagram. */
-.integrations-stem {
-  width: 1px;
-  height: 1.9rem;
-  background: linear-gradient(180deg, var(--border-3), var(--border-2));
+/* Tail: long, dim — the fading wake. Gap (276) is deliberately far bigger than the 24-unit dash
+   needs — see the keyframe comment below for why. */
+.integrations-pulse-tail path {
+  stroke: var(--accent-cool);
+  stroke-width: 1;
+  opacity: .3;
+  stroke-dasharray: 24 276;
+  animation-name: integrations-pulse-tail;
 }
-.integrations-rail {
-  align-self: stretch;
-  height: 1px;
-  width: calc(100% - 100% / 6); /* first-to-last spoke-center span for a 6-column row */
-  margin: 0 auto;
-  background: linear-gradient(90deg, transparent, var(--border-2) 12%, var(--border-2) 88%, transparent);
+/* Head: short, bright, glowing — rides the tail's leading edge. Same oversized-gap trick as the
+   tail (295, not 95). */
+.integrations-pulse-head path {
+  stroke: var(--accent-cool-bright);
+  stroke-width: 1.25;
+  stroke-dasharray: 5 295;
+  filter: drop-shadow(0 0 3px var(--accent-cool-glow));
+  animation-name: integrations-pulse-head;
 }
-.integrations-spokes {
+/* pathLength=100 on every path, so one keyframe set covers all five branches regardless of real
+   length. Both layers sweep their leading edge across the visible path over a ~1s window (0% to
+   16% of the 6.4s duration), then jump to a genuinely off-path dashoffset and hold it for the
+   rest of the cycle.
+   That "genuinely" is load-bearing: dash+gap must add up to MORE than the 100-unit path (hence
+   276/295, not 76/95) — if they summed to exactly 100, every dashoffset value would place the
+   dash somewhere on the path (one dash per pattern period, and the period would exactly match
+   the path length), so the parked/idle state could never go fully dark; every branch would show
+   a permanently lit sliver. With gap > path length, an offset exists whose dash interval falls
+   completely outside [0, 100], which is what these park values (150/174) land on — verified live
+   with two zoomed screenshots ~2s apart while iterating on this. The park→next-cycle jump reads
+   as an instant, silent pop since a CSS keyframe loop restarts at 0% without interpolating across
+   the loop seam. */
+@keyframes integrations-pulse-head {
+  0% { stroke-dashoffset: 0; }
+  16% { stroke-dashoffset: -95; }
+  16.1% { stroke-dashoffset: 150; }
+  100% { stroke-dashoffset: 150; }
+}
+@keyframes integrations-pulse-tail {
+  0% { stroke-dashoffset: 24; }
+  16% { stroke-dashoffset: -81; }
+  16.1% { stroke-dashoffset: 174; }
+  100% { stroke-dashoffset: 174; }
+}
+/* Above the fold, the section hasn't been seen yet — useRevealOnScroll adds .revealed on
+   intersect, so gate the comets on it rather than burning cycles unseen. */
+.integrations-map:not(.revealed) .integrations-pulse-head path,
+.integrations-map:not(.revealed) .integrations-pulse-tail path { animation-play-state: paused; }
+.integrations-tiles {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
+  justify-items: center;
 }
-.integrations-spokes li {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  padding-top: 1.4rem;
+.integrations-tile {
+  padding: 1px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--hairline-strong), var(--border-divider) 50%, var(--hairline-strong));
 }
-.integrations-spokes li::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 1.4rem;
-  background: var(--border-2);
+.integrations-tile .provider-badge {
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: .55rem;
+  border-radius: calc(var(--radius-md) - 1px);
+  background: var(--surface-portrait);
+  box-shadow: inset 0 0 24px rgb(255 255 255 / .09), 0 2px 3px rgb(0 0 0 / .3);
 }
 @media (max-width: 700px) {
-  /* The rail math only holds on a single 6-up row; stacked spokes keep their stubs. */
-  .integrations-rail { display: none; }
-  .integrations-spokes { grid-template-columns: repeat(3, 1fr); row-gap: 1.2rem; }
+  /* The wire geometry is authored for the 5-up desktop grid; below that, drop the wires and keep
+     all five tiles in one row rather than reflowing into a ragged wrap. */
+  .integrations-wires { display: none; }
+  .integrations-hub { margin-bottom: 0; }
+  .integrations-tile .provider-badge { width: 2.5rem; height: 2.5rem; padding: .4rem; }
 }
 .provider-panel {
   display: grid;
@@ -2196,34 +2290,50 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 
 /* --- Draft Guide (public /draft-guide) -------------------------------------
    Broadcast Neon pass (2026-08-26, DECISIONS.md): de-boxed per the landing/guide redesign — the
-   page canvas replaces the boxed <section>/.guide-table-scroll double frame, prose moves out of
-   the above-the-fold flow into .guide-methodology-note at the bottom (still satisfies the
-   2026-08-25 marketing constraint — methodology text and the per-lane disclosure both still ship,
-   just not above the table), and every decorative border runs on --border-divider/--hairline-strong
+   page canvas replaces the boxed <section>/.guide-table-scroll double frame, all explanatory
+   prose (methodology note, disclosure, updated-age line) has since been removed entirely
+   (2026-08-26), and every decorative border runs on --border-divider/--hairline-strong
    instead of --border-1 (the WCAG-gated functional border token, left alone). */
 
 .draft-guide { max-width: 1280px; margin: 0 auto; padding: 0 16px 64px; border: 0; background: none; }
 
+/* One toolbar row above the board: format/position filter chips on the left, the Table/Draft-grid
+   toggle on the right; wraps on narrow screens. Owns the spacing the old separate blocks had. */
+.guide-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  margin: 20px 0 16px;
+}
 .guide-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 8px 24px;
   align-items: center;
-  margin: 4px 0 20px;
-  padding: 10px 14px;
-  border: 1px solid var(--border-divider);
-  border-radius: var(--radius-lg);
-  background: var(--surface-1);
+  min-width: 0;
 }
-.guide-filter { display: flex; flex-direction: column; gap: 2px; font-size: .78rem; }
+/* One-row groups: the label sits left of its chips so Scoring / QB / Position all share a single
+   baseline with the view toggle — no boxed panel, no ragged stacked-label heights. */
+.guide-filter { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: .78rem; }
 .guide-filter > span { color: var(--text-3); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; }
-.guide-filter select {
-  min-width: 96px;
+/* Segmented chip groups — one-click switching, selected value always visible (replaces the old
+   native selects, whose value text rendered near-invisible black-on-dark). */
+.guide-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.guide-chip {
+  padding: .28rem .6rem;
   border: 1px solid var(--border-divider);
-  border-radius: var(--radius-sm);
-  padding: .3rem .5rem;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
 }
+.guide-chip:hover:not(:disabled) { border-color: var(--hairline-strong); color: var(--text-1); }
+.guide-chip[aria-pressed='true'] { border-color: transparent; background: rgb(255 255 255 / .1); color: var(--text-1); font-weight: 600; }
+.guide-chip:disabled { opacity: .4; cursor: not-allowed; }
 .guide-filter-positions { flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; }
 .guide-pos-button[aria-pressed='true'] { outline: 2px solid currentColor; }
 
@@ -2231,14 +2341,15 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 
 .guide-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
 .guide-table th, .guide-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-divider); }
+/* Scroll-perf hint: offscreen rows skip layout/paint until approached. */
+.guide-table tbody tr { content-visibility: auto; contain-intrinsic-size: auto 62px; }
 .guide-table td[data-missing] { color: var(--text-3); }
+.guide-table-sentinel { padding: 14px 0; text-align: center; color: var(--text-3); font-size: .78rem; }
 .guide-sort-button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-align: left; }
 
 /* --- STACKED-style guide chrome (header / tabs / lane table) ---------------- */
 
 .guide-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
-.guide-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.guide-updated { font-size: .74rem; color: var(--text-3); margin: 0; }
 
 .guide-table-scroll { overflow-x: auto; border: 0; border-radius: 0; margin-top: 0; }
 .guide-table thead th {
@@ -2267,8 +2378,13 @@ th.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .guide-player-main { display: flex; flex-direction: column; min-width: 0; }
 .guide-player-team { display: inline-flex; align-items: center; gap: 4px; font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .guide-team-logo { width: 14px; height: 14px; object-fit: contain; flex-shrink: 0; }
-.guide-player-name { font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.guide-lane-cell { display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
+.guide-player-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 700; font-size: .95rem; }
+.guide-player-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The positional chip rides beside the name — compact variant of .guide-pos-pill. */
+.guide-pos-pill-inline { padding: 0 .38rem; font-size: .56rem; line-height: 1.6; }
+/* inline-flex + td text-align:center: the cell shrink-wraps so the ADP/delta stack actually
+   centers under the header (a block-level flex child fills the td and hugs left). */
+.guide-lane-cell { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.3; }
 .guide-lane-adp { font-variant-numeric: tabular-nums; color: var(--text-1); }
 .guide-lane-delta { font-size: .7rem; font-variant-numeric: tabular-nums; }
 .guide-lane-delta[data-sign='pos'] { color: var(--delta-up); }
@@ -2294,10 +2410,9 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .guide-pos-pill[data-position='K'] { color: var(--pos-k); }
 .guide-pos-pill[data-position='DEF'] { color: var(--pos-def); }
 
-.guide-view-toggle { display: flex; gap: 4px; margin: 24px 0 16px; align-items: center; flex-wrap: wrap; justify-content: center; padding: .2rem; border-radius: var(--radius-pill); background: rgb(255 255 255 / .03); width: fit-content; margin-left: auto; margin-right: auto; }
+.guide-view-toggle { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; padding: .2rem; border-radius: var(--radius-pill); background: rgb(255 255 255 / .03); flex: none; }
 .guide-view-button { padding: 6px 16px; border-radius: var(--radius-pill); font-size: .85rem; background: transparent; color: var(--text-3); }
 .guide-view-button[aria-pressed='true'] { color: var(--text-1); background: rgb(255 255 255 / .08); }
-.guide-view-note { font-size: .78rem; color: var(--text-3); }
 
 .guide-draft-scroll { overflow-x: auto; border: 0; border-radius: 0; }
 .guide-draft-grid { border-collapse: collapse; font-size: .72rem; min-width: 100%; }
@@ -2316,16 +2431,6 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .guide-grid-tags { display: flex; gap: 3px; align-items: center; margin-left: auto; flex: none; }
 .guide-grid-posrank { font-size: .6rem; color: var(--text-3); border: 1px solid var(--border-divider); border-radius: 4px; padding: 0 3px; }
 
-/* Methodology + per-lane data-source disclosure — moved below the board entirely (the guide's
-   marketing constraint, DECISIONS.md 2026-08-25, requires the copy stay reachable, not that it sit
-   above the fold). Collapsed by default so the board opens with zero explanatory prose. */
-.guide-methodology-note { margin: 32px 0 8px; padding-top: 20px; border-top: 1px solid var(--border-divider); color: var(--text-3); font-size: .82rem; }
-.guide-methodology-note summary { cursor: pointer; color: var(--text-2); font-weight: 700; font-size: .8rem; }
-.guide-methodology-note summary:hover { color: var(--text-1); }
-.guide-methodology { color: var(--text-3); font-size: .85rem; max-width: 72ch; margin: 12px 0 16px; }
-.guide-disclosure { display: flex; flex-direction: column; gap: 6px; font-size: .72rem; color: var(--text-3); margin: 0; padding: 0; list-style: none; }
-.guide-lane-note[data-status='unavailable'] strong { opacity: .55; }
-
 /* Monogram avatar chip (PlayerAvatar) — team-tinted via [data-team] custom properties. Used as the
    Draft Guide's fallback for rows with no player record; the draft-grid view (dense, ~118px cells)
    also keeps this instead of the full portrait used in the table view. */
@@ -2335,6 +2440,73 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 
 .landing-hero-ctas { display: flex; flex-direction: column; gap: .5rem; align-items: center; margin-top: .75rem; }
 .landing-hero-cta-secondary { color: var(--text-1); font-size: .85rem; }
+
+/* --- Auth screens (/sign-in, /sign-up) -------------------------------------- */
+/* Split-screen shell rendered by clerkAdapter's AuthScreenShell: cinematic brand column on the
+   left mirroring the landing hero's treatment, themed Clerk card on the right. Clerk's own
+   component surface is themed separately (auth/adapters/clerkAppearance.ts, raw hex because
+   tokens don't reach its scoped roots); everything below uses committed tokens only. */
+.auth-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 6rem);
+  /* Same full-bleed trick as .landing-hero: span to the true viewport edges past the centered
+     content column and cancel the page gutter above, so the canvas fills edge-to-edge under
+     the top bar. The 100vw backstop note at this file's top applies here too. */
+  margin: -1rem calc(50% - 50vw) 0;
+  padding: 3rem clamp(1.5rem, 6vw, 5rem) 4rem;
+  min-height: calc(100svh - 3.6rem);
+  background: var(--surface-0-gradient);
+}
+.auth-screen-brand { display: grid; justify-items: start; gap: .95rem; max-width: 32rem; }
+.auth-screen-pill {
+  margin: 0;
+  color: var(--text-3);
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+/* Headline repeats the landing hero's Archivo Expanded role at hero-to-section scale. */
+.auth-screen-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-size: clamp(2rem, 3.6vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -.01em;
+  line-height: .95;
+  color: var(--text-1);
+}
+/* Value bullets — neon-blue identity dots, deliberately NOT orange (--accent is urgency-only). */
+.auth-screen-points { list-style: none; margin: .35rem 0 0; padding: 0; display: grid; gap: .6rem; }
+.auth-screen-points li {
+  display: flex;
+  gap: .6rem;
+  color: var(--text-2);
+  font-size: .92rem;
+  line-height: 1.45;
+}
+.auth-screen-points li::before {
+  content: "";
+  flex: none;
+  width: .45rem;
+  height: .45rem;
+  margin-top: .38em;
+  border-radius: var(--radius-pill);
+  background: var(--accent-cool);
+  box-shadow: 0 0 8px var(--accent-cool-glow);
+}
+.auth-screen-card { display: flex; justify-content: center; min-width: 0; }
+/* Narrow collapse: form first, brand panel becomes a compact centered header. */
+@media (max-width: 900px) {
+  .auth-screen { grid-template-columns: 1fr; padding-top: 2.25rem; gap: 1.6rem; }
+  .auth-screen-brand { justify-items: center; text-align: center; gap: .7rem; order: -1; }
+  .auth-screen-points { display: none; }
+  .auth-screen-title { font-size: clamp(1.7rem, 6vw, 2.2rem); }
+}
+
 
 .onboarding { max-width: 860px; margin: 0 auto; padding: 0 16px 48px; }
 .onboarding-rail { display: flex; gap: 8px; list-style: none; padding: 0; margin: 12px 0 24px; flex-wrap: wrap; }

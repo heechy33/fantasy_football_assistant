@@ -63,30 +63,22 @@ function params(): Record<string, string> {
   return Object.fromEntries(new URLSearchParams(currentSearch));
 }
 
+// The guide's filters are segmented chip groups (role="group" + aria-pressed buttons), not
+// native selects — helpers mirror the old selectOptions ergonomics.
+function chipGroup(name: string) {
+  return screen.getByRole('group', { name });
+}
+async function clickChip(user: ReturnType<typeof userEvent.setup>, group: string, label: string) {
+  await user.click(within(chipGroup(group)).getByRole('button', { name: label }));
+}
+
 describe('DraftGuideRoute URL state', () => {
-  it('changing Ranked by merges into the current params instead of resetting them', async () => {
-    const user = userEvent.setup();
-    renderAt('/draft-guide?scoring=standard&qb=superflex&teams=14&rounds=16&pos=QB&source=sleeper');
-    await screen.findByText(/The board, before draft day/);
-
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Ranked by' }), 'ffc');
-
-    expect(params()).toEqual({
-      scoring: 'standard',
-      qb: 'superflex',
-      teams: '14',
-      rounds: '16',
-      pos: 'QB',
-      source: 'ffc',
-    });
-  });
-
   it('toggling a position preserves source and format params', async () => {
     const user = userEvent.setup();
     renderAt('/draft-guide?scoring=half-ppr&teams=8&rounds=13&source=sleeper');
     await screen.findByText(/The board, before draft day/);
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Position' }), 'WR');
+    await clickChip(user, 'Position', 'WR');
 
     expect(params()).toEqual({
       scoring: 'half-ppr',
@@ -102,7 +94,7 @@ describe('DraftGuideRoute URL state', () => {
     renderAt('/draft-guide?scoring=standard&source=sleeper&pos=TE');
     await screen.findByText(/The board, before draft day/);
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Scoring' }), 'ppr');
+    await clickChip(user, 'Scoring', 'PPR');
 
     // patchFormat re-serializes the whole format, so defaults become explicit here — but the
     // point of the test is that source and pos SURVIVE.
@@ -121,7 +113,7 @@ describe('DraftGuideRoute URL state', () => {
     renderAt('/draft-guide?pos=RB&source=sleeper');
     await screen.findByText(/The board, before draft day/);
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Position' }), 'ALL');
+    await clickChip(user, 'Position', 'All');
 
     expect(params()).toEqual({ source: 'sleeper' });
   });
@@ -130,14 +122,19 @@ describe('DraftGuideRoute URL state', () => {
     renderAt('/draft-guide?pos=BOGUS');
     await screen.findByText(/The board, before draft day/);
 
-    expect(screen.getByRole('combobox', { name: 'Position' })).toHaveValue('ALL');
+    expect(within(chipGroup('Position')).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('an unknown source param degrades to Engine in the selector', async () => {
+  // The "Ranked by" selector is gone: the board is Sleeper-ordered with the other providers as
+  // reference columns. An unknown `source=` deep link must degrade to Sleeper silently (no crash,
+  // no selector to reflect it in).
+  it('an unknown source param degrades to Sleeper without a Ranked-by selector', async () => {
     renderAt('/draft-guide?source=yahoo');
     await screen.findByText(/The board, before draft day/);
 
-    expect(screen.getByRole('combobox', { name: 'Ranked by' })).toHaveValue('engine');
+    expect(screen.queryByRole('group', { name: 'Ranked by' })).not.toBeInTheDocument();
+    // The degrade itself is silent — the page reaches its settled (here: stubbed-error) state.
+    expect(await screen.findByText(/unavailable right now/i)).toBeInTheDocument();
   });
 
   // The Draft View toggle (2c) goes through the same updateParams merge — pin that switching
@@ -249,11 +246,12 @@ describe('DraftGuideRoute URL state', () => {
     expect(screen.queryByRole('columnheader', { name: 'Round' })).not.toBeInTheDocument();
     const gridButton = screen.getByRole('button', { name: 'Draft grid' });
     expect(gridButton).toBeDisabled();
-    expect(screen.getByText(/set the position filter back to All/i)).toBeInTheDocument();
+    // The explanatory note was removed (2026-08-26) — the disabled button is the only signal.
+    expect(screen.queryByText(/set the position filter back to All/i)).not.toBeInTheDocument();
     expect(params()).toEqual({ pos: 'QB', view: 'draft' });
 
     // Clearing the filter re-enables the toggle, and the preserved view param brings the grid back.
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Position' }), 'ALL');
+    await clickChip(user, 'Position', 'All');
     expect(screen.getByRole('button', { name: 'Draft grid' })).toBeEnabled();
     expect(await screen.findByRole('columnheader', { name: 'Round' })).toBeInTheDocument();
     expect(params()).toEqual({ view: 'draft' });

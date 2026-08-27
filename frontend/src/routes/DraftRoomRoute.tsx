@@ -37,8 +37,8 @@ export function DraftRoomRoute() {
               <h2>No active draft</h2>
             </div>
           </div>
-          <p>Choose Sleeper or ESPN on Home to track a live draft, or log one manually.</p>
-          <button type="button" onClick={() => navigate('/')}>Go to Home to connect</button>
+          <p>Connect a league to track its draft live, or log one manually via ESPN setup.</p>
+          <button type="button" onClick={() => navigate('/leagues')}>Go to My Leagues</button>
         </section>
       )}
 

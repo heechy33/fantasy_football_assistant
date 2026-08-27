@@ -38,17 +38,38 @@ export async function upsertLeague(request: HttpRequest, _context: InvocationCon
     return { status: 400, jsonBody: errorBody };
   }
   const now = new Date().toISOString();
+  // Idempotency boundary: a client that doesn't know the existing document's id (a second
+  // device/browser, or a league saved from the connect surface before any draft ran) would
+  // otherwise upsert with no id and create a duplicate doc per browser — the exact hazard the
+  // frontend's reconcile can only partially paper over. One point query on
+  // (userId, provider, providerLeagueId) makes the endpoint safe against any writer.
+  let id = body.id ?? randomUUID();
+  const provider = normalizeProvider(body.provider);
+  if (!body.id && body.providerLeagueId && body.providerLeagueId.startsWith('mock:') === false) {
+    const { resources } = await leaguesContainer().items.query<string>({
+      query: 'SELECT VALUE c.id FROM c WHERE c.userId = @userId AND c.provider = @provider AND c.providerLeagueId = @providerLeagueId OFFSET 0 LIMIT 1',
+      parameters: [
+        { name: '@userId', value: auth.user.userId },
+        { name: '@provider', value: provider },
+        { name: '@providerLeagueId', value: body.providerLeagueId },
+      ],
+    }).fetchAll();
+    const [existingId] = resources;
+    if (existingId) id = existingId;
+  }
   const league: SavedLeague = {
-    id: body.id ?? randomUUID(),
+    id,
     userId: auth.user.userId,
-    provider: normalizeProvider(body.provider),
+    provider,
     providerLeagueId: body.providerLeagueId ?? null,
     name: body.name ?? 'Untitled league',
-    season: body.season ?? '', // intentional placeholder — no adapter passthrough yet (DECISIONS.md, 2026-08-26)
+    season: body.season ?? '', // remains '' on the draft-sync path (DraftInit carries no season); the league-connect path supplies a real one (DECISIONS.md, 2026-08-26)
     teams: body.teams ?? 0,
     rounds: body.rounds ?? 0,
     mySlot: body.mySlot ?? null,
     settings: body.settings,
+    providerUserId: body.providerUserId ?? null,
+    latestDraftId: body.latestDraftId ?? null,
     createdAt: body.createdAt ?? now,
     updatedAt: now,
   };

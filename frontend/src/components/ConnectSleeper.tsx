@@ -4,6 +4,9 @@ import { listSleeperDrafts, resolveUser, sleeperAdapter, type SleeperDraftRef } 
 
 export interface ConnectSleeperProps {
   onConnect: (cred: SleeperCred, draftId: string) => void;
+  /** Optional so the ESPN path and any test mount keep working without a repository behind
+   * them. Present on /leagues/connect and /onboarding/league — one connect surface. */
+  onSaveLeague?: (cred: SleeperCred, ref: LeagueRef) => Promise<void>;
 }
 
 const CURRENT_SEASON = '2026';
@@ -12,7 +15,7 @@ const CURRENT_SEASON = '2026';
  * live in the Sleeper landing card). Sleeper lists mock drafts separately from leagues. The
  * manual/ESPN path lives on the ESPN card now — this component no longer offers a skip-connecting
  * escape hatch. */
-export function ConnectSleeper({ onConnect }: ConnectSleeperProps) {
+export function ConnectSleeper({ onConnect, onSaveLeague }: ConnectSleeperProps) {
   const [usernameInput, setUsernameInput] = useState('');
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -111,7 +114,29 @@ export function ConnectSleeper({ onConnect }: ConnectSleeperProps) {
               )}
             </div>
           )}
-          {leagues && <p className="muted">{leagues.length} league{leagues.length === 1 ? '' : 's'} found for {CURRENT_SEASON}.</p>}
+          {leagues && (
+            <div className="draft-selection">
+              <h3>Your leagues</h3>
+              {leagues.length === 0 ? <p>No {CURRENT_SEASON} leagues found for this account.</p> : (
+                <ul className="draft-list">
+                  {leagues.map((league) => (
+                    <li key={league.leagueId}>
+                      <div>
+                        <strong>{league.name}</strong>
+                        <span>{league.totalTeams} teams · {league.season}{league.status ? ` · ${league.status}` : ''}</span>
+                      </div>
+                      <div>
+                        {onSaveLeague && <SaveLeagueButton cred={cred} league={league} onSaveLeague={onSaveLeague} />}
+                        {league.draftId && (
+                          <button type="button" onClick={() => onConnect(cred, league.draftId ?? '')}>Track draft</button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <form className="direct-draft-form" onSubmit={handleDirectDraftSubmit}>
             <label>
               Have a draft ID from someone else?
@@ -122,5 +147,33 @@ export function ConnectSleeper({ onConnect }: ConnectSleeperProps) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Per-league save button with its own pending/done/error state — a save hits Sleeper's settings
+ * endpoint plus the API, so it must not freeze the whole connect surface while in flight. */
+function SaveLeagueButton({ cred, league, onSaveLeague }: {
+  cred: SleeperCred;
+  league: LeagueRef;
+  onSaveLeague: (cred: SleeperCred, ref: LeagueRef) => Promise<void>;
+}) {
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  async function handleClick() {
+    setState('saving');
+    try {
+      await onSaveLeague(cred, league);
+      setState('saved');
+    } catch {
+      setState('error');
+    }
+  }
+  if (state === 'saved') return <span className="muted">Saved</span>;
+  return (
+    <>
+      <button type="button" onClick={handleClick} disabled={state === 'saving'}>
+        {state === 'saving' ? 'Saving…' : 'Save league'}
+      </button>
+      {state === 'error' && <span role="alert">Save failed — try again.</span>}
+    </>
   );
 }

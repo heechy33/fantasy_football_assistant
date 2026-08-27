@@ -62,7 +62,7 @@ const LANE_RANKS = new Map([['alpha', 2], ['bravo', 1]]);
 const LANE_ADP = new Map([['alpha', 2.5], ['bravo', 1.2]]);
 
 const LANES: GuideLane[] = [
-  { key: 'sleeper', label: 'Sleeper ADP', brandKey: 'sleeper', status: 'ready', rankByPlayer: LANE_RANKS, adpByPlayer: LANE_ADP },
+  { key: 'sleeper', label: 'Sleeper', brandKey: 'sleeper', status: 'ready', rankByPlayer: LANE_RANKS, adpByPlayer: LANE_ADP },
   { key: 'ffc', label: 'FFC', brandKey: 'ffc', status: 'unavailable', rankByPlayer: new Map(), adpByPlayer: new Map() },
 ];
 
@@ -70,7 +70,7 @@ function renderTable(props: Partial<Parameters<typeof DraftGuideTable>[0]> = {})
   return render(
     <DraftGuideTable
       rows={ROWS}
-      anchorLabel="Engine"
+      anchorLabel="Rank"
       anchorRankByPlayer={ANCHOR_RANKS}
       positionRankByPlayer={buildPositionRankByPlayer(ROWS)}
       lanes={LANES}
@@ -121,16 +121,16 @@ describe('DraftGuideTable', () => {
     expect(ids[2]).toContain('GAP');
 
     // Sort by the Sleeper lane: bravo holds lane rank 1 → leads; gap still last.
-    await user.click(screen.getByRole('button', { name: /Sleeper ADP/ }));
-    expect(screen.getByRole('columnheader', { name: /Sleeper ADP/ })).toHaveAttribute('aria-sort', 'ascending');
+    await user.click(screen.getByRole('button', { name: /Sleeper/ }));
+    expect(screen.getByRole('columnheader', { name: /Sleeper/ })).toHaveAttribute('aria-sort', 'ascending');
     ids = bodyRows().map(rowId);
     expect(ids[0]).toContain('BRAVO');
     expect(ids[1]).toContain('ALPHA');
     expect(ids[2]).toContain('GAP');
 
     // Descending keeps em-dash rows last (never reverses them to the top).
-    await user.click(screen.getByRole('button', { name: /Sleeper ADP/ }));
-    expect(screen.getByRole('columnheader', { name: /Sleeper ADP/ })).toHaveAttribute('aria-sort', 'descending');
+    await user.click(screen.getByRole('button', { name: /Sleeper/ }));
+    expect(screen.getByRole('columnheader', { name: /Sleeper/ })).toHaveAttribute('aria-sort', 'descending');
     ids = bodyRows().map(rowId);
     expect(ids[2]).toContain('GAP');
   });
@@ -145,5 +145,69 @@ describe('DraftGuideTable', () => {
     expect(within(firstCell as HTMLElement).getByText('RB1')).toBeInTheDocument(); // positional chip
     await user.click(firstCell);
     expect(onSelectPlayer).toHaveBeenCalledWith('alpha');
+  });
+
+  it('re-ranks the positional chip by the sorted provider lane, beside the player name', async () => {
+    const user = userEvent.setup();
+    renderTable();
+    const chipOf = (index: number) =>
+      bodyRows()[index]?.querySelector('.guide-player-name .guide-pos-pill')?.textContent ?? null;
+
+    // Anchor sort: chips follow the engine's projection order — alpha RB1, bravo RB2 — and the
+    // chip sits inline next to the name (inside .guide-player-name), not in a trailing tag slot.
+    expect(chipOf(0)).toBe('RB1');
+    expect(chipOf(1)).toBe('RB2');
+    expect(document.querySelector('.guide-grid-tags')).toBeNull();
+
+    // Sleeper sort: bravo holds lane rank 1 → bravo becomes RB1 and alpha RB2.
+    await user.click(screen.getByRole('button', { name: /Sleeper/ }));
+    expect(chipOf(0)).toBe('RB1'); // bravo
+    expect(chipOf(1)).toBe('RB2'); // alpha
+
+    // Back to the anchor: the engine order returns.
+    await user.click(screen.getByRole('button', { name: /Rank/ }));
+    expect(chipOf(0)).toBe('RB1'); // alpha
+    expect(chipOf(1)).toBe('RB2'); // bravo
+  });
+
+  it('re-ranks the Rank column densely when sorting by a lane (1..n in display order)', async () => {
+    const user = userEvent.setup();
+    renderTable();
+    const rankOf = (row: Element) => row.querySelector('td.guide-col-rank')!.textContent;
+
+    // Anchor sort on an unfiltered pool: dense 1..n (here it coincides with the anchor ranks).
+    let ranks = bodyRows().map(rankOf);
+    expect(ranks).toEqual(['1', '2', EM_DASH]);
+
+    // Lane sort: bravo leads, so the Rank column re-ranks to the displayed order (dense 1..n).
+    await user.click(screen.getByRole('button', { name: /Sleeper/ }));
+    ranks = bodyRows().map(rankOf);
+    expect(ranks).toEqual(['1', '2', EM_DASH]); // bravo(1), alpha(2), gap stays an em-dash
+
+    // Descending: dense positions follow the reversed display order; em-dash still last.
+    await user.click(screen.getByRole('button', { name: /Sleeper/ }));
+    ranks = bodyRows().map(rankOf);
+    expect(ranks).toEqual(['1', '2', EM_DASH]); // alpha(1), bravo(2), gap last
+
+    // Back to the anchor column: still dense in display order.
+    await user.click(screen.getByRole('button', { name: /Rank/ }));
+    ranks = bodyRows().map(rankOf);
+    expect(ranks).toEqual(['1', '2', EM_DASH]);
+  });
+
+  it('re-ranks Rank and the positional chip densely when the pool arrives pre-filtered', () => {
+    // A position filter hands the table a subset: the anchor ranks are the GLOBAL ones
+    // (22, 32 — like Josh Allen under a QB filter), but the board must rank them 1..n and
+    // re-issue the chips in the displayed order, not show the out-of-order globals.
+    renderTable({
+      anchorRankByPlayer: new Map([['alpha', 22], ['bravo', 32]] as const),
+      positionRankByPlayer: new Map([['alpha', 5], ['bravo', 9], ['gap', 31]] as const),
+    });
+    expect(bodyRows().map((row) => row.querySelector('td.guide-col-rank')!.textContent))
+      .toEqual(['1', '2', EM_DASH]);
+    const chips = bodyRows().map((row) => row.querySelector('.guide-pos-pill')?.textContent ?? null);
+    // alpha/bravo re-chip densely; gap has no anchor rank (as if absent from the source), so it
+    // keeps its global engine chip instead of going blank.
+    expect(chips).toEqual(['RB1', 'RB2', 'RB31']);
   });
 });

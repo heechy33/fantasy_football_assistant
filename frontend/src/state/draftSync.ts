@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { createHttpRepository } from '../data/repositories/httpRepository';
 import type { SavedLeaguesRepository } from '../data/savedLeaguesRepository';
 import { useDraftSession } from '../session/DraftSessionProvider';
+import { clearPersistedSession } from './persistence';
 import type { PickOverride } from './draftBoardState';
 
 /** Sleeper synthesizes `leagueId: mock:${draftId}` for standalone mocks with no league record
@@ -142,7 +143,21 @@ export function useDraftSync(repositoryOverride?: SavedLeaguesRepository): void 
       reconciledDraftKey.current = reconcileKey;
 
       const match = remoteDrafts.find((d) => d.providerDraftId === effectiveInit.draftId && d.provider === mapProvider(effectiveInit.provider));
-      if (!match) return;
+      if (!match) {
+        // No remote draft matches (a league saved from /leagues/connect before any draft ran, or
+        // a completed Sleeper draft whose transcript was already deleted). Fall back to adopting
+        // a matching saved LEAGUE so syncNow's upsert updates in place instead of creating a
+        // second SavedLeague doc the hub would show twice. Runs inside the reconciledDraftKey-
+        // guarded one-shot, so the hot path gains no per-tick request; the API also dedupes on
+        // (userId, provider, providerLeagueId), making this an optimization rather than the fix.
+        const leagues = await repository.listLeagues();
+        const leagueMatch = leagues.find(
+          (l) => l.provider === mapProvider(effectiveInit.provider) && l.providerLeagueId === effectiveInit.leagueId,
+        );
+        if (!leagueMatch) return;
+        ids.current.savedLeagueId = leagueMatch.id;
+        return;
+      }
 
       ids.current.savedDraftId = match.id;
       ids.current.savedLeagueId = match.leagueId;
@@ -171,8 +186,12 @@ export function useDraftSync(repositoryOverride?: SavedLeaguesRepository): void 
         rounds: effectiveInit.rounds,
         mySlot: effectiveInit.mySlot,
         settings: effectiveInit.settings,
+        // Keep the hub's per-league "Track draft" usable after a transcript is deleted — real
+        // Sleeper drafts carry their upstream id in `draftId`; manual/ESPN sessions don't get one.
+        latestDraftId: provider === 'sleeper' ? effectiveInit.draftId : null,
         // `season` is intentionally not sent — DraftInit carries no season today, so the stored
-        // SavedLeague.season stays '' until an adapter passthrough exists (DECISIONS.md, 2026-08-26).
+        // SavedLeague.season stays whatever it was (the league-connect path now supplies a real
+        // one; see DECISIONS.md, 2026-08-26).
       });
       ids.current.savedLeagueId = league.id;
 
@@ -183,6 +202,12 @@ export function useDraftSync(repositoryOverride?: SavedLeaguesRepository): void 
           await repository.deleteDraft(ids.current.savedDraftId);
           ids.current.savedDraftId = null;
         }
+        // And the localStorage resume record has nothing left to offer once we've SEEN the draft
+        // complete live: clear it rather than leaving a stale finished session behind. Gated on
+        // still being connected — a user who already took over manually may be mid-review, and
+        // their overrides must survive until they intentionally leave via "Choose another draft"
+        // (which clears the record itself).
+        if (latest.current.session.kind === 'connected') clearPersistedSession();
         return;
       }
 

@@ -14,7 +14,8 @@ export type ProviderBrandKey =
   | 'fantrax'
   | 'fftoday'
   | 'ffc'
-  | 'underdog';
+  | 'underdog'
+  | 'yahoo';
 
 export interface ProviderBrand {
   key: ProviderBrandKey;
@@ -32,6 +33,7 @@ export const PROVIDER_BRANDS: Readonly<Record<ProviderBrandKey, ProviderBrand>> 
   fftoday: { key: 'fftoday', label: 'FFToday', color: '#2f9e44', monogram: 'FFT' },
   ffc: { key: 'ffc', label: 'FFC', color: '#0d9488', monogram: 'FFC' },
   underdog: { key: 'underdog', label: 'Underdog', color: '#8a5cf6', monogram: 'UD' },
+  yahoo: { key: 'yahoo', label: 'Yahoo', color: '#5f01d1', monogram: 'Y!' },
 };
 
 export function providerBrand(key: string): ProviderBrand | null {

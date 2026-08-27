@@ -1,105 +1,87 @@
 import type { Position } from '../../../shared/types';
-import { GUIDE_POSITIONS, GUIDE_ROUNDS, GUIDE_TEAMS, type GuideFormat } from '../data/guideLeagueSettings';
-import type { GuideRankSource } from '../data/guideProviderColumns';
-
-export interface GuideSourceOption {
-  key: GuideRankSource;
-  label: string;
-  status: 'ready' | 'unavailable';
-}
+import { GUIDE_POSITIONS, type GuideFormat } from '../data/guideLeagueSettings';
 
 export interface DraftGuideFiltersProps {
   format: GuideFormat;
   onFormatChange: (patch: Partial<GuideFormat>) => void;
-  source: GuideRankSource;
-  onSourceChange: (source: GuideRankSource) => void;
-  sources: readonly GuideSourceOption[];
   position: Position | 'ALL';
   onPositionChange: (position: Position | 'ALL') => void;
 }
 
+/** Segmented chip-group control — the guide's filter idiom. One-click switching (no dropdown
+ * round-trip), and the selected value is always visible text, never a black-on-black native
+ * select. State still lives in the URL; these are pure presentation. */
+function ChipGroup<T extends string>({ label, value, options, onChange }: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ key: T; label: string; disabled?: boolean }>;
+  onChange: (key: T) => void;
+}) {
+  return (
+    <div className="guide-filter guide-chip-filter" role="group" aria-label={label}>
+      <span>{label}</span>
+      <div className="guide-chip-row">
+        {options.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className="guide-chip"
+            aria-pressed={option.key === value}
+            disabled={option.disabled}
+            title={option.disabled ? `${option.label} is unavailable right now` : undefined}
+            onClick={() => onChange(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Fresh filter bar for the guide — deliberately NOT BoardFilters, whose Engine/ADP board-mode
  * toggle and live-draft position rules (All excludes K/DEF; QB drops once filled) are wrong for a
- * static public board. Every control is a plain select/button; state lives in the URL. */
+ * static public board. Every control is a chip group; state lives in the URL.
+ *
+ * Deliberately absent: Teams and Rounds (they never change the rank order — the ADP lane is keyed
+ * on scoring + QB only — so they were noise) and a "Ranked by" selector (the board is Sleeper-ADP
+ * ordered with the other providers as reference columns; the old selector just duplicated what the
+ * column sort already does). Defaults for both still live in the URL parser for deep links. */
 export function DraftGuideFilters({
   format,
   onFormatChange,
-  source,
-  onSourceChange,
-  sources,
   position,
   onPositionChange,
 }: DraftGuideFiltersProps) {
   return (
     <div className="guide-filters">
-      <label className="guide-filter">
-        <span>Scoring</span>
-        <select
-          value={format.reception}
-          onChange={(e) => onFormatChange({ reception: e.target.value as GuideFormat['reception'] })}
-        >
-          <option value="standard">Standard</option>
-          <option value="half-ppr">Half PPR</option>
-          <option value="ppr">PPR</option>
-        </select>
-      </label>
+      <ChipGroup
+        label="Scoring"
+        value={format.reception}
+        onChange={(reception) => onFormatChange({ reception: reception as GuideFormat['reception'] })}
+        options={[
+          { key: 'standard', label: 'Standard' },
+          { key: 'half-ppr', label: 'Half PPR' },
+          { key: 'ppr', label: 'PPR' },
+        ]}
+      />
 
-      <label className="guide-filter">
-        <span>QB</span>
-        <select
-          value={format.qb}
-          onChange={(e) => onFormatChange({ qb: e.target.value as GuideFormat['qb'] })}
-        >
-          <option value="one-qb">1QB</option>
-          <option value="superflex">Superflex</option>
-        </select>
-      </label>
+      <ChipGroup
+        label="QB"
+        value={format.qb}
+        onChange={(qb) => onFormatChange({ qb: qb as GuideFormat['qb'] })}
+        options={[
+          { key: 'one-qb', label: '1QB' },
+          { key: 'superflex', label: 'Superflex' },
+        ]}
+      />
 
-      <label className="guide-filter">
-        <span>Teams</span>
-        <select
-          value={format.teams}
-          onChange={(e) => onFormatChange({ teams: Number(e.target.value) })}
-        >
-          {GUIDE_TEAMS.map((teams) => <option key={teams} value={teams}>{teams}</option>)}
-        </select>
-      </label>
-
-      <label className="guide-filter">
-        <span>Rounds</span>
-        <select
-          value={format.rounds}
-          onChange={(e) => onFormatChange({ rounds: Number(e.target.value) })}
-        >
-          {GUIDE_ROUNDS.map((rounds) => <option key={rounds} value={rounds}>{rounds}</option>)}
-        </select>
-      </label>
-
-      <label className="guide-filter">
-        <span>Ranked by</span>
-        <select
-          value={source}
-          onChange={(e) => onSourceChange(e.target.value as GuideRankSource)}
-        >
-          {sources.map((option) => (
-            <option key={option.key} value={option.key} disabled={option.status === 'unavailable'}>
-              {option.label}{option.status === 'unavailable' ? ' (unavailable)' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="guide-filter">
-        <span>Position</span>
-        <select
-          value={position}
-          onChange={(e) => onPositionChange(e.target.value as Position | 'ALL')}
-        >
-          {GUIDE_POSITIONS.map((pos) => (
-            <option key={pos} value={pos}>{pos === 'ALL' ? 'All' : pos}</option>
-          ))}
-        </select>
-      </label>
+      <ChipGroup
+        label="Position"
+        value={position}
+        onChange={(pos) => onPositionChange(pos as Position | 'ALL')}
+        options={GUIDE_POSITIONS.map((pos) => ({ key: pos, label: pos === 'ALL' ? 'All' : pos }))}
+      />
     </div>
   );
 }

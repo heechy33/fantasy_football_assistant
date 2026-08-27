@@ -1,6 +1,7 @@
 import type { DraftInit } from '../../../shared/types';
 import type { PickOverride } from './draftBoardState';
 
+
 // Bumped from v1: the persisted shape changed (mode gained 'espn', and ESPN bridge picks are no
 // longer written as manual-entry overrides — see the ESPN sync-restoration plan, 2026-08-15). A v1
 // record under the old key is not readable as a v2 one — replaying its `mode: 'manual'` value (the

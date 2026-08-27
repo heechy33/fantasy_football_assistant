@@ -4,7 +4,8 @@ import { AuthPlaceholderRoute } from './AuthPlaceholderRoute';
 
 function returnToFrom(location: Location): string {
   const from = (location.state as { from?: Location } | null)?.from;
-  return from ? `${from.pathname}${from.search}` : '/draft';
+  // A brand-new account has no league — land on the connect flow, not the (always-empty) Draft Room.
+  return from ? `${from.pathname}${from.search}` : '/onboarding/league';
 }
 
 /** `/sign-in` and `/sign-up` — renders whichever the active AuthAdapter supplies

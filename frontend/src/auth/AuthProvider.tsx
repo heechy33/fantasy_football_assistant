@@ -49,3 +49,10 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+
+/** Fault-tolerant variant for shared public surfaces (e.g. the landing) that may render in
+ * isolation (tests, stories): null means "no provider above us", and callers degrade to the
+ * signed-out presentation rather than throwing. */
+export function useAuthStatusOrNull(): AuthContextValue | null {
+  return useContext(AuthContext);
+}

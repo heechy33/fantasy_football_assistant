@@ -55,13 +55,13 @@ export function OnboardingPlan() {
   );
 }
 
-/** Final step: hand off to the draft room. */
+/** Final step: hand off to the league hub — the new home for everything league-shaped. */
 export function OnboardingReady() {
   return (
     <div className="onboarding-panel">
       <h3>You&apos;re set</h3>
-      <p>Your league is connected. Head to the Draft Room whenever your draft starts — the board updates live.</p>
-      <Link to="/draft" className="primary-button">Go to the Draft Room</Link>
+      <p>Your league is connected. Track its draft live whenever things kick off.</p>
+      <Link to="/leagues" className="primary-button">Go to My Leagues</Link>
     </div>
   );
 }

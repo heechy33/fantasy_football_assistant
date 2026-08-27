@@ -6,7 +6,7 @@ import { ProviderBadge } from './ProviderBadge';
 
 export const APP_NAME = 'Fantasy Bob';
 
-export type AppPage = 'home' | 'guide' | 'draft' | 'teams';
+export type AppPage = 'home' | 'guide' | 'draft' | 'leagues';
 
 /** Page → path, owned here since the tabs became real links (Phase 3's deferred conversion:
  * public pages need middle-click/open-in-new-tab nav targets). */
@@ -14,7 +14,7 @@ const PATH_BY_PAGE: Readonly<Record<AppPage, string>> = {
   home: '/',
   guide: '/draft-guide',
   draft: '/draft',
-  teams: '/teams',
+  leagues: '/leagues',
 };
 
 export interface TopNavProps {
@@ -36,7 +36,7 @@ export interface TopNavProps {
    * instead of sitting as a solid slab above it. */
   immersive?: boolean;
   /** True once the active AuthAdapter reports a signed-in user (Phase 4's `useAuth()`, wired by
-   * AppLayout). While false, account tabs (Draft Room, Teams) stay hidden and Sign in / Sign up
+   * AppLayout). While false, account tabs (Draft Room, My Leagues) stay hidden and Sign in / Sign up
    * links render instead — the app reads as a public marketing landing. */
   authenticated?: boolean;
   /** Sign-out handler, present only while authenticated. Optional so TopNav still renders sanely
@@ -53,7 +53,7 @@ const PUBLIC_NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
  * public/marketing-first flow (`DECISIONS.md`, 2026-08-25's public/gated split). */
 const PRIVATE_NAV_ITEMS: ReadonlyArray<{ page: AppPage; label: string }> = [
   { page: 'draft', label: 'Draft Room' },
-  { page: 'teams', label: 'Teams' },
+  { page: 'leagues', label: 'My Leagues' },
 ];
 
 function StaleStatus({ healthRef, fallbackIsStale, fallbackDataAgeMs }: {
@@ -116,7 +116,7 @@ export function TopNav({
           </Link>
         </h1>
         {/* Signed-in nav shows public + account tabs; signed out, only the public surface so
-            Draft Room / Teams still read as gated account features. */}
+            Draft Room / My Leagues still read as gated account features. */}
         <nav aria-label="Primary">
           {(authenticated ? [...PUBLIC_NAV_ITEMS, ...PRIVATE_NAV_ITEMS] : PUBLIC_NAV_ITEMS).map((item) => (
             <Link

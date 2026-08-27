@@ -12,7 +12,7 @@ import { adpBoardKeyFor } from '../data/adpBoard';
 import { useDraftBoardState } from '../hooks/useDraftBoardState';
 import { useDraftPoll } from '../hooks/useDraftPoll';
 import { useEspnBridge } from '../hooks/useEspnBridge';
-import { loadPersistedSession, savePersistedSession } from '../state/persistence';
+import { loadPersistedSession, savePersistedSession, clearPersistedSession } from '../state/persistence';
 
 type Session =
   | { kind: 'disconnected' }
@@ -401,14 +401,19 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     board.reset('live');
     setCorrecting(null);
     setSession({ kind: 'disconnected' });
-    navigate('/');
+    // Intentional exit from the draft story — the localStorage resume record must not survive it
+    // (nothing ever cleared `ffa.draftSession.v2` before this), and the league hub is the natural
+    // landing now that leagues are first-class.
+    clearPersistedSession();
+    navigate('/leagues');
   }
 
   function handleReturnToConnect() {
     board.reset('live');
     setCorrecting(null);
     setSession({ kind: 'disconnected' });
-    navigate('/');
+    clearPersistedSession();
+    navigate('/leagues');
   }
 
   const nextManualOverall = board.effectivePicks.reduce((max, p) => Math.max(max, p.overall), 0) + 1;

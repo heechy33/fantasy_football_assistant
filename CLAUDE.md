@@ -49,8 +49,11 @@ deliberately — future work, not dead code to delete.
   in `f821318`) initialized at pool load with cooperative cancel of superseded requests; a
   deterministic main-thread fallback board keeps the UI usable if the worker fails or is
   unavailable.
-- **DB/Auth**: Cosmos DB free tier (provisioned; `enableFreeTier` set-only-at-creation) and SWA
-  `/.auth/*` — **roadmap only**. Keep `/api/*` `anonymous` in `frontend/public/staticwebapp.config.json`.
+- **DB/Auth**: Cosmos DB free tier is LIVE behind Clerk — authenticated Functions at
+  `/api/leagues` + `/api/drafts` persist SavedLeague/SavedDraft docs (phases 4-5 shipped), with
+  SWA's built-in `/.auth/*` unwired (Clerk's JWT check in `api/src/functions/authGuard.ts` is the
+  enforcement point). Keep `/api/*` `anonymous` in `frontend/public/staticwebapp.config.json` —
+  the Bearer token, not SWA roles, gates writes.
 - **Hosting cost target: $0/month** — any change that incurs cost needs a deliberate call-out.
 
 ## Repo layout (highlights — the code is the full map)
@@ -73,13 +76,24 @@ deliberately — future work, not dead code to delete.
   `format.qb === 'one-qb'` and the starting QB slot is filled (see `DECISIONS.md`, 2026-08-22) —
   both are presentation filters, not engine changes; position tabs are never filtered.
 - `frontend/src/routes/` — the route tree (`App.tsx` composes it): `AppLayout` (nav shell),
-  `LandingRoute`, `DraftGuideRoute` (public), `DraftRoomRoute`, and `routes/onboarding/` (the
-  real connect flow — the landing renders inert illustrations only). `session/DraftSessionProvider`
-  sits above `<Routes>` so the live poll survives navigation.
+  `LandingRoute`, `DraftGuideRoute` (public), `DraftRoomRoute`, `LeaguesRoute` (the `/leagues`
+  hub — SavedLeague cards with Track draft / Remove; replaced the retired `TeamsPage`),
+  `ConnectLeagueRoute` (`/leagues/connect`, the ONE connect surface — `routes/onboarding/OnboardingLeague`
+  aliases it for the wizard step), and `routes/onboarding/`. The connect flow is league-first
+  split: saving a league (SavedLeague pointer, real season) and tracking a draft (a live session)
+  are independent actions reconciled by `state/draftSync.ts`. The landing renders illustrations
+  with a CTA only. `session/DraftSessionProvider` sits above `<Routes>` so the live poll survives
+  navigation.
 - `extension/` — draft-day-only ESPN reconnaissance Chrome extension (closed exception), not an
   in-season sync product.
-- `api/src/functions/health.ts` — the only endpoint. `shared/types.d.ts` — the frontend/api
-  contract, type-only.
+- `frontend/src/data/savedLeaguesRepository.ts` + `repositories/httpRepository.ts` — the single
+  repository seam (`useSavedLeagues.ts` consumes it for UI pages; `state/draftSync.ts` mirrors
+  sessions through it). `state/persistence.ts` (localStorage `ffa.draftSession.v2`) holds ONLY the
+  active draft-session record for refresh-resume — never league data — and is cleared when a draft
+  session ends (`handleChooseAnotherDraft`/`handleReturnToConnect`) or completes live.
+- `api/src/functions/health.ts`, `leagues.ts`, `drafts.ts`. Leagues upserts are idempotent on
+  `(userId, provider, providerLeagueId)` — never assume an absent client id means "new doc".
+  `shared/types.d.ts` is the frontend/api contract, type-only.
 - `pipeline/` (`build_data.py`, `sources.py`, …) → `data/` — committed JSON consumed by the app
   (incl. `weekly-ppr.json`). `data/adp-ffc-*.json` and `data/adp-underdog-bestball.json` are
   **display-only** lanes (Market ADP tile only) — never an engine input, never blended into

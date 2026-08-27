@@ -37,13 +37,13 @@ describe('LandingPage', () => {
     expect(screen.getAllByText(/on the clock/i).length).toBeGreaterThan(0);
   });
 
-  it('renders the integrations hub-and-spokes map', () => {
+  it('renders the data-sources map', () => {
     renderLanding();
-    expect(screen.getByRole('heading', { name: 'One hub for all your leagues.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Every source. One board.' })).toBeInTheDocument();
     expect(screen.getAllByRole('img', { name: 'ESPN' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('img', { name: 'Sleeper' }).length).toBeGreaterThan(0);
-    // Spokes beyond the two live providers render as monogram chips.
-    expect(screen.getAllByRole('img', { name: 'Fantrax' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('img', { name: 'Underdog' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('img', { name: 'Yahoo' }).length).toBeGreaterThan(0);
   });
 
   it('renders the public hero CTAs — Draft Guide needs no account', () => {
@@ -53,35 +53,28 @@ describe('LandingPage', () => {
     expect(screen.getByRole('link', { name: 'Create free account' })).toHaveAttribute('href', '/sign-up');
   });
 
-  it('shows INERT connect-card illustrations — disabled controls, no form, nothing interactive', () => {
-    renderLanding();
+  it('renders NO connect rows at the bottom — no forms, no Resume, no provider CTAs', () => {
+    renderLanding({ active: 'espn', leagueName: 'Chip Life' });
 
-    // No form anywhere on the landing (the old ConnectSleeper submitted one).
+    // The illustrations are long gone...
     expect(document.querySelector('form')).toBeNull();
-    // The Sleeper username field is present but disabled — visual promise only.
-    expect(screen.getByPlaceholderText('Sleeper username')).toBeDisabled();
-    // Every button on both illustration cards is disabled.
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Show my 2026 leagues and drafts' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Set up ESPN draft' })).toBeDisabled();
-    // And there are zero enabled buttons inside ANY connect panel (order-independent: an active
-    // session renders a Resume panel before the illustrations).
-    for (const panel of document.querySelectorAll('.provider-panel')) {
-      for (const button of panel.querySelectorAll('button')) {
-        expect(button).toBeDisabled();
-      }
-    }
+    expect(screen.queryByPlaceholderText('Sleeper username')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set up ESPN draft' })).not.toBeInTheDocument();
+    // ...and so are the compact connect rows / Resume panel.
+    expect(screen.queryByRole('link', { name: 'Resume draft' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /connect league|sign up to connect/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Sleeper' })).not.toBeInTheDocument();
   });
 
-  it('skips the connect cards when a session is already active, showing Resume instead', () => {
-    renderLanding({ active: 'espn', leagueName: 'Chip Life' });
-    // ESPN card resumes instead of offering setup.
-    const resume = screen.getByRole('link', { name: 'Resume draft' });
-    expect(resume).toHaveAttribute('href', '/draft');
-    expect(screen.getByText(/Chip Life/)).toBeInTheDocument();
-    // The Sleeper illustration card still renders (inert), but no second ESPN setup card.
-    expect(screen.getByPlaceholderText('Sleeper username')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Set up ESPN draft' })).not.toBeInTheDocument();
+  it('stages the demo feed at the headline pick — Round 2 · Pick 19 overall (2.07 in a 12-teamer)', () => {
+    renderLanding();
+    expect(screen.getByText('Round 2 · Pick 19 · You’re on the clock')).toBeInTheDocument();
+    expect(screen.getByText('2.07')).toBeInTheDocument();
+  });
+
+  it('renders the new cinematic hero title', () => {
+    renderLanding();
+    expect(screen.getByRole('heading', { name: /the chip is yours/i })).toBeInTheDocument();
   });
 });
 

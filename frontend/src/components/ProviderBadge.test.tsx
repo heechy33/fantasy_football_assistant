@@ -19,6 +19,16 @@ describe('ProviderBadge', () => {
     expect(badge.querySelector('svg')).not.toBeNull();
   });
 
+  it('inlines the committed FFC football SVG instead of the monogram chip', () => {
+    // FFC's lane appears in the guide table header and the drawer's market comparison —
+    // both resolve through ProviderBadge, so the committed asset must win over the monogram.
+    render(<ProviderBadge brandKey="ffc" />);
+    const badge = screen.getByRole('img', { name: 'FFC' });
+    expect(badge).toHaveClass('provider-badge-svg');
+    expect(badge.querySelector('svg')).not.toBeNull();
+    expect(document.querySelector('.provider-badge-monogram')).toBeNull();
+  });
+
   it('renders a neutral chip for an unknown brand key instead of nothing', () => {
     render(<ProviderBadge brandKey="nfl" />);
     expect(screen.getByRole('img', { name: 'nfl' })).toHaveClass('provider-badge-fallback');
@@ -44,6 +54,16 @@ describe('ProviderBadge', () => {
     expect(img.tagName).toBe('IMG');
     expect(img.getAttribute('src')).toMatch(/underdog.*\.avif$/);
     expect(img.closest('.provider-badge-img')).not.toBeNull();
+    expect(document.querySelector('.provider-badge-monogram')).toBeNull();
+  });
+
+  it('inlines the committed Yahoo SVG instead of the monogram chip', () => {
+    // Yahoo joined the landing's data-sources map — its committed asset must win over the
+    // "Y!" monogram fallback the same way ESPN/FFC's do.
+    render(<ProviderBadge brandKey="yahoo" />);
+    const badge = screen.getByRole('img', { name: 'Yahoo' });
+    expect(badge).toHaveClass('provider-badge-svg');
+    expect(badge.querySelector('svg')).not.toBeNull();
     expect(document.querySelector('.provider-badge-monogram')).toBeNull();
   });
 });

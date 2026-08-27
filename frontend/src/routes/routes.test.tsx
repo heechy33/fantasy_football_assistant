@@ -49,7 +49,7 @@ function renderAt(route: string) {
 
 describe('routes', () => {
   it.each([
-    ['/', /Draft day, handled\./],
+    ['/', /The Chip Is Yours/],
     ['/draft-guide', /The board, before draft day/],
     ['/sign-up', /Create your account/],
   ])('renders %s as the right page (public)', async (route, marker) => {
@@ -59,7 +59,8 @@ describe('routes', () => {
 
   it.each([
     ['/draft', /No active draft/],
-    ['/teams', /Your teams/],
+    ['/leagues', /No leagues yet/],
+    ['/leagues/connect', /Connect your Sleeper account/],
     ['/onboarding/league', /Connect your Sleeper account/],
   ])('renders %s as the right page when signed in', async (route, marker) => {
     mockSignIn();
@@ -67,9 +68,15 @@ describe('routes', () => {
     expect(await screen.findByText(marker)).toBeInTheDocument();
   });
 
+  it('redirects /teams to /leagues (retired route)', async () => {
+    mockSignIn();
+    renderAt('/teams');
+    expect(await screen.findByText(/No leagues yet/)).toBeInTheDocument();
+  });
+
   it.each([
     ['/draft'],
-    ['/teams'],
+    ['/leagues'],
     ['/onboarding/league'],
   ])('redirects %s to sign-in when signed out', async (route) => {
     renderAt(route);
@@ -102,7 +109,7 @@ describe('routes', () => {
     await user.click(screen.getByRole('link', { name: 'Draft Guide' }));
     expect(await screen.findByText(/The board, before draft day/)).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Home' }));
-    expect(await screen.findByText(/Draft day, handled\./)).toBeInTheDocument();
+    expect(await screen.findByText(/The Chip Is Yours/)).toBeInTheDocument();
 
     // A remounted provider re-runs its mount effects → a second manifest fetch.
     expect(manifestFetches).toBe(1);

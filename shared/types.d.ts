@@ -834,6 +834,14 @@ export interface SavedLeague {
   rounds: number;
   mySlot: number | null;
   settings: LeagueSettings;
+  /** Sleeper userId of the connected account, when known (`cred.userId` at save time) — lets a
+   * hub card reconstruct a `SleeperCred` and re-track a draft without re-asking for a username.
+   * Null/absent for manual/ESPN "leagues" with no upstream account. */
+  providerUserId?: string | null;
+  /** Last draft id tracked for this league, when known — either from `LeagueRef.draftId` at
+   * save time or backfilled by draft sync whenever a tracked draft reports one. What makes the
+   * hub's per-league "Track draft" button possible without another Sleeper round-trip. */
+  latestDraftId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

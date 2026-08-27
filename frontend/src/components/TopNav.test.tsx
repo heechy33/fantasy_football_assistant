@@ -23,7 +23,7 @@ describe('TopNav', () => {
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: 'Draft Guide' })).toHaveAttribute('href', '/draft-guide');
     expect(screen.getByRole('link', { name: 'Draft Room' })).toHaveAttribute('href', '/draft');
-    expect(screen.getByRole('link', { name: 'Teams' })).toHaveAttribute('href', '/teams');
+    expect(screen.getByRole('link', { name: 'My Leagues' })).toHaveAttribute('href', '/leagues');
   });
 
   it('shows only the public tabs plus placeholder auth CTAs while signed out', () => {
@@ -33,7 +33,7 @@ describe('TopNav', () => {
     expect(screen.getByRole('link', { name: 'Draft Guide' })).toBeInTheDocument();
     // Account features stay gated.
     expect(screen.queryByRole('link', { name: 'Draft Room' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Teams' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'My Leagues' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
     expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/sign-up');
   });
@@ -48,7 +48,7 @@ describe('TopNav', () => {
     renderNav({ active: 'draft', authenticated: true });
     expect(screen.getByRole('link', { name: 'Draft Room' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
-    expect(screen.getByRole('link', { name: 'Teams' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'My Leagues' })).not.toHaveAttribute('aria-current');
   });
 
   it('renders no status row when no draft is loaded', () => {

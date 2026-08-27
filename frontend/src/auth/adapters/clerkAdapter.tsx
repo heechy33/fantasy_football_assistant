@@ -1,7 +1,10 @@
 import { useEffect, type ReactNode } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
+import { APP_NAME } from '../../components/TopNav';
 import type { AuthAdapter, AuthState, SignComponentProps } from '../adapter';
+import { clerkAppearance } from './clerkAppearance';
+
 
 /** Same module-level subscribe/notify shape as mockAuthAdapter.ts, populated by `ClerkStateBridge`
  * below — Clerk's own state is hook-based (`useAuth`/`useUser`), but `AuthAdapter.subscribe` must
@@ -71,12 +74,42 @@ function Root({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The split-screen auth page shell: a cinematic brand column on the left mirroring the landing
+ * hero's treatment (eyebrow pill, Archivo Expanded headline, value bullets), and the themed Clerk
+ * card on the right. Collapses to a compact centered header above the form at narrow widths — see
+ * `.auth-screen-*` in App.css. Lives here rather than in routes/ so no Clerk import ever leaks
+ * above the adapter boundary.
+ */
+function AuthScreenShell({ mode, returnTo }: SignComponentProps & { mode: 'sign-in' | 'sign-up' }) {
+  return (
+    <div className="auth-screen">
+      <div className="auth-screen-brand">
+        <p className="auth-screen-pill">{APP_NAME} · Draft-day co-pilot</p>
+        <h2 className="auth-screen-title">
+          {mode === 'sign-in' ? 'Back to your draft room.' : 'Your draft room is waiting.'}
+        </h2>
+        <ul className="auth-screen-points">
+          <li>Live pick recommendations</li>
+          <li>Saved leagues &amp; lineup optimizer</li>
+          <li>One hub for all your leagues</li>
+        </ul>
+      </div>
+      <div className="auth-screen-card">
+        {mode === 'sign-in'
+          ? <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" fallbackRedirectUrl={returnTo} appearance={clerkAppearance} />
+          : <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" fallbackRedirectUrl={returnTo} appearance={clerkAppearance} />}
+      </div>
+    </div>
+  );
+}
+
 function SignInComponent({ returnTo }: SignComponentProps) {
-  return <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" fallbackRedirectUrl={returnTo} />;
+  return <AuthScreenShell mode="sign-in" returnTo={returnTo} />;
 }
 
 function SignUpComponent({ returnTo }: SignComponentProps) {
-  return <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" fallbackRedirectUrl={returnTo} />;
+  return <AuthScreenShell mode="sign-up" returnTo={returnTo} />;
 }
 
 export const clerkAdapter: AuthAdapter = {

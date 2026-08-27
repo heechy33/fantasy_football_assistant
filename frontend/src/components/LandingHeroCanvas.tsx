@@ -17,10 +17,9 @@ import { ATLAS_COLS, ATLAS_ROWS, NFL_TEAM_ABBREVS, teamAtlasCell, teamOrbitPlace
  *              provider panels
  *   finale     a slow settle back to center stage for the sign-off
  *
- * Trophy realism: a licensed `.glb` model is loaded from `public/models/` when present,
- * normalized into the scene and given the full PBR treatment. Until it lands — or forever, if
- * it never does — a procedural Lombardi-style fallback renders instead, so nothing breaks. Both
- * paths share: a procedural stadium-light environment map (bright emissive "light bank" planes
+ * Trophy realism: a licensed `.glb` model is loaded from `public/models/` and normalized into the
+ * scene with the full PBR treatment. Until it lands the plinth simply stands empty — no procedural
+ * fallback (removed: the rough stand-in visible during load read as ugly). The scene shares: a procedural stadium-light environment map (bright emissive "light bank" planes
  * baked through PMREMGenerator — the long specular streaks that make curved metal read as
  * photographed metal, with no HDR download honoring the $0/static-hosting target), ACES filmic
  * tone mapping, UnrealBloom hot-highlight rolloff, a soft contact shadow, a stepped brushed-metal
@@ -50,9 +49,8 @@ import { ATLAS_COLS, ATLAS_ROWS, NFL_TEAM_ABBREVS, teamAtlasCell, teamOrbitPlace
  * - `prefers-reduced-motion`: a static lit hero frame — no animation, no camera travel, orbit
  *   frozen at its `t=0` arrangement.
  * - No WebGL context (headless browsers, jsdom, blocked GPU): the canvas stays transparent and
- *   the page degrades to a flat dark scene plus the vignette/grain layers — `landing-scene-glow`
- *   is kept as a mount point but deliberately carries no glow shape of its own (see
- *   DECISIONS.md, 2026-08-26) — so the page never looks broken, just plainer.
+ *   the page degrades to a flat dark scene plus the starfield/vignette/grain CSS layers — so
+ *   the page never looks broken, just plainer.
  * - A logo file fails to load: that cell of the atlas renders as a bare colored abbreviation
  *   (no background fill) in the team's own identity color — the orbit never shows a blank tile.
  * - Tab hidden: the render loop pauses via the visibility guard inside the frame callback.
@@ -65,8 +63,7 @@ const TROPHY_MODEL_URL = '/models/trophy.glb';
  * app's (no-CORS) uses of Sleeper's CDN for the same logos. See DECISIONS.md. */
 const TEAM_LOGO_DIR = '/team-logos';
 
-/** World floor height — everything stands on this plane (the plinth's base, and the fallback
- * trophy's own touch point before the plinth lift is applied). */
+/** World floor height — everything stands on this plane (the plinth's base included). */
 const FLOOR_Y = -1.79;
 /** Plinth height; the trophy stands on top of it, not directly on the floor. Tall and slim (a
  * museum-plinth silhouette) rather than the old 0.55 — a stand nearly 3x wider than tall read as
@@ -75,8 +72,6 @@ const PLINTH_HEIGHT = 1.5;
 const PLINTH_TOP = FLOOR_Y + PLINTH_HEIGHT;
 /** Tiny epsilon above the plinth's flat cap so the trophy's foot never z-fights with it. */
 const TROPHY_STAND_Y = PLINTH_TOP + 0.01;
-/** The fallback trophy's own lathe profile is authored with its foot at this local Y. */
-const FALLBACK_TROPHY_BASE_Y = -1.78;
 
 /**
  * Camera orbit waypoints keyed by whole-page scroll progress (0 = hero, 1 = footer). The trophy
@@ -388,16 +383,8 @@ export function LandingHeroCanvas() {
         envMapIntensity: 1.3,
       });
       chrome.userData.baseEnv = 1.3;
-      const stitch = new THREE.MeshStandardMaterial({
-        color: 0xdde5ee,
-        metalness: 1,
-        roughness: 0.27,
-        roughnessMap: tileNoise(2, 4),
-        envMapIntensity: 1.1,
-      });
-      stitch.userData.baseEnv = 1.1;
       // Every silver material, tracked so the scroll dimming also reaches GLB-upgraded ones.
-      const silverMats: THREE.MeshStandardMaterial[] = [chrome, stitch];
+      const silverMats: THREE.MeshStandardMaterial[] = [chrome];
 
       const disposeDeep = (root: THREE.Object3D) => {
         root.traverse((obj) => {
@@ -448,61 +435,16 @@ export function LandingHeroCanvas() {
       };
       scene.add(buildPlinth());
 
-      // ---- Trophy: bundled GLB model with a procedural fallback ---------------------------
-      const buildFallbackTrophy = () => {
-        // Lombardi silhouette as one lathe profile: pointed plinth, concave column narrowing
-        // upward, then the collar that seats the ball.
-        const stemProfile = [
-          new THREE.Vector2(0.001, -1.78),
-          new THREE.Vector2(0.6, -1.78),
-          new THREE.Vector2(0.74, -1.66),
-          new THREE.Vector2(0.5, -1.56),
-          new THREE.Vector2(0.17, -1.0),
-          new THREE.Vector2(0.13, -0.4),
-          new THREE.Vector2(0.16, 0.05),
-          new THREE.Vector2(0.28, 0.38),
-          new THREE.Vector2(0.26, 0.52),
-          new THREE.Vector2(0.001, 0.54),
-        ];
-        const g = new THREE.Group();
-        g.add(new THREE.Mesh(new THREE.LatheGeometry(stemProfile, 96), chrome));
-
-        // The ball: a prolate spheroid tilted like the real trophy's football, with laces raised
-        // along the top seam.
-        const football = new THREE.Group();
-        football.position.y = 1.06;
-        football.rotation.z = -0.16;
-        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.58, 64, 48), chrome);
-        ball.scale.set(1.32, 0.88, 0.82);
-        football.add(ball);
-        for (let i = 0; i < 7; i++) {
-          const u = (i / 6 - 0.5) * 1.24; // position along the long axis
-          const apexY = Math.cos((u / 0.77) * 1.25) * 0.51; // upper-surface curve of the spheroid
-          const knot = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.02, 0.2), stitch);
-          knot.position.set(u, apexY + 0.02, 0);
-          football.add(knot);
-        }
-        g.add(football);
-        return g;
-      };
-
-      const trophy = buildFallbackTrophy();
-      trophy.position.y = TROPHY_STAND_Y - FALLBACK_TROPHY_BASE_Y; // stand it on the plinth cap
+      // ---- Trophy: the bundled GLB model, loaded directly ------------------------------------
+      // No procedural fallback: while the model streams the plinth simply stands empty (the old
+      // lathe stand-in was visible for the whole first paint and read as cheap). If the load
+      // fails the scene still composes — floor, plinth, fog, orbit — just without a trophy.
       const holder = new THREE.Group(); // scroll choreography drives this node only
-      trophy.traverse((obj) => {
-        if (obj instanceof THREE.Mesh) obj.castShadow = true;
-      });
-      holder.add(trophy);
+      // Pointer-tilt target: a child group so the GLB can arrive asynchronously and still be
+      // driven by the same per-frame rig without re-wiring.
+      const tilt = new THREE.Group();
+      holder.add(tilt);
       scene.add(holder);
-
-      // No halo, no backdrop light: the trophy glows because its own specular highlights exceed
-      // the bloom threshold (see the UnrealBloomPass tuning below). A billboarded glow plane
-      // behind the object — even a small one — reads as a white circle floating next to the
-      // trophy from every orbit angle (see DECISIONS.md, 2026-08-26); removed outright.
-
-      // When a model is bundled at public/models/trophy.glb it swaps in: normalized into the
-      // fallback's exact footprint with its authored materials gently unified toward house PBR
-      // silver, so the environment-map streaks hold regardless of how the asset was authored.
       new GLTFLoader().load(
         TROPHY_MODEL_URL,
         (gltf) => {
@@ -514,7 +456,9 @@ export function LandingHeroCanvas() {
           const box = new THREE.Box3().setFromObject(model);
           const size = new THREE.Vector3();
           box.getSize(size);
-          model.scale.setScalar(2.32 / Math.max(size.y, 0.0001)); // match the fallback height
+          // Authored hero height. 2.62 (up from 2.32): the user asked for the trophy a touch
+          // bigger in frame — ~13% reads as "lil bigger" without crowding the headline above.
+          model.scale.setScalar(2.62 / Math.max(size.y, 0.0001));
           model.updateMatrixWorld(true);
           box.setFromObject(model);
           // Center on the plinth axis by VISUAL FOOTPRINT, not raw bbox center: the bbox midpoint
@@ -561,26 +505,27 @@ export function LandingHeroCanvas() {
                 mat.metalness = Math.max(mat.metalness, 0.92);
                 // A uniform 0.13 roughness clamp made this a perfect mirror — believable metal
                 // needs a real target plus micro-variation, not a "shinier than possible" floor.
-                mat.roughness = 0.2;
+                // 0.3 (up from 0.2): the mirror-polish pass was spiking the bloom pass into a
+                // blown-out ball. The rougher finish smears highlights into the soft, glinty
+                // "shines everywhere" look of the reference instead of a few nuked streaks.
+                mat.roughness = 0.3;
                 if (!mat.roughnessMap) mat.roughnessMap = tileNoise(3, 5);
-                mat.envMapIntensity = 1.3;
+                mat.envMapIntensity = 0.9;
                 // Gentle pull toward house silver: keep most of the authored albedo (the bundled
-                // model ships decent materials) while unifying highlights with the fallback.
+                // model ships decent materials) while unifying highlights with the house chrome.
                 mat.color.lerp(new THREE.Color(0xeef2f7), 0.12);
-                mat.userData.baseEnv = 1.3;
+                mat.userData.baseEnv = 0.9;
                 silverMats.push(mat as THREE.MeshStandardMaterial);
                 upgraded = true;
               }
             });
             if (!upgraded) obj.material = chrome; // unshaded junk: use the house silver
           });
-          holder.remove(trophy);
-          disposeDeep(trophy);
-          holder.add(model);
+          tilt.add(model);
         },
         undefined,
         () => {
-          /* No model bundled yet (or it failed to parse) — the fallback stays; nothing breaks. */
+          /* No model bundled yet (or it failed to parse) — the plinth just stands empty. */
         },
       );
 
@@ -628,7 +573,7 @@ export function LandingHeroCanvas() {
       contact.receiveShadow = true;
       scene.add(contact);
 
-      const key = new THREE.DirectionalLight(0xfff2dc, 1.6);
+      const key = new THREE.DirectionalLight(0xfff2dc, 1.25);
       key.position.set(4, 9, 5);
       key.castShadow = true;
       key.shadow.mapSize.set(2048, 2048);
@@ -643,6 +588,18 @@ export function LandingHeroCanvas() {
       const rim = new THREE.DirectionalLight(0xdfe6ef, 0.75);
       rim.position.set(-6, 3.5, -6);
       scene.add(rim);
+      // Low warm "kick" lighting the trophy's base/leg cone. Every env bank and the key sit well
+      // above the plinth, so the leg (a near-vertical cone) caught no specular streak and read as
+      // a dead black silhouette under the glowing ball. First pass (2.4) turned the cone into a
+      // blazing pillar — way past "shining." 0.25 with a narrower cone reads as a faint warm
+      // sheen the leg shares with the rest of the trophy. decay 0 keeps the intensity in classic
+      // (non-physical) units so it composes predictably with `key`/`rim`. NOTE: the scroll-dim
+      // handler below re-assigns intensity every frame — keep it in sync with this value.
+      const baseKick = new THREE.SpotLight(0xfff2dc, 0.25, 0, Math.PI / 3.2, 1.0, 0);
+      baseKick.position.set(2.4, TROPHY_STAND_Y + 0.6, 3.6);
+      baseKick.target.position.set(0, TROPHY_STAND_Y + 0.55, 0);
+      scene.add(baseKick);
+      scene.add(baseKick.target);
 
       // ---- Horizon: crowd lights + drifting haze -------------------------------------------
       // A prior "stadium bowl" cylinder mesh gave every shot a visible wall — its gradient never
@@ -911,8 +868,8 @@ export function LandingHeroCanvas() {
         // every other idle animation in this scene.
         holder.rotation.y = reduceMotion ? 0.35 : t * 0.05;
         if (!reduceMotion) {
-          trophy.rotation.x = pointer.y * 0.07 * (1 - p);
-          trophy.rotation.z = pointer.x * -0.04 * (1 - p);
+          tilt.rotation.x = pointer.y * 0.07 * (1 - p);
+          tilt.rotation.z = pointer.x * -0.04 * (1 - p);
         }
 
         // Dim the hero lighting as the page descends so the copy owns the frame.
@@ -920,7 +877,8 @@ export function LandingHeroCanvas() {
         silverMats.forEach((m) => {
           m.envMapIntensity = (m.userData.baseEnv as number) * dim;
         });
-        key.intensity = 1.6 * dim;
+        key.intensity = 1.25 * dim;
+        baseKick.intensity = 0.25 * dim;
 
         // Atmosphere life: crowd/haze twinkle + slow haze drift (frozen under reduced motion).
         if (!reduceMotion) {

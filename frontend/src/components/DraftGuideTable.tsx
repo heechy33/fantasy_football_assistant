@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PlayerId } from '../../../shared/types';
 import type { GuideRow } from '../data/guideBoard';
 import { buildLaneCell, positionRankLabel, type GuideLane } from '../data/guideTableColumns';
@@ -24,12 +24,22 @@ type SortKey = string; // 'anchor' or a lane key
 
 const DELTA_TITLE = 'The gap between this provider\u2019s ADP and the anchor rank \u2014 disagreement between boards, not superiority. Neither direction may be marketed from current evidence (DECISIONS.md, 2026-08-25).';
 
+/** Incremental-render window. The full pool is several hundred rows of buttons + two images each;
+ * mounting all of it at once is the guide's dominant first-paint cost. Rows render in pages and
+ * an IntersectionObserver sentinel appends the next page as the user scrolls near the end. */
+const INITIAL_WINDOW = 120;
+const WINDOW_STEP = 120;
+
 /** The guide's STACKED-style table: an anchor rank column, a rich player cell, then one column
  * per provider lane showing raw ADP + the delta vs the anchor. Every numeric column sorts;
  * missing values render em-dashes and ALWAYS sort last regardless of direction (same contract
  * as sortGuideRows: never dropped, never first). */
 export function DraftGuideTable({ rows, anchorLabel, anchorRankByPlayer, positionRankByPlayer, lanes, onSelectPlayer }: DraftGuideTableProps) {
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'anchor', dir: 'asc' });
+  const [limit, setLimit] = useState(INITIAL_WINDOW);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // jsdom (tests) has no IntersectionObserver — there we render the full sorted list.
+  const canWindow = typeof IntersectionObserver !== 'undefined';
 
   const sortRank = (row: GuideRow, key: SortKey): number | null => (
     key === 'anchor'
@@ -55,6 +65,40 @@ export function DraftGuideTable({ rows, anchorLabel, anchorRankByPlayer, positio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, sort, anchorRankByPlayer, lanes]);
 
+  // The Rank column is ALWAYS the dense position in the current display order (1..n over the rows
+  // the sort key covers, missing rows keeping their em-dash) — the user's mental model is "what
+  // place is this row in the board I'm looking at", whether that's a provider lane or a filtered
+  // pool under the anchor (a QB-filtered board ranks Josh Allen 1, not his global 22).
+  const displayRankByPlayer = useMemo(() => {
+    const map = new Map<PlayerId, number>();
+    let next = 1;
+    for (const row of sorted) {
+      if (sortRank(row, sort.key) != null) map.set(row.playerId, next++);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorted, sort]);
+
+  // Positional chips (RB1, WR2, ...) follow the CURRENT sort the same way: dense 1..n within each
+  // position, in the active sort's board order (provider lane or anchor over a filtered pool).
+  // Rows the sort key doesn't cover fall back to the engine's chip via positionRankByPlayer.
+  const positionRankBySort = useMemo(() => {
+    const byPosition = new Map<string, GuideRow[]>();
+    for (const row of sorted) {
+      const position = row.player?.position;
+      if (position == null || sortRank(row, sort.key) == null) continue;
+      const list = byPosition.get(position);
+      if (list) list.push(row);
+      else byPosition.set(position, [row]);
+    }
+    const ranks = new Map<PlayerId, number>();
+    for (const list of byPosition.values()) {
+      list.forEach((row, index) => ranks.set(row.playerId, index + 1));
+    }
+    return ranks;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorted, sort]);
+
   function toggleSort(key: SortKey) {
     setSort((current) => (
       current.key === key
@@ -62,6 +106,25 @@ export function DraftGuideTable({ rows, anchorLabel, anchorRankByPlayer, positio
         : { key, dir: 'asc' }
     ));
   }
+
+  // A new dataset (filter/format change) restarts the window from the top.
+  useEffect(() => { setLimit(INITIAL_WINDOW); }, [rows]);
+
+  // Grow the window whenever the sentinel scrolls near the viewport.
+  useEffect(() => {
+    if (!canWindow || limit >= sorted.length) return;
+    const sentinel = sentinelRef.current;
+    if (sentinel == null) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setLimit((current) => Math.min(current + WINDOW_STEP, sorted.length));
+      }
+    }, { rootMargin: '600px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canWindow, limit, sorted.length]);
+
+  const visible = canWindow ? sorted.slice(0, limit) : sorted;
 
   function ariaSortFor(key: SortKey): 'ascending' | 'descending' | undefined {
     if (sort.key !== key) return undefined;
@@ -95,13 +158,17 @@ export function DraftGuideTable({ rows, anchorLabel, anchorRankByPlayer, positio
         </tr>
       </thead>
       <tbody>
-        {sorted.map((row) => {
+        {visible.map((row) => {
           const anchorRank = anchorRankByPlayer.get(row.playerId);
+          const displayRank = displayRankByPlayer == null ? anchorRank : displayRankByPlayer.get(row.playerId) ?? null;
           const player = row.player;
-          const posRank = positionRankLabel(row, positionRankByPlayer);
+          // Rows the sort key doesn't cover (e.g. absent from a provider lane) keep their engine
+          // chip instead of going blank.
+          const posRank = positionRankLabel(row, positionRankBySort)
+            ?? positionRankLabel(row, positionRankByPlayer);
           return (
             <tr key={row.playerId}>
-              <td className="guide-col-rank" data-missing={anchorRank == null || undefined}>{anchorRank ?? '\u2014'}</td>
+              <td className="guide-col-rank" data-missing={displayRank == null || undefined}>{displayRank ?? '\u2014'}</td>
               <td className="guide-col-player">
                 <button type="button" className="guide-player-cell" onClick={() => onSelectPlayer(row.playerId)}>
                   {player ? (
@@ -122,14 +189,14 @@ export function DraftGuideTable({ rows, anchorLabel, anchorRankByPlayer, positio
                       )}
                       {player?.team ?? 'FA'}
                     </span>
-                    <span className="guide-player-name">{player?.name ?? row.playerId}</span>
-                  </span>
-                  <span className="guide-grid-tags">
-                    {posRank != null ? (
-                      <span className="guide-pos-pill" data-position={player?.position ?? undefined}>{posRank}</span>
-                    ) : player?.position != null ? (
-                      <PositionBadge position={player.position} />
-                    ) : null}
+                    <span className="guide-player-name">
+                      <span className="guide-player-name-text">{player?.name ?? row.playerId}</span>
+                      {posRank != null ? (
+                        <span className="guide-pos-pill guide-pos-pill-inline" data-position={player?.position ?? undefined}>{posRank}</span>
+                      ) : player?.position != null ? (
+                        <PositionBadge position={player.position} />
+                      ) : null}
+                    </span>
                   </span>
                 </button>
               </td>
@@ -158,6 +225,13 @@ export function DraftGuideTable({ rows, anchorLabel, anchorRankByPlayer, positio
             </tr>
           );
         })}
+        {visible.length < sorted.length && (
+          <tr aria-hidden="true" className="guide-table-more">
+            <td colSpan={2 + lanes.length}>
+              <div ref={sentinelRef} className="guide-table-sentinel">Loading more players…</div>
+            </td>
+          </tr>
+        )}
       </tbody>
       </table>
     </div>

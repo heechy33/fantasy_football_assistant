@@ -11,8 +11,9 @@ import { useDraftSync } from '../state/draftSync';
 function pageForPathname(pathname: string): AppPage {
   if (pathname === '/draft-guide') return 'guide';
   if (pathname === '/draft') return 'draft';
-  if (pathname === '/teams') return 'teams';
-  // Home is both '/' and every path without its own tab yet (e.g. /onboarding, /sign-up).
+  // The league hub owns '/leagues*' (including /leagues/connect), and the onboarding wizard is
+  // part of that story — highlighting a real tab instead of silently falling back to Home.
+  if (pathname.startsWith('/leagues') || pathname.startsWith('/onboarding')) return 'leagues';
   return 'home';
 }
 

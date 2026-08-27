@@ -1,5 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { TeamsPage } from './components/TeamsPage';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import { SignInRoute, SignUpRoute } from './routes/AuthRoute';
@@ -10,6 +9,8 @@ import { LandingRoute } from './routes/LandingRoute';
 import { NotFound } from './routes/NotFound';
 import { OnboardingLayout, OnboardingPlan, OnboardingReady } from './routes/onboarding/OnboardingLayout';
 import { OnboardingLeague } from './routes/onboarding/OnboardingLeague';
+import { LeaguesRoute } from './routes/LeaguesRoute';
+import { ConnectLeagueRoute } from './routes/ConnectLeagueRoute';
 import { DraftSessionProvider } from './session/DraftSessionProvider';
 import './App.css';
 
@@ -36,7 +37,11 @@ export function AppRoutes() {
             <Route path="sign-up" element={<SignUpRoute />} />
             <Route element={<RequireAuth />}>
               <Route path="draft" element={<DraftRoomRoute />} />
-              <Route path="teams" element={<TeamsPage />} />
+              {/* League hub + shared connect surface. /teams is retired — redirect so old links
+                  and bookmarks keep working. */}
+              <Route path="leagues" element={<LeaguesRoute />} />
+              <Route path="leagues/connect" element={<ConnectLeagueRoute />} />
+              <Route path="teams" element={<Navigate to="/leagues" replace />} />
               <Route path="onboarding" element={<OnboardingLayout />}>
                 <Route index element={<OnboardingLeague />} />
                 <Route path="league" element={<OnboardingLeague />} />

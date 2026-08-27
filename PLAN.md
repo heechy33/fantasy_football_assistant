@@ -54,12 +54,13 @@ priority (`DECISIONS.md`, 2026-08-25): the product is restructuring into a publi
 Ship order: 0 docs (this amendment) → 1 react-router migration with the session provider lifted
 above the routes → 2 the public `/draft-guide` page (ranked pool, format selectors, a
 ranking-source selector across the engine and every shipped ADP lane; table + snake draft-grid
-views) → **3 (current)** landing becomes illustration-only with the real connect flow moving to
-post-signup `/onboarding` → 4 Clerk auth seam (`RequireAuth`, mock adapter default) → 5 saved
-leagues/drafts on Cosmos via authenticated Functions. Phases 0-2 are shipped; Phase 3's landing
-rework, onboarding routes, and regression-test port are in. Evaluation layers B-D and the
-owner-review step remain open — this is an explicit priority call under the expansion rule, not a
-gate pass, and it authorizes no in-season ESPN/Yahoo work.
+views) → 3 landing becomes illustration-only with the real connect flow moving to post-signup
+`/onboarding` → 4 Clerk auth seam (`RequireAuth`, mock adapter default) → 5 saved leagues/drafts on
+Cosmos via authenticated Functions. **Phases 0-5 are all shipped** (2026-08-26). Follow-up
+restructure also shipped: the league-first connect split and `/leagues` hub replacing `/teams`
+(see `DECISIONS.md`, 2026-08-26). Evaluation layers B-D and the owner-review step remain open —
+this is an explicit priority call under the expansion rule, not a gate pass, and it authorizes no
+in-season ESPN/Yahoo work.
 
 The **ESPN draft-day exception** (see `DECISIONS.md`'s 2026-08-14 entry) is closed — that August 15
 draft has completed. Active work is Sleeper-first again; the two remaining leagues' drafts continue

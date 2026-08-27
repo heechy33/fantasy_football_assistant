@@ -419,6 +419,47 @@ describe('useDraftSync — reconcile and retention', () => {
     expect(draftArg.id).toBeUndefined();
     expect(draftArg.leagueId).toBe('saved-league-1'); // adopted from the upserted league's response
   });
+
+  // Regression (2026-08-26): once a league can be saved from /leagues/connect before any draft
+  // exists, tracking its draft later must UPDATE that SavedLeague in place — reconcileOnce used
+  // to adopt savedLeagueId only from a matching remote draft, so with no draft on file the next
+  // sync created a second league doc and /leagues showed it twice.
+  it('adopts a pre-existing saved LEAGUE when no remote draft matches, so the upsert is not a duplicate', async () => {
+    const repo = repoStub();
+    repo.listDrafts.mockResolvedValue([]); // no draft yet — the /leagues-connect-first case
+    repo.listLeagues.mockResolvedValue([
+      {
+        id: 'saved-league-existing',
+        userId: 'user-1',
+        provider: 'sleeper',
+        providerLeagueId: 'league-1', // matches effectiveInit.leagueId via mapProvider('sleeper')
+        name: 'Work League',
+        season: '2026',
+        teams: 12,
+        rounds: 0,
+        mySlot: null,
+        settings: { provider: 'sleeper', leagueId: 'league-1' },
+        createdAt: '',
+        updatedAt: '',
+      } as never,
+    ]);
+
+    renderSync(repo);
+    await advance(SYNC_DEBOUNCE_MS);
+
+    expect(repo.listLeagues).toHaveBeenCalledTimes(1);
+    const leagueArg = firstCallArg(repo.upsertLeague);
+    expect(leagueArg.id).toBe('saved-league-existing');
+  });
+
+  it('mints a fresh league id when neither a draft nor a matching league exists server-side', async () => {
+    const repo = repoStub();
+    renderSync(repo);
+    await advance(SYNC_DEBOUNCE_MS);
+
+    expect(repo.listLeagues).toHaveBeenCalledTimes(1); // the fallback check still ran, once
+    expect(firstCallArg(repo.upsertLeague).id).toBeUndefined();
+  });
 });
 
 

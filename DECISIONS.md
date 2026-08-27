@@ -921,6 +921,76 @@ of neon-blue until caught in browser verification). Fixed by writing the overrid
 
 ---
 
+## 2026-08-26 — League-first connect: save-league vs track-draft split
+
+**Decision:** connecting a platform now has two independent halves. *Save league* writes a durable
+`SavedLeague` pointer immediately from `/leagues/connect` (real season via `LeagueRef.season`,
+which `DraftInit` lacks) without starting any session; *Track draft* starts a live session without
+requiring a saved league. `useDraftSync` reconciles both: `reconcileOnce` adopts a matching saved
+LEAGUE when no remote draft exists, and `/api/leagues` upsert is idempotent on
+`(userId, provider, providerLeagueId)` so no writer can duplicate a league doc. This partially
+retires the `season: ''` placeholder — true for the league-connect path; the draft-sync path still
+cannot supply one (see also the sibling 2026-08-26 retention entry).
+
+**Why:** leagues were previously materialized only as a side effect of tracking a draft, so the
+product had no honest league surface (`TeamsPage` was a hard-coded empty state with stale copy).
+
+**Also:** `/teams` → `/leagues` (hub cards carry name/season/teams/provider, plus Track draft /
+Remove using stored `providerUserId`/`latestDraftId` identity — explicitly NO roster/waiver/lineup
+affordances per this file's 2026-08-25 scope boundary); exactly one connect surface renders both
+`/leagues/connect` and `/onboarding/league`; localStorage `ffa.draftSession.v2` remains
+refresh-resume-only and is now cleared when a session ends or a Sleeper draft completes while
+still connected — it never held league data.
+
+**Precedent being set:** two routes sharing one component (`ConnectLeagueRoute`) rather than two
+connect flows that drift.
+
+---
+
+## 2026-08-27 — Landing 03: data-source claim, not league-connect claim; animated wires
+
+**Decision:** the landing's 03 section moved from "One hub for all your leagues." (a league-connect
+claim `/leagues/connect` doesn't back for four of its six spokes) to "Every source. One board." —
+the honest claim of what `/draft-guide` already does: pull ADP/rankings/projections from multiple
+platforms and reconcile them into one ranked board. The spoke set narrowed from
+`espn/sleeper/cbs/rtsports/fantrax/fftoday` to five: `sleeper/espn/cbs/underdog/yahoo`. `yahoo`
+joined `ProviderBrandKey` (`frontend/src/data/providerBrand.ts`) with a new hand-authored
+`frontend/src/assets/providers/yahoo.svg` in the same house style as the existing placeholder marks
+(32×32, `rx=7` rounded square, white `<text>` wordmark) — `ProviderBadge`'s `import.meta.glob`
+convention picked it up with no code change.
+
+**Why:** modeled on `app.fantasyplaybook.ai`'s hub-and-wires animation, which the user asked to be
+mimicked. Its actual mechanism (inspected live via DOM/computed-style probing, not guessed): a
+static elbow-path trace per branch plus an overlay path stroked with an animated `<linearGradient>`
+that slides from tile to hub over ~1s, with 1-2 branches lit at a time on an irregular stagger. That
+technique needs a rAF loop (CSS cannot animate a gradient `<stop offset>`), which conflicts with the
+repo's zero-animation-library / no-rAF-outside-the-three.js-scene baseline
+(`useRevealOnScroll.ts`'s explicit "no GSAP" comment). The visual substitute:
+`frontend/src/components/IntegrationsMap.tsx` draws each branch as an SVG path with
+`pathLength={100}` and `vectorEffect="non-scaling-stroke"`, and `App.css`'s
+`.integrations-pulse-tail`/`-head` layers animate `stroke-dashoffset` to fake the same
+comet-travels-into-the-hub effect with pure CSS, gated paused until `useRevealOnScroll` marks the
+section `.revealed`.
+
+**Bug hit and fixed during browser verification:** the first cut used `stroke-dasharray` values
+that summed to exactly 100 (matching `pathLength`), e.g. `24 76`. That's a live layout invariant to
+avoid, not just a cosmetic mistake — when dash+gap equals the total path length, every
+`stroke-dashoffset` value places the dash *somewhere* on the path (one dash per pattern period, and
+the period exactly matches the path), so there is no "off-path" park state; every idle branch showed
+a permanently lit sliver at the tile end (confirmed by comparing two zoomed screenshots ~2s apart —
+identical unmoving blue nub at every tile). Fixed by making the gap far larger than the path
+(`24 276` / `5 295`, total period 300) and adding a park-value keyframe stop (150/174) chosen so its
+dash interval falls entirely outside `[0, 100]` — a genuinely dark idle state, confirmed live after
+the fix (same two-screenshot comparison showed fully dark wires between hits). Kept as a code
+comment on the keyframes so the invariant survives future edits (don't let dash+gap equal
+`pathLength` again).
+
+**Removed:** `.integrations-stem`/`.integrations-rail`/`.integrations-spokes` divs and the
+`calc(100% - 100% / 6)` rail math hard-wired to a 6-column row — both replaced by the SVG wire
+geometry above, authored for the new 5-tile grid.
+
+---
+
 ## Handoff note for future agents
 
 When you make a decision that should outlive the current task — a rejected approach, a formula

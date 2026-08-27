@@ -8,41 +8,47 @@ import {
   guideAdpFormat,
   GUIDE_POSITIONS,
 } from '../data/guideLeagueSettings';
-import { buildProviderColumn, unavailableProviderColumn, LANE_NOTES, type GuideRankSource, type ProviderColumn } from '../data/guideProviderColumns';
-import { buildLaneCell, buildPositionRankByPlayer, formatRelativeAge, serializeGuideCsv, type GuideLane } from '../data/guideTableColumns';
+import { buildProviderColumn, unavailableProviderColumn, type GuideRankSource } from '../data/guideProviderColumns';
+import { buildPositionRankByPlayer, type GuideLane } from '../data/guideTableColumns';
 import { buildTeamDepthRoles } from '../data/teamDepthRole';
-import { sortGuideRows, type GuideRow } from '../data/guideBoard';
+import { sortGuideRows } from '../data/guideBoard';
 import { useDraftGuideBoard } from '../hooks/useDraftGuideBoard';
 import { useProviderAdpBoards } from '../hooks/useProviderAdpBoards';
 import { useUnderdogAdp } from '../hooks/useUnderdogAdp';
 import { useWeeklyStats } from '../hooks/useWeeklyStats';
 import { useDraftSession } from '../session/DraftSessionProvider';
-import { DraftGuideFilters, type GuideSourceOption } from '../components/DraftGuideFilters';
+import { DraftGuideFilters } from '../components/DraftGuideFilters';
 import { DraftGuideTable } from '../components/DraftGuideTable';
 import { DraftGuideBoard } from '../components/DraftGuideBoard';
 import { PlayerDetailDrawer, type AdpDisclosure } from '../components/PlayerDetailDrawer';
 
-/** Marketing-constrained copy (DECISIONS.md, 2026-08-25): describes methodology, claims nothing
- * about beating ADP or winning leagues. */
-const METHODOLOGY_NOTE =
-  'Engine ranking: projected roster value \u2014 marginal roster utility over an empty roster, '
-  + 'computed from FFToday season projections scored in your league\u2019s format. Availability '
-  + 'signals are experimental. The \u0394 column describes disagreement vs Sleeper ADP, not superiority.';
-
 const SOURCE_LABELS: Readonly<Record<GuideRankSource, string>> = {
   engine: 'Engine',
-  sleeper: 'Sleeper ADP',
+  sleeper: 'Sleeper',
   espn: 'ESPN',
   ffc: 'FFC',
-  underdog: 'Underdog best-ball',
+  underdog: 'Underdog',
 };
+
+/** The board's anchor ADP lane ("Rank" column). No UI selector anymore — Sleeper is the board
+ * order and the other providers are reference columns; a `source=` deep link still honors an
+ * explicit lane, degrading to Sleeper for unknown values. */
+const ADP_SOURCE_KEYS = ['sleeper', 'espn', 'ffc', 'underdog'] as const;
+type AdpSourceKey = (typeof ADP_SOURCE_KEYS)[number];
+
+/** Both views cap the displayed pool at 1000 players (STACKED showed until 1000) — deep best-ball
+ * pools beyond that are noise on a public board. The full pool still feeds the drawer lookups. */
+const GUIDE_MAX_ROWS = 1000;
 
 /** The public, no-account Draft Guide (`/draft-guide`). Selector state lives entirely in the URL
  * query string — an anonymous user writes nothing (no storage, no server). */
 export function DraftGuideRoute() {
   const [searchParams, setSearchParams] = useSearchParams();
   const format = useMemo(() => parseGuideFormat(searchParams), [searchParams]);
-  const source = (searchParams.get('source') ?? 'engine') as GuideRankSource;
+  const source = (searchParams.get('source') ?? 'sleeper') as GuideRankSource;
+  const activeSource: AdpSourceKey = (ADP_SOURCE_KEYS as readonly string[]).includes(source)
+    ? source as AdpSourceKey
+    : 'sleeper';
   // An unknown pos param degrades to ALL rather than silently filtering every row away (the same
   // degrade-don't-crash contract as activeSource below).
   const rawPos = searchParams.get('pos');
@@ -95,55 +101,17 @@ export function DraftGuideRoute() {
       : unavailableProviderColumn('underdog', SOURCE_LABELS.underdog),
   }), [board.adp, espnEntries, ffcEntries, underdog]);
 
-  const sourceOptions: GuideSourceOption[] = [
-    { key: 'engine', label: SOURCE_LABELS.engine, status: board.status === 'error' ? 'unavailable' : 'ready' },
-    { key: 'sleeper', label: SOURCE_LABELS.sleeper, status: 'ready' },
-    { key: 'espn', label: SOURCE_LABELS.espn, status: columns.espn.status },
-    { key: 'ffc', label: SOURCE_LABELS.ffc, status: columns.ffc.status },
-    { key: 'underdog', label: SOURCE_LABELS.underdog, status: columns.underdog.status },
-  ];
-
-  // An unavailable or unknown source in the URL degrades to the engine rather than erroring.
-  const activeSource: GuideRankSource = sourceOptions.some((o) => o.key === source && o.status === 'ready')
-    ? source
-    : 'engine';
-
   const visibleRows = useMemo(() => {
     // Fresh position filter — no live-draft rules (All includes K/DEF; QB never auto-drops).
     const filtered = position === 'ALL'
       ? board.rows
       : board.rows.filter((row) => row.player?.position === position);
-    return sortGuideRows(filtered, activeSource, columns, board.engineRankByPlayer);
+    return sortGuideRows(filtered, activeSource, columns, board.engineRankByPlayer).slice(0, GUIDE_MAX_ROWS);
   }, [board.rows, board.engineRankByPlayer, activeSource, columns, position]);
 
   // Per-position ranks (the `RB1` chip) over the FULL pool — a player's chip must not change
   // because the position filter or view hid their peers.
   const positionRankByPlayer = useMemo(() => buildPositionRankByPlayer(board.rows), [board.rows]);
-
-  // When each lane's artifact was fetched (the disclosure line + the header's last-updated label).
-  function laneFetchedAt(key: 'sleeper' | 'espn' | 'ffc' | 'underdog'): string | null {
-    const source = key === 'sleeper'
-      ? manifest?.sources[`adp_active_${adpFormat}`]
-      : key === 'espn'
-        ? manifest?.sources.espn_adp_ppr
-        : key === 'ffc'
-          ? manifest?.sources[`ffc_adp_${adpFormat}`]
-          : manifest?.sources.underdog_bestball;
-    return source?.fetchedAt ?? null;
-  }
-  const latestAdpFetchedAt = useMemo(() => {
-    // ISO timestamps sort lexicographically — max() as a string is the newest.
-    let latest: string | null = null;
-    for (const key of ['sleeper', 'espn', 'ffc', 'underdog'] as const) {
-      if (columns[key].status !== 'ready') continue;
-      const fetchedAt = laneFetchedAt(key);
-      if (fetchedAt != null && (latest == null || fetchedAt > latest)) latest = fetchedAt;
-    }
-    return latest;
-    // laneFetchedAt reads only manifest/adpFormat.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns, manifest, adpFormat]);
-  const adpUpdatedLabel = formatRelativeAge(latestAdpFetchedAt, Date.now());
 
   // The STACKED-style table's provider columns, in display order. All four keep their slot even
   // when unavailable (honest absence — em-dash columns, never vanishing options).
@@ -154,40 +122,7 @@ export function DraftGuideRoute() {
     { key: 'underdog', label: SOURCE_LABELS.underdog, brandKey: 'underdog', status: columns.underdog.status, rankByPlayer: columns.underdog.rankByPlayer, adpByPlayer: columns.underdog.adpByPlayer },
   ]), [columns]);
 
-  const anchorRankByPlayer = activeSource === 'engine' ? board.engineRankByPlayer : columns[activeSource].rankByPlayer;
-
-  function handleExportCsv() {
-    const anchorRank = (row: GuideRow) => anchorRankByPlayer.get(row.playerId) ?? null;
-    const csv = serializeGuideCsv(visibleRows, [
-      { header: `${SOURCE_LABELS[activeSource]} rank`, value: (row) => String(anchorRank(row) ?? '') },
-      { header: 'Player', value: (row) => row.player?.name ?? row.playerId },
-      { header: 'Pos', value: (row) => row.player?.position ?? '' },
-      { header: 'Team', value: (row) => row.player?.team ?? '' },
-      ...lanes.flatMap((lane) => [
-        {
-          header: `${lane.label} ADP`,
-          value: (row: GuideRow) => {
-            const cell = buildLaneCell(lane, row.playerId, anchorRank(row));
-            return cell.adp == null ? '' : cell.adp.toFixed(1);
-          },
-        },
-        {
-          header: `${lane.label} dVsAnchor`,
-          value: (row: GuideRow) => {
-            const cell = buildLaneCell(lane, row.playerId, anchorRank(row));
-            return cell.delta == null || Math.abs(cell.delta) < 0.05 ? '' : cell.delta.toFixed(1);
-          },
-        },
-      ]),
-    ]);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'draft-guide.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  }
+  const anchorRankByPlayer = columns[activeSource].rankByPlayer;
 
   const selectedPlayer = selectedPlayerId != null ? board.playersById.get(selectedPlayerId) : undefined;
   // Looked up in the FULL row universe, not visibleRows: changing the position filter while the
@@ -203,12 +138,19 @@ export function DraftGuideRoute() {
   // - depth roles build from the public usage artifact once the context feed is ready;
   // - adpDisclosure names whichever upstream actually won `adp_active_<format>` (never a silent
   //   mislabel on a fallback day).
+  // The two full-pool derivations below (players array spread + buildTeamDepthRoles) only exist
+  // for the drawer, so they're gated on it being open — with the drawer closed (the default
+  // view) they cost nothing instead of re-running on every usage/manifest change.
+  const drawerOpen = selectedPlayerId != null;
   const guideSeason = manifest != null ? Number(manifest.season) : null;
-  const weeklyStats = useWeeklyStats(selectedPlayerId, guideSeason != null && Number.isFinite(guideSeason) ? guideSeason : null);
-  const guidePlayers = useMemo(() => [...board.playersById.values()], [board.playersById]);
+  const weeklyStats = useWeeklyStats(drawerOpen ? selectedPlayerId : null, guideSeason != null && Number.isFinite(guideSeason) ? guideSeason : null);
+  const guidePlayers = useMemo(
+    () => (drawerOpen ? [...board.playersById.values()] : []),
+    [drawerOpen, board.playersById],
+  );
   const depthRoleByPlayer = useMemo(
-    () => buildTeamDepthRoles(guidePlayers, contextFeedStatus === 'ready' ? board.usage : {}),
-    [guidePlayers, contextFeedStatus, board.usage],
+    () => (drawerOpen ? buildTeamDepthRoles(guidePlayers, contextFeedStatus === 'ready' ? board.usage : {}) : new Map() as ReturnType<typeof buildTeamDepthRoles>),
+    [drawerOpen, guidePlayers, contextFeedStatus, board.usage],
   );
   const activeAdpSource = manifest?.sources[`adp_active_${adpFormat}`];
   const ffcAdpSource = manifest?.sources[`ffc_adp_${adpFormat}`];
@@ -232,37 +174,19 @@ export function DraftGuideRoute() {
           <p className="eyebrow">Draft Guide</p>
           <h2>The board, before draft day</h2>
         </div>
-        <div className="guide-header-actions">
-          {adpUpdatedLabel && <p className="guide-updated">ADPs last updated {adpUpdatedLabel}</p>}
-          <button
-            type="button"
-            className="quiet-button"
-            onClick={handleExportCsv}
-            disabled={board.status !== 'ready'}
-            title="Download the current view as CSV"
-          >
-            Export CSV
-          </button>
-        </div>
       </div>
 
-      <DraftGuideFilters
-        format={format}
-        onFormatChange={patchFormat}
-        source={activeSource}
-        onSourceChange={(next) => updateParams({ source: next })}
-        sources={sourceOptions}
-        position={position}
-        onPositionChange={(pos) => updateParams({ pos: pos === 'ALL' ? '' : pos })}
-      />
-
-      {board.status === 'loading' && <p className="guide-loading">Loading the board…</p>}
-      {board.status === 'error' && (
-        <p className="guide-loading">The projection board is unavailable right now — try again shortly.</p>
-      )}
-
-      {board.status === 'ready' && (
-        <>
+      {/* One toolbar row: the format/position filters on the left, the view toggle on the right.
+          The filters render regardless of board status — deep-link degrade tests rely on being
+          able to read/click them while the board is still loading or errored. */}
+      <div className="guide-toolbar">
+        <DraftGuideFilters
+          format={format}
+          onFormatChange={patchFormat}
+          position={position}
+          onPositionChange={(pos) => updateParams({ pos: pos === 'ALL' ? '' : pos })}
+        />
+        {board.status === 'ready' && (
           <div className="guide-view-toggle" role="group" aria-label="Board view">
             <button
               type="button"
@@ -277,29 +201,34 @@ export function DraftGuideRoute() {
               className="quiet-button guide-view-button"
               aria-pressed={view === 'draft'}
               disabled={!gridAvailable}
-              title={gridAvailable ? undefined : 'The draft grid shows the full board — set the position filter back to All to use it.'}
               onClick={() => updateParams({ view: 'draft' })}
             >
               Draft grid
             </button>
-            {!gridAvailable && (
-              <span className="guide-view-note">The draft grid shows the full board — set the position filter back to All to use it.</span>
-            )}
           </div>
+        )}
+      </div>
 
+      {board.status === 'loading' && <p className="guide-loading">Loading the board…</p>}
+      {board.status === 'error' && (
+        <p className="guide-loading">The projection board is unavailable right now — try again shortly.</p>
+      )}
+
+      {board.status === 'ready' && (
+        <>
           {view === 'draft' ? (
             <DraftGuideBoard
               rows={visibleRows}
               teams={format.teams}
               rounds={format.rounds}
-              sourceRankByPlayer={activeSource === 'engine' ? board.engineRankByPlayer : columns[activeSource].rankByPlayer}
+              sourceRankByPlayer={columns[activeSource].rankByPlayer}
               positionRankByPlayer={positionRankByPlayer}
               onSelectPlayer={setSelectedPlayerId}
             />
           ) : (
             <DraftGuideTable
               rows={visibleRows}
-              anchorLabel={SOURCE_LABELS[activeSource]}
+              anchorLabel="Rank"
               anchorRankByPlayer={anchorRankByPlayer}
               positionRankByPlayer={positionRankByPlayer}
               lanes={lanes}
@@ -308,28 +237,6 @@ export function DraftGuideRoute() {
           )}
         </>
       )}
-
-      <details className="guide-methodology-note">
-        <summary>Methodology &amp; data sources</summary>
-        <p className="guide-methodology">{METHODOLOGY_NOTE}</p>
-        <ul className="guide-disclosure">
-          {(['sleeper', 'espn', 'ffc', 'underdog'] as const).map((key) => {
-            const column: ProviderColumn = columns[key];
-            const fetchedAt = laneFetchedAt(key);
-            return (
-              <li key={key} className="guide-lane-note" data-status={column.status}>
-                <strong>{SOURCE_LABELS[key]}</strong>
-                {' '}
-                {column.status === 'ready'
-                  ? `${column.rowCount} rows · data ${fetchedAt ? new Date(fetchedAt).toLocaleDateString() : 'age unknown'}`
-                  : 'unavailable'}
-                {' — '}
-                {LANE_NOTES[key]}
-              </li>
-            );
-          })}
-        </ul>
-      </details>
 
       {selectedPlayer && (
         <PlayerDetailDrawer
