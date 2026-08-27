@@ -8,6 +8,8 @@
     "build": "npm --prefix api run build && npm --prefix frontend run build",
     "dev": "npm --prefix frontend run dev",
     "test": "npm --prefix frontend run test -- --run && npm --prefix api run test -- --run",
+    "test:frontend": "npm --prefix frontend run test -- --run",
+    "test:api": "npm --prefix api run test -- --run",
     "typecheck": "npm --prefix frontend run typecheck && npm --prefix api run typecheck",
     "verify:artifact": "node scripts/verify-artifact.mjs",
     "pipeline": "python pipeline/build_data.py",

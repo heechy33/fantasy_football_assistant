@@ -27,10 +27,17 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install and build
-        run: |
-          npm run install:all
-          npm run build
+      - name: Install dependencies
+        run: npm run install:all
+
+      # Outer-loop gate (AGENTS.md/CLAUDE.md): a failing suite stops this step, which stops the
+      # job, which skips every step below — deploy (and, on a PR, the preview build) never runs
+      # against a red test run.
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
 
       - name: Verify production artifact
         run: npm run verify:artifact
