@@ -40,9 +40,14 @@ param yahooClientSecret string = ''
 @description('Symmetric key (base64) used to AES-GCM seal ESPN/Yahoo credentials at rest. Generate with `openssl rand -base64 32`.')
 param credEncryptionKey string = ''
 
+@description('Clerk issuer URL (e.g. https://your-app.clerk.accounts.dev), used by api/src/auth/verifyClerkJwt.ts to fetch the JWKS and validate the `iss` claim. Not a secret — the Clerk secret key itself is set separately via `az staticwebapp appsettings set`, never committed or added as a Bicep param.')
+param clerkIssuer string = ''
+
 var cosmosAccountName = toLower('${appName}-cosmos')
 var cosmosDatabaseName = 'ffa'
 var cosmosUsersContainerName = 'users'
+var cosmosLeaguesContainerName = 'leagues'
+var cosmosDraftsContainerName = 'drafts'
 
 resource staticSite 'Microsoft.Web/staticSites@2023-12-01' = {
   name: appName
@@ -110,9 +115,41 @@ resource cosmosUsersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabase
   properties: {
     resource: {
       id: cosmosUsersContainerName
-      // Matches UserRecord.userId in shared/types.d.ts (the SWA
-      // clientPrincipal.userId) — every read/write is a single-partition
-      // point lookup by the signed-in user.
+      // Matches UserRecord.userId in shared/types.d.ts (Clerk's `sub` claim
+      // since the 2026-08-25/26 priority change replaced SWA's built-in auth
+      // with Clerk) — every read/write is a single-partition point lookup by
+      // the signed-in user.
+      partitionKey: {
+        paths: ['/userId']
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+// SavedLeague/SavedDraft (shared/types.d.ts) — same partition-key shape and rationale as
+// cosmosUsersContainer above, added for Phase 5's saved-leagues-and-drafts persistence
+// (DECISIONS.md, 2026-08-26). Both live inside the same shared 400 RU/s database throughput.
+resource cosmosLeaguesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
+  parent: cosmosDatabase
+  name: cosmosLeaguesContainerName
+  properties: {
+    resource: {
+      id: cosmosLeaguesContainerName
+      partitionKey: {
+        paths: ['/userId']
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+resource cosmosDraftsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
+  parent: cosmosDatabase
+  name: cosmosDraftsContainerName
+  properties: {
+    resource: {
+      id: cosmosDraftsContainerName
       partitionKey: {
         paths: ['/userId']
         kind: 'Hash'
@@ -129,6 +166,9 @@ resource appSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
     COSMOS_KEY: cosmosAccount.listKeys().primaryMasterKey
     COSMOS_DATABASE: cosmosDatabaseName
     COSMOS_USERS_CONTAINER: cosmosUsersContainerName
+    COSMOS_LEAGUES_CONTAINER: cosmosLeaguesContainerName
+    COSMOS_DRAFTS_CONTAINER: cosmosDraftsContainerName
+    CLERK_ISSUER: clerkIssuer
     CRED_ENCRYPTION_KEY: credEncryptionKey
     YAHOO_CLIENT_ID: yahooClientId
     YAHOO_CLIENT_SECRET: yahooClientSecret

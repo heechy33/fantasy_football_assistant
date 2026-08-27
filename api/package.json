@@ -13,10 +13,11 @@
   },
   "dependencies": {
     "@azure/cosmos": "^4.10.0",
-    "@azure/functions": "^4.16.2"
+    "@azure/functions": "^4.16.2",
+    "jose": "^6.2.10"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.3.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

@@ -20,6 +20,8 @@ const required = [
   join('fonts', 'inter-italic.woff2'),
   join('fonts', 'archivo.woff2'),
   join('fonts', 'archivo-italic.woff2'),
+  join('models', 'trophy.glb'),
+  join('team-logos', 'kc.png'),
 ];
 
 // data/history/ is the append-only ADP snapshot log (pipeline/history.py) —
