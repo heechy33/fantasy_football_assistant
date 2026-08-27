@@ -4,10 +4,11 @@ Live draft assistant + season co-pilot for Sleeper, ESPN, and Yahoo fantasy foot
 `PLAN.md` for current status and sequencing, `DECISIONS.md` for the durable (condensed)
 design-decision log, `archive/DECISIONS-history.md` for that log's full unabridged detail, and
 `archive/PLAN-history.md` for completed-phase build detail — this file is conventions, repo
-layout, and commands only. Update this file whenever a structural thing changes (new top-level
-directory, new active adapter, new command, a scope exception opening/closing) — not on a
-schedule, and not for anything that's just "what's being worked on right now" (that belongs in
-`PLAN.md`).
+layout, and commands only. Agent verification loop (when to run tests): `AGENTS.md` — follow it
+regardless of which coding agent you are. Update this file whenever a structural thing changes
+(new top-level directory, new active adapter, new command, a scope exception opening/closing) —
+not on a schedule, and not for anything that's just "what's being worked on right now" (that
+belongs in `PLAN.md`).
 
 ## Active scope: Sleeper-first
 
@@ -28,6 +29,14 @@ deliberately — future work, not dead code to delete.
 > traffic storage) but opening the in-season ESPN track is a new decision — it still needs the
 > gate or an explicit priority change.
 
+> **Priority change — August 25, 2026.** The user explicitly changed priority ahead of the gate:
+> the product is restructuring into a public/gated split — an anonymous public Draft Guide
+> (`/draft-guide`), a routing migration, and landing/onboarding rework ship first (phases 0-3);
+> Clerk auth (replacing SWA's `/.auth/*` — see `DECISIONS.md`, 2026-08-25, for why SWA Free's
+> provider set can't do Google) and Cosmos-backed saved leagues/drafts follow (phases 4-5). This
+> authorizes no in-season ESPN/Yahoo work; the DB/Auth roadmap note below stays accurate until
+> phase 4 starts.
+
 ## Tech stack and architecture rules
 
 - **Frontend**: React + Vite + TypeScript → Azure Static Web Apps (Free). **API**: Azure
@@ -46,8 +55,10 @@ deliberately — future work, not dead code to delete.
 
 ## Repo layout (highlights — the code is the full map)
 
-- `frontend/src/engine/` — pure functions, no network/provider awareness. `recommend.ts` wires the
-  analytic one-pick `planValue` and the Draft Score residual tie-break (see `DECISIONS.md`, 2026-08-11).
+- `frontend/src/engine/` — pure functions, no network/provider awareness. `recommend.ts` wires
+  the analytic one-pick `planValue`, Stage C rollouts, and the deterministic board sort (marginal
+  roster utility → VOR → projected points → player id). (The old Draft Score residual tie-break /
+  card composite has been deleted.)
 - `frontend/src/adapters/` — `sleeper.ts`/`draftOrder.ts` are the only in-season/live-poll
   adapters. `espn*.ts` are draft-day-only from the closed exception — **do not extend into an
   in-season ESPN adapter without a new decision**. Yahoo isn't created yet.
@@ -55,11 +66,16 @@ deliberately — future work, not dead code to delete.
   `percentileRankings.ts`/`qbPercentileRankings.ts`/`cardRoleStats.ts` (Role-tab and card-bottom
   cohort percentile ranking, display-only, never feeds `planValue`). `state/`, `hooks/`,
   `components/`, `styles/tokens.css` — draft-board state, UI. `DraftWorkspace` + `MyTeamRail` +
-  `RecommendationCard`/`PlayerContextModal` are the current workspace components (earlier
+  `RecommendationBoard` / `PlayerCard` (+ its row twin `PlayerBoardRow`, shared logic in
+  `playerBoardFace.ts`) + `PlayerDetailDrawer` are the current workspace components (earlier
   `DraftBoard`/`RecommendationPanel` sketches were superseded; don't recreate them).
   `RecommendationBoard.tsx`'s "All" tab always excludes K/DEF, and excludes QBs once
   `format.qb === 'one-qb'` and the starting QB slot is filled (see `DECISIONS.md`, 2026-08-22) —
   both are presentation filters, not engine changes; position tabs are never filtered.
+- `frontend/src/routes/` — the route tree (`App.tsx` composes it): `AppLayout` (nav shell),
+  `LandingRoute`, `DraftGuideRoute` (public), `DraftRoomRoute`, and `routes/onboarding/` (the
+  real connect flow — the landing renders inert illustrations only). `session/DraftSessionProvider`
+  sits above `<Routes>` so the live poll survives navigation.
 - `extension/` — draft-day-only ESPN reconnaissance Chrome extension (closed exception), not an
   in-season sync product.
 - `api/src/functions/health.ts` — the only endpoint. `shared/types.d.ts` — the frontend/api
@@ -137,7 +153,9 @@ detail.)
 npm run install:all    # installs frontend/ and api/ deps
 npm run dev             # frontend dev server (Vite)
 npm run build            # builds api then frontend (stages data/ into frontend/public/data first)
-npm test                  # frontend + api test suites (vitest, --run)
+npm test                  # frontend + api test suites (vitest, --run) — outer loop, once per task
+npm run test:frontend -- path/to/file.test.ts   # inner loop; directory paths work too
+npm run test:api -- path/to/file.test.ts
 npm run typecheck         # tsc --noEmit, both packages
 npm run verify:artifact   # asserts frontend/dist/ contains the required config + data files
 npm run pipeline           # python pipeline/build_data.py — regenerates data/*.json
@@ -148,6 +166,14 @@ npm run snapshot:vintage -- --date YYYY-MM-DD [--dest DIR]  # list/materialize l
 
 Azure provisioning (`infra/main.bicep`) and `az login` are interactive, and not needed for the
 active Sleeper path — not something to run unprompted.
+
+## Agent verification loop
+
+Follow `AGENTS.md`. Inner loop: the sibling test file or directory, re-run only that on failure.
+Outer loop: `npm test` **once** when the task is done if runtime code changed; if it is green, stop.
+Do not stack typecheck + full test + build + `verify:artifact` as a ritual. Do not run `backtest` /
+`probe:simsort` / `pipeline` / `STAGE_C_BENCH` unless that is the task. Browser only for UI/layout/
+routing/client-state/rendered-data changes. Docs-only diffs: run nothing.
 
 ## Testing philosophy
 

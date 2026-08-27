@@ -553,6 +553,374 @@ cohort per metric per card).
 
 ---
 
+## 2026-08-25 — Priority change: public Draft Guide + accounts ahead of the Edge Validation Gate
+
+**Decision:** the user explicitly changed priority (the expansion rule allows this without a gate
+pass). The product restructures into a **public/gated split**, modeled on app.fantasyplaybook.ai:
+
+- **Public, no account** — a Draft Guide page (`/draft-guide`): the player pool in rank order with
+  league-format selectors (scoring / QB / teams / rounds) and a ranking-source selector spanning
+  the engine and every ADP lane the repo actually ships (Sleeper per-format, ESPN PPR-only, FFC
+  per-format, Underdog best-ball; no Yahoo/FantasyPros — omitted, not stubbed). This is the
+  "try it before you sign up" surface.
+- **Account required** — the live Draft Assistant (today's single screen) and later Teams.
+- Provider connection leaves the landing page entirely: the landing shows inert illustrations;
+  the real connect flow lives in post-signup `/onboarding`.
+
+Sequencing, each phase shippable alone: 0 docs → 1 react-router migration (session provider
+lifted above the routes so the live poll survives navigation) → 2 the Draft Guide (table →
+provider columns → draft grid → drawer) → 3 landing rework + onboarding → 4 Clerk auth seam → 5
+saved leagues/drafts on Cosmos via authenticated Azure Functions.
+
+**Stack changes:** SWA built-in auth is abandoned — verified against Microsoft's plan comparison,
+SWA Free offers only preconfigured providers (GitHub + Microsoft Entra ID); Google needs a custom
+OIDC provider, which is Standard-plan-only (~$9/mo), and GitHub/Microsoft sign-in fits this
+audience poorly. **Clerk** enters the stack instead (Google + email, free ≤10k MAU; publishable
+key frontend, secret key Function-app-setting only). Cosmos DB stays the data plane (authenticated
+Functions; `@azure/cosmos` and `infra/main.bicep` scaffolding reused; new `leagues`/`drafts`
+containers partitioned by `/userId`). Reversibility is structural: an `AuthAdapter` seam (mock
+adapter is the default, so tests and fresh clones need no vendor SDK) and a
+`savedLeaguesRepository` seam mean no code outside those adapters knows which vendor is in use.
+The prior design review's Supabase recommendation was considered and declined — see the
+handoff-recorded rationale: keeping the data plane on Azure reuses existing scaffolding.
+
+**Precedent being set:** this is the first feature tiering into anonymous vs account-required.
+Anonymous users write nothing — guide selectors live in the URL query string, localStorage remains
+the only draft-session store, and server writes exist only behind auth.
+
+**Scope boundary:** this change does **not** authorize an in-season ESPN/Yahoo track. That stays
+gated per the closed 2026-08-14 exception; `espn*.ts` remain draft-day-only.
+
+**Marketing constraint (binding on all guide copy):** per the 2026-08-23/24 backtest entries
+above, the engine measured −0.830 pts/wk, 95% CI [−1.539, −0.121] vs plain FFC ADP on the 2025
+grid and the shock-scale sweep verdict is AMBIGUOUS — neither direction may be marketed from 2025
+sims alone. Permitted: methodology description ("Ranked by projected roster value — marginal
+roster utility over an empty roster, computed from FFToday season projections scored in your
+league's format") plus a link to the methodology. Forbidden: "beats ADP", any accuracy percentage,
+any "edge"/"wins leagues" claim. Any engine-vs-ADP delta column describes *disagreement*, never
+superiority. Availability stays labeled experimental.
+
+**Licensing guard:** FFToday redistribution permission is unverified, so the public guide ships
+noindex (robots.txt already `Disallow: /`; add `<meta name="robots">` since robots.txt blocks
+crawling, not indexing) and unmonetized, per the S2 constraint in `archive/PLAN-history.md`. An
+indexed public guide would be a separate decision requiring licensed projections or an ADP-only
+public surface with the engine's columns behind sign-in.
+
+---
+
+## 2026-08-26 — SavedLeague.season ships as an accepted placeholder (`''`)
+
+**Decision:** Phase 5's saved-league writes store `season: ''` for now. Neither `DraftInit` nor
+the draft session carries a season value today, so there is nothing honest to write; populating
+the field properly means threading each provider's season through the adapter boundary, which is
+deferred until a feature actually reads it.
+
+**Why:** no consumer reads `SavedLeague.season` yet, and writing a guessed year would look
+authoritative while being unverifiable. The placeholder is documented at both write sites
+(`frontend/src/state/draftSync.ts` — the field is deliberately not sent — and
+`api/src/functions/leagues.ts` — the `?? ''` default).
+
+**Result:** when a season source lands (adapter passthrough or onboarding input), populate both
+write paths in one change and remove these placeholder comments.
+
+---
+
+## 2026-08-26 — Landing hero: team-logo CDN dependency accepted; Seahawks `.glb` rejected
+
+**Decision:** the landing hero's 32-team orbit (`LandingHeroCanvas.tsx`) fetches team logos at
+runtime from Sleeper's keyless team-logo CDN (`data/playerPortrait.ts`'s existing `teamLogoUrl()`)
+and bakes them into one shared canvas atlas, rather than shipping any committed team-logo assets.
+
+**Why:** the app already depends on this CDN for player/DEF portraits, the 32 images are ~5-12 KB
+each with `Access-Control-Allow-Origin: *` (verified against production, not just docs), and every
+atlas cell independently falls back to a colored abbreviation chip (that team's own
+`--team-XX`/`--team-XX-ink` from `styles/teamColors.css`) if its fetch fails — a CDN outage
+degrades the hero, it never breaks it. This is a new external network dependency on a public page,
+which is why it's recorded here rather than left implicit.
+
+**Rejected:** a user-supplied Seahawks Sketchfab `.glb` (`seahawks_preview.glb`) as the basis for
+real 3D team models in the orbit. It measured 39.3 MB / 559 meshes / ~383k triangles for one team;
+×32 teams is roughly 1.2 GB and ~18,000 draw calls, non-viable regardless of decimation effort for
+a $0-hosting landing page. Not imported anywhere in the repo — don't revisit without a real
+low-poly, Draco-compressed source for all 32 teams.
+
+**Also fixed in the same change:** the trophy's NFL-shield question turned out to be a non-issue —
+`public/models/trophy.glb` has zero image textures (2 chrome meshes only), so there was never a
+logo to see. Decision was to leave the trophy bare (matching the real Lombardi Trophy) rather than
+add a shield decal, and instead fix the mirror-flat material clamp
+(`roughness = Math.min(roughness, 0.13)` forced near-perfect-mirror finish) and add a real stepped
+plinth in place of the near-invisible flat slab.
+
+---
+
+## 2026-08-26 — Team-logo CDN dependency reversed: self-hosted instead (supersedes same-day entry above)
+
+**Decision:** the landing hero's 32 team-logo medallions are now served from
+`frontend/public/team-logos/*.png` (self-hosted, same-origin), not fetched from Sleeper's CDN at
+runtime. This reverses the "CDN dependency accepted" decision recorded earlier the same day, above.
+
+**Why:** in production every medallion silently fell back to its degraded state (a colored
+abbreviation chip, never the real logo) — not intermittently, every single one. Root cause:
+`LandingHeroCanvas.tsx`'s atlas builder was the **only** place in the app fetching the Sleeper
+team-logo URL in CORS mode (`img.crossOrigin = 'anonymous'`, required so the resulting canvas can
+be uploaded as a WebGL texture without tainting). Every other consumer of the identical URL
+(`PlayerCard`'s watermark/header logo, `PlayerBoardRow`'s watermark and `--team-logo` background,
+`MyTeamRail`'s `--team-logo` background) fetches it in plain no-CORS mode. Sleeper's CDN only
+sends `Access-Control-Allow-Origin` when the request carries an `Origin` header, and sends no
+`Vary` header on the plain response — so Chrome's (request-mode-unpartitioned) HTTP cache serves
+a previously-cached no-CORS response to the later CORS-mode request, which then fails the CORS
+check and errors out. This is sticky (a 31-day cache lifetime) and triggers from literally any
+prior visit to `/draft` or `/draft-guide` in the same browser profile, or even from the landing
+page's own two demo cards — explaining why it was universal, not occasional.
+
+**Result:** self-hosting removes the whole bug class — a same-origin image can never trigger this
+collision regardless of request mode — and also drops a runtime dependency on an external CDN from
+a public marketing page. `loadTeamLogo` no longer sets `crossOrigin` (unnecessary for a same-origin
+image). `data/playerPortrait.ts`'s `teamLogoUrl()` and its other (no-CORS) consumers are unchanged
+and unaffected.
+
+**Also fixed in the same pass:** the medallions had a chrome `TorusGeometry` "medal ring" around
+each logo and a hard `CircleGeometry` clip, both removed — the atlas canvas is now transparent
+outside each drawn logo (was opaque-filled), each logo's own PNG alpha defines its real
+silhouette, and the material is unlit (`MeshBasicMaterial`, `toneMapped: false`) instead of a lit
+`MeshStandardMaterial`, so real logo colors show clean instead of being crushed by the scene's dim
+stadium lighting and ACES tone-mapping rolloff.
+
+---
+
+## 2026-08-26 — Team-logo source swapped: ESPN's static logo CDN, not Sleeper's
+
+**Decision:** `frontend/public/team-logos/*.png` now pulls from
+`https://a.espncdn.com/i/teamlogos/nfl/500/{abbr}.png` (500x500, RGBA) instead of Sleeper's
+`.../images/team_logos/nfl/{abbr}.png` (only 150x150, some as small as 100x100). Both are the
+same self-hosted-at-build-time approach from the entry above; only the source changed.
+
+**Why:** the Sleeper-sourced images looked visibly soft/blurry once scaled up in the 3D scene —
+they were being upscaled from a genuinely low-resolution source, not a rendering bug. ESPN's
+static team-logo CDN serves the same 32 marks at roughly 3-15x the file size and consistently
+500x500, confirmed by fetching and inspecting all 32 (correct team, real alpha channel, no
+placeholder/error images) before replacing the committed files. All 32 abbreviations resolve
+under the same codes Sleeper uses — no alias mapping needed despite `adapters/espnTeams.ts`
+documenting alias mismatches elsewhere for ESPN's *live scoreboard* API; this static asset CDN is
+consistent.
+
+**Not pursued:** literal 3D team-logo models (one per team). The Seahawks Sketchfab `.glb` supplied
+earlier this session was already rejected on exactly this basis (39 MB / 559 meshes / ~383k
+triangles for one team; ×32 is non-viable) — see the entry above. Nothing changed that math; this
+entry just records that higher-resolution 2D art was the fix actually shipped instead.
+
+---
+
+## 2026-08-26 — Landing scene: stadium bowl removed, trophy pinned to the camera orbit, plinth rebuilt (supersedes the two entries above)
+
+**Decision:** in `LandingHeroCanvas.tsx`, three changes to the cinematic landing scene, all on the
+user's direct call after seeing the live page:
+
+1. **The "stadium bowl" mesh (a 24-30 unit `CylinderGeometry` ring, canvas-gradient-mapped,
+   intended to be fog-swallowed) is deleted outright**, and `scene.fog` density raised from
+   `0.016` to `0.045`. The bowl's own comment claimed fog would hide it, but the arithmetic doesn't
+   support that: `FogExp2` density at distance `d` is `1 - exp(-(density·d)²)`, so at the old
+   `0.016` and the bowl's ~25-unit radius that's only ~15% — nowhere near hidden. In production
+   this rendered as a large gray panel with a hard diagonal edge behind the trophy (the user's exact
+   complaint: "what is that white shit in the back?"). At the new `0.045` the room falls off to
+   ~72% fog at 25 units and true black by 40 — genuinely black, no visible wall, no mesh required.
+   The crowd twinkle-point field (unaffected by fog, unlit shader points) is now the only horizon
+   cue. `0.045` isn't a guess: a subagent tore down `lastdanceforglory.world` (the reference site
+   that prompted this whole pass) and it independently ships `FogExp2(0x040404, 0.045)` at a
+   near-identical 38° lens — good confirmation the number is in the right neighborhood, not just
+   internally self-consistent.
+2. **The trophy no longer moves in world space.** The prior `trophyTrack` translated the `holder`
+   group across the frame mid-scroll (e.g. to `x=2.4, z=-1.4` at 32% scroll) while the plinth,
+   floor slab, and contact-shadow disc all stayed fixed at the origin — the trophy visibly
+   detached from its own stand ("the trophy is floating weirdly" on scroll). `trophyTrack` is
+   deleted; `holder` stays at the origin permanently, `CAMERA_KEYS` is now an orbit-parameter
+   track (`angle`/`radius`/`height`/`lookY` around the fixed trophy) instead of independent
+   camera-position/look-at keys, and raw `window.scrollY` is now damped into an eased `scrollP`
+   (frame-rate-independent exponential ease) rather than driving the camera 1:1 — the snap-to-wheel
+   feel was part of what read as "weird."
+3. **The plinth is rebuilt.** The old lathe profile spanned radius 1.55 over height 0.55 (2.8x
+   wider than tall — reads as a dark ellipse, not a pedestal) and carried an emissive blue
+   `TorusGeometry` ring, which is the single element that most read as "ugly"/cheap. New profile is
+   tall and slim (radius 0.62 tapering to 0.44, height 1.5 — `PLINTH_HEIGHT` raised from 0.55), the
+   torus ring is deleted, and the two circular ground accents under it (mirror slab, contact
+   shadow) are shrunk to match the new, much narrower foot. Also: the medallion material
+   (`toneMapped: false`, full opacity) is switched to `toneMapped: true, opacity: 0.28, fog: true`
+   and the three orbit rings in `landingTeamOrbit.ts` are widened (outer 8.6→13.0, mid 6.2→10.5,
+   inner 4.3→8.0, `GLOBAL_MIN_RADIUS` 3.2→5.8) so the rings clear the camera's own new orbit radius
+   (5.4-8.2) instead of the camera passing through them.
+
+**This reverses two same-day 2026-08-26 decisions above:** the plinth design from "Landing hero:
+team-logo CDN dependency accepted; Seahawks `.glb` rejected" (the stepped-disc profile + blue
+torus), and the unlit/full-opacity medallion material from "Team-logo CDN dependency reversed:
+self-hosted instead." Both were reasonable calls at the time (the plinth was a real fix over an
+"invisible slab," and the unlit material was a real fix over crushed logo colors); this entry
+records why they're being changed again rather than treating it as if the earlier reasoning was
+wrong.
+
+**Result:** `PLINTH_HEIGHT`/`FLOOR_Y`/`TROPHY_STAND_Y` are unchanged in relationship to each other
+(the GLB and fallback trophy paths both already derive their stand height from `TROPHY_STAND_Y`,
+so raising `PLINTH_HEIGHT` moves the trophy up automatically, no separate trophy-position edit
+needed). `2D` CSS layer also tightened in the same pass: `.top-nav-immersive`'s scrim (App.css) was
+fully transparent by 60% down its own box, letting scrolled-up section headings show through
+sharp and legible right behind the nav text — it now holds higher opacity longer and adds a blur;
+`.landing-beat` moved from a near-opaque flat slab to the same frosted (`backdrop-filter: blur`)
+treatment already used by `.landing-board-feed`, so it reads as part of the scene rather than a box
+pasted over a render.
+
+---
+
+## 2026-08-26 — Landing hero: stray floor/haze glow removed, trophy given its own attached halo, team medallions enlarged with per-team glow (supersedes floor/slab and medallion-opacity values from earlier same-day entries)
+
+**Decision:** in `LandingHeroCanvas.tsx` and `App.css`, every glow in the landing scene must now
+emanate from an object — nothing floats free of the trophy, the plinth, or a team medallion. This
+reverses the floor/slab material values tuned in "Landing scene: stadium bowl removed, trophy
+pinned to the camera orbit, plinth rebuilt" above, and the `opacity: 0.34` medallion value from
+"Team-logo CDN dependency reversed" above.
+
+**Why:** a user comparison against a reference cinematic trophy site (`lastdanceforglory.world`)
+found the *opposite* problem from what that site has: its only glow visibly emanates from the
+trophy itself, while ours had two light sources with no visible source — a bright white ellipse
+pooling at the plinth base (the `slab` mesh still mirroring the env map's overhead flood strip even
+after the earlier `metalness .8/envMapIntensity 1.4` → `.25/.5` pass) and a bluish haze offset to
+one side of the trophy (`.landing-scene-glow`'s three radial washes were pinned to the *viewport
+bottom* at x = 24%/78%/50%, never actually aligned with the trophy). The trophy itself read
+comparatively dark next to its own floor. Note: the trophy stays silver — the reference site's gold
+is that trophy's own color, not something being copied; the principle borrowed is "glow comes from
+an object," not the hue.
+
+**Changes:**
+- `slab` and `floor` materials zeroed/near-zeroed to matte (`metalness`/`envMapIntensity` ~0,
+  `roughness` 0.85-0.95) — they no longer mirror the flood strip at all.
+- The `soft frontal fill` env bank shrunk and dimmed (`[14,6]`/boost 0.8 → `[8,4]`/boost 0.25) so
+  the trophy's shape comes from the streak banks again, not a flat wash to the lens.
+- `rim` light neutralized from cool blue (`0xbcd2ff`) to near-neutral (`0xdfe6ef`) — `key` stays warm
+  so the warm/cool split still reads as photographed metal, but the shadow side no longer casts blue.
+- `.landing-scene-glow` (also the documented no-WebGL fallback) replaced with one neutral silver
+  wash centered on the trophy's actual position, instead of three washes pinned to viewport corners.
+- New `trophyHalo`: a billboarded additive plane reusing the existing `bankGradient` texture,
+  recomputed every frame to sit just behind the trophy along the camera's current view direction
+  (not parented at a fixed offset — the camera orbits a trophy fixed at the origin, so "behind" is a
+  different world position every frame; a fixed offset is exactly how the earlier "trophy floating
+  weirdly" bug happened, see the entry above).
+- Bloom bumped back up (`strength` 0.14→0.28, `threshold` 0.88→0.78) *after* the floor/slab fix —
+  with the ground no longer hot, bloom now amplifies the trophy's own specular streaks and halo
+  instead of the stray pool that used to sit next to it.
+- Team medallions enlarged (`0.3`→`0.55` plane) and boosted (`opacity` 0.34→0.6), each paired with a
+  second, larger additive glow plane tinted with that team's own `--team-XX-ink` color (not
+  `-primary` — several primaries are near-black, e.g. `--team-chi`, `--team-cle`, and would produce
+  no visible glow), plus a small deterministic (not random) off-billboard yaw/pitch so the ring
+  doesn't read as perfectly flat to the lens. No ring/frame added back — the medal `TorusGeometry`
+  and circular clip stay removed per the entry above; the glow is a soft halo behind the logo's own
+  alpha shape.
+
+**Result:** verified in the browser across the full scroll range (hero, chapter I pull-back,
+chapter II close angle) — the halo stays attached and behind the trophy at every camera angle, the
+floor/plinth base show no bright pool, and the team ring reads as glowing colored emblems rather
+than faint stickers.
+
+---
+
+## 2026-08-26 — Landing hero: no glow shape of any kind, only the trophy's own tone-mapped highlights (supersedes the halo/medallion-glow entry above)
+
+**Decision:** removed everything from the previous entry's fix that was itself a discrete glow
+*shape* — the `trophyHalo` backdrop plane, the per-team medallion glow planes, and (in this pass)
+also the `.landing-scene-glow` CSS radial-gradient div. The only light in the frame now comes from
+the trophy's own PBR material (env-map reflections + a warm key light + ACES tone mapping), rolled
+off very slightly by `UnrealBloomPass` at `strength 0.12 / radius 0.35 / threshold 0.92`.
+
+**Why:** after the previous entry's fix, the user flagged (with an annotated screenshot) that the
+`trophyHalo` plane still read as "a white circle" floating behind the trophy — the same complaint
+as the original stray-slab-glow issue, just from a different mechanism. The `trophyHalo` was removed
+in favor of leaning on `UnrealBloomPass` alone (bumped to `0.7/0.7/0.62` to compensate), but that
+bloom setting was strong/loose enough to balloon the ball's bright specular pixel cluster into
+exactly the same soft circular dome from most orbit angles — a post-process artifact standing in
+for the removed mesh. The user's reference comparison (`lastdanceforglory.world`'s gold trophy) has
+no separate glow shape at all: its light reads as coming from the object's own lit surface. The
+`.landing-scene-glow` CSS div (a radial-gradient ellipse, independent of the WebGL canvas) was also
+still present and contributing the same "circle" impression regardless of what three.js did.
+
+**Result:** `UnrealBloomPass` cut to `0.12/0.35/0.92` — only the single hottest specular pixel
+cluster rolls off softly; there is no dome at any camera angle. `.landing-scene-glow` no longer
+paints any gradient — it stays only as the no-WebGL fallback's mount point, and that fallback now
+degrades to a flat dark scene (vignette + grain only) rather than trying to fake trophy light in
+CSS. Verified in the browser (via a `document.hidden` override — this dev-tooling browser session
+keeps automated tabs in `visibilityState: 'hidden'`, which the render loop's existing visibility
+guard, working as designed, pauses on) at both the hero angle and after scrolling into the chapter I
+pull-back: a crisp highlight sits on the ball's own surface, no circular glow shape anywhere in
+frame. If a discretely-shaped glow effect is ever wanted again, do not reach for a billboarded plane
+or a CSS radial-gradient — both read as a separate light source rather than light on the object.
+
+---
+
+## 2026-08-26 — Landing + Draft Guide visual redesign ("Broadcast Neon")
+
+**Decision:** de-boxed the landing page and `/draft-guide` (user feedback: "white outline grid
+boxes", a wall of explanation above the guide table, an unstyled/uncentered top nav) and moved the
+palette from the navy `--chrome-*`/`--accent-cool` pair to a near-black canvas with a single
+saturated neon-blue identity accent. Scope: `/`, `/draft-guide`, `TopNav` were redesigned;
+`/draft`, `/onboarding`, `/teams` were left at their current layout and only inherit the retuned
+tokens.
+
+**Accent split preserved, not reopened:** `--accent` (`#f97316`) stays urgency-only (on-clock,
+take-now, survival marker — all draft-room chrome untouched). `--accent-cool` — already documented
+as the *structural identity* color (nav marker, eyebrows, live dot) — is what got saturated, to
+`#35a7ff`. This is why the token change is safe to cascade app-wide: urgency semantics didn't move.
+
+**Border split — decorative vs. functional, not touched uniformly:** `--border-1/2/3` are WCAG
+2.2 1.4.11-gated functional borders (tokens.css's header records a rejected 1.57:1 pass); this
+redesign left them exactly as solved. Only `--border-divider` (already documented as the
+decorative row/panel separator) darkened, from `#525252` to `#1e242b`, plus a new
+`--hairline-strong` (`#2a323c`) for places that need slightly more weight (sticky thead rule). The
+global `section { border: 1px solid var(--border-1) }` rule that boxes every untouched page now
+uses `--border-divider` instead so it reads as an edge, not a frame — `.draft-guide` and the
+landing's sections opt out of it entirely (`border: 0`).
+
+**Draft Guide's marketing constraint (2026-08-25 entry above) still holds:** the methodology
+paragraph and the four per-lane data-source notes were moved out of the above-the-fold flow into a
+collapsed `<details className="guide-methodology-note">` at the bottom of the page, rather than
+deleted — the constraint requires the copy stay reachable, not that it sit above the table. The
+`DELTA_TITLE` tooltip (disagreement-vs-Sleeper-ADP wording) is unchanged on every lane cell.
+
+**Player cell now uses real headshots:** `DraftGuideTable`'s row swapped `PlayerAvatar` (monogram)
+for the existing `PlayerPortrait` component (Sleeper CDN headshot, deterministic-initials
+fallback) plus the self-hosted `/team-logos/*.png`, both already built for other parts of the app
+but unused here. `DraftGuideBoard`'s dense draft-grid view deliberately keeps the smaller
+`PlayerAvatar` monogram — its ~118px cells don't have room for a 40px portrait. The old separate
+`PositionBadge` ("RB") + `guide-grid-posrank` ("RB1") pair in the table view merged into one
+outlined `.guide-pos-pill` chip.
+
+**Scope trims made during implementation** (both to avoid breaking the URL-state test suite,
+`routes/DraftGuideRoute.test.tsx`, which asserts `getByRole('combobox', { name: 'Position' })` /
+`'Ranked by'` etc.): the six filter controls stayed native `<select>`s with their labels intact —
+not converted to segmented chip buttons — and the disabled-grid explanatory line stayed visible
+(not title-only), since a test asserts on its visible text. Both are cosmetic-only deltas from the
+original plan; no test was weakened to accommodate them.
+
+**Landing:** `.landing-beat` (the three feature cards) dropped its `rgb(255 255 255 / .08)` border
+in favor of a ghosted index numeral (`01`/`02`/`03`, `-webkit-text-stroke` on transparent fill) over
+a hairline top rule — the `lastdanceforglory.world` editorial-list pattern. `.landing-board-feed`,
+`.integrations-hub-mark`, and the landing's own `.provider-panel` instances lost their
+box/backdrop-blur treatment; the shared `.provider-panel` rule itself was left alone since
+`/onboarding/league`'s real connect flow also uses it and is out of this redesign's scope (see the
+`.landing-integrations .provider-panel` scoped override in `App.css`). The shared `.player-card`'s
+white diagonal sheen and inset top-edge highlight are nulled out only for the landing's two demo
+cards (`.landing-demo-card .player-card`), not the shared rule the draft room's real cards use.
+
+**Nav underline root cause:** `App.css` had no `a { text-decoration: none }` reset anywhere — every
+`<Link>` (brand, nav tabs, Sign in/Sign up) was rendering the browser default underline, a
+regression from Phase 3's button→Link conversion. One rule fixed it globally. The active-tab
+marker changed from a `border-bottom` underline to a raised segmented-pill background
+(`.nav-link[aria-current='page']`), and `.top-nav-identity` changed from a left-packed flex row to
+a three-cell grid (`1fr auto 1fr`) so the nav sits dead center regardless of brand/auth width.
+
+**Gotcha hit and fixed:** `.nav-auth-signup` and `.landing-hero-cta` are both always combined with
+`.primary-button` in JSX, and `.primary-button`'s own rule is defined later in `App.css` — an
+equal-specificity single-class override lost that source-order tie (Sign up rendered navy instead
+of neon-blue until caught in browser verification). Fixed by writing the overrides as
+`.primary-button.nav-auth-signup` / `.primary-button.landing-hero-cta`.
+
+---
+
 ## Handoff note for future agents
 
 When you make a decision that should outlive the current task — a rejected approach, a formula

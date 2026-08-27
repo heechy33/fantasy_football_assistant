@@ -49,6 +49,18 @@ UI had a design pass: STACKED-style percentile rankings on the Role tab and card
 badges on every ADP/projection tile, and an EPA zero-vs-unknown pipeline fix — all display-only, no
 engine input. See `DECISIONS.md`'s 2026-08-24/08-25 entries for detail.
 
+**Priority change (2026-08-25) — public surface ahead of the gate.** The user explicitly changed
+priority (`DECISIONS.md`, 2026-08-25): the product is restructuring into a public/gated split.
+Ship order: 0 docs (this amendment) → 1 react-router migration with the session provider lifted
+above the routes → 2 the public `/draft-guide` page (ranked pool, format selectors, a
+ranking-source selector across the engine and every shipped ADP lane; table + snake draft-grid
+views) → **3 (current)** landing becomes illustration-only with the real connect flow moving to
+post-signup `/onboarding` → 4 Clerk auth seam (`RequireAuth`, mock adapter default) → 5 saved
+leagues/drafts on Cosmos via authenticated Functions. Phases 0-2 are shipped; Phase 3's landing
+rework, onboarding routes, and regression-test port are in. Evaluation layers B-D and the
+owner-review step remain open — this is an explicit priority call under the expansion rule, not a
+gate pass, and it authorizes no in-season ESPN/Yahoo work.
+
 The **ESPN draft-day exception** (see `DECISIONS.md`'s 2026-08-14 entry) is closed — that August 15
 draft has completed. Active work is Sleeper-first again; the two remaining leagues' drafts continue
 under this plan.
@@ -108,8 +120,10 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
   positional-extension contract in `archive/PLAN-history.md`'s S3 entry
 - FFToday-sourced season projections via the offline Python pipeline (`pipeline/fftoday.py`),
   normalized into `SeasonProjection`, behind the `SeasonProjectionProvider` boundary
-- Draft Score (`recommend.ts`) as a residual near-tie breaker and card-display composite — see
-  `DECISIONS.md`'s 2026-08-11 entry; it is not the primary sort
+- Deterministic board sort: marginal roster utility → VOR → projected points → player id
+  (`recommend.ts`; empty-roster boards degenerate MRV to raw projected points). The former Draft
+  Score residual tie-break and card-display composite has been deleted — only presentation banding
+  survives, in `data/scoreBand.ts`
 - Weekly PPR history artifact (`data/weekly-ppr.json`); a display-only Underdog best-ball ADP lane
   (`data/adp-underdog-bestball.json`, republished via Sharp Football Analysis, never blended into
   the engine — `DECISIONS.md`, 2026-08-24); STACKED-style percentile rankings on the Role tab and
@@ -150,8 +164,10 @@ scaffold. See `archive/PLAN-history.md` for the phase-by-phase build record and 
   pre-declared gates** (`DECISIONS.md`, 2026-08-24); the remaining edge-gate work is layers B-D
   (layer D's retention piece is stood up; its accuracy analysis awaits in-season outcomes) and the
   user-review step before any roadmap expansion
-- Provider adapters beyond Sleeper and the ESPN draft-day-only path, Cosmos DB, SWA auth (roadmap,
-  gated by the Edge Validation Gate)
+- Provider adapters beyond Sleeper and the ESPN draft-day-only path (roadmap, gated by the Edge
+  Validation Gate). Per the 2026-08-25 priority change (`DECISIONS.md`), Cosmos-backed persistence
+  and Clerk auth — replacing SWA's `/.auth/*` — are scheduled as phases 4-5 of the public-surface
+  work
 - The cross-adapter contract suite described in `CLAUDE.md`'s testing notes — each adapter is
   tested against its own recorded fixtures today, not one shared contract
 - The official FantasyPros projection/ECR API integration scoped in `DECISIONS.md`'s 2026-08-06
