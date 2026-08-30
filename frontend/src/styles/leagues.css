@@ -1,0 +1,286 @@
+/**
+ * Leagues / connect design system (2026-08-28). The old surfaces here — .leagues-page,
+ * .league-card, .espn-connect, .espn-confirm-card, .espn-confirm-row, .connect-sleeper-connected —
+ * had ZERO rules of their own and fell through to `section {}` / `.draft-list li`, both of which
+ * outline with --border-2, a light-gray token solved to 3:1 WCAG 1.4.11 for FOCUSABLE CONTROLS
+ * (inputs, pill outlines) — used as decoration on every row it produces the "white outline grid
+ * boxes" look. This file follows the two idioms already proven elsewhere in the app instead:
+ *   - the Draft Room panel recipe (App.css ~843) for anything that holds content — border-divider
+ *     (an edge, not a box) + shadow-panel elevation + a hover lift;
+ *   - the landing editorial recipe (App.css ~381) for page scaffolding — no box, a single
+ *     border-divider hairline, Archivo display type.
+ * No --border-1/2/3 is used decoratively below — those stay reserved for focusable controls, per
+ * tokens.css's own doc. Follows the file header rule (App.css:1-9): colors are tokens, no hex.
+ *
+ * 2026-08-29: the same fix was applied to App.css's `.provider-panel`, `.provider-subtabs`, and
+ * `.onboarding-step` — all three had been decorating with `--border-1/2` too. `.provider-chip`'s
+ * selected state and the team picker (`.team-pill`, replacing the old `.team-tile` grid) now use a
+ * solid `--accent-cool` fill instead of a border-only wash, so the connect page reads as one calm
+ * surface with an obvious selected state rather than another set of outlined boxes.
+ */
+
+/* ---------------------------------------------------------------------------------------------
+ * Meta chips — replaces the old "season · N teams · your team: X" run-on muted paragraph
+ * (LeaguesRoute, LeagueDetailRoute, DraftLauncher) with a scannable pill-per-fact row.
+ * --------------------------------------------------------------------------------------------- */
+.meta-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0 0; padding: 0; list-style: none; }
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .25rem .6rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: .78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Slot pills — starting lineup as position-colored chips instead of a comma-joined string. The
+ * six --pos-* colors are a contrast-solved SET (tokens.css ~189) — do not add a 7th; FLEX/BN/IR
+ * stay neutral instead.
+ * --------------------------------------------------------------------------------------------- */
+.slot-pills { display: flex; flex-wrap: wrap; gap: .35rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+.slot-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: .18rem .55rem;
+  border-radius: var(--radius-pill);
+  color: var(--pos-ink);
+  background: var(--surface-quiet);
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.slot-pill[data-pos="qb"] { background: var(--pos-qb); }
+.slot-pill[data-pos="rb"] { background: var(--pos-rb); }
+.slot-pill[data-pos="wr"] { background: var(--pos-wr); }
+.slot-pill[data-pos="te"] { background: var(--pos-te); }
+.slot-pill[data-pos="k"] { background: var(--pos-k); }
+.slot-pill[data-pos="def"] { background: var(--pos-def); }
+.slot-pill[data-pos="flex"],
+.slot-pill[data-pos="super_flex"],
+.slot-pill[data-pos="wrrb_flex"],
+.slot-pill[data-pos="rec_flex"],
+.slot-pill[data-pos="bn"],
+.slot-pill[data-pos="ir"] { color: var(--text-2); background: var(--surface-quiet); }
+
+/* ---------------------------------------------------------------------------------------------
+ * League tiles — the card used by /leagues, the connect league list, and the Draft Room launcher.
+ * Draft Room panel recipe: border-divider edge + shadow-panel elevation + hover lift.
+ * --------------------------------------------------------------------------------------------- */
+.league-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-8);
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.league-tile {
+  position: relative;
+  display: grid;
+  gap: .5rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-panel);
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.league-tile:hover, .league-tile:focus-within { transform: translateY(-2px); border-color: var(--border-1); }
+.league-tile-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }
+.league-tile-name { margin: 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; }
+.league-tile-actions { position: relative; z-index: 1; display: flex; gap: .5rem; margin-top: .2rem; }
+/* Stretched-link: the WHOLE tile is clickable via the Link's ::after overlay (z-index 0); actions
+ * above it (Remove, etc.) sit at z-index 1 so they stay independently clickable. Replaces the old
+ * markup, which nested a <button> inside the <Link> itself. */
+.league-tile-link { color: inherit; }
+.league-tile-link::after { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
+
+/* Live-detected ESPN draft (DraftLauncher, 2026-08-28): the one-click "Enter draft room" card.
+   Accent edge + badge make it the obvious first thing on the page without shouting. */
+.espn-live-tile { border-color: var(--accent-cool); }
+.espn-live-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .18rem .6rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-cool-wash);
+  color: var(--chrome-ink);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Pending state (2026-09-01): the compact "still detecting the draft grid" strip — quieter than
+   the full card (neutral edge, muted name) so the accent-edge detailed card visibly "arrives"
+   when the grid resolves, and a small pulsing dot echoes the top-nav connection pill. */
+.espn-live-pending { border-color: var(--border-1); }
+.espn-live-pending .espn-live-badge { background: rgb(255 255 255 / .05); color: var(--text-2); }
+.espn-live-pending::before {
+  content: '';
+  position: absolute;
+  top: 1.35rem;
+  right: 1.2rem;
+  width: .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  background: var(--accent-cool);
+  box-shadow: 0 0 8px var(--accent-cool);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .espn-live-pending::before { animation: landing-feed-pulse 1.6s ease-in-out infinite; }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Provider chooser — the connect page's provider picker (2026-09-01): a VERTICAL stack of
+ * full-width rows, each a grid of logo / name / note in aligned columns, echoing the league-tile
+ * treatment rather than a horizontal chip strip.
+ * --------------------------------------------------------------------------------------------- */
+.provider-chooser {
+  display: grid;
+  gap: .55rem;
+  margin: 1.1rem 0 1.4rem;
+  padding: 0;
+  list-style: none;
+  max-width: 21rem;
+}
+.provider-chip {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: .7rem;
+  width: 100%;
+  padding: .65rem .95rem;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: 700;
+  text-align: left;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+/* :not([aria-selected="true"]) keeps this from outranking the selected-fill rule below on
+ * specificity — without it, hovering the already-selected chip forced its border/text back to
+ * neutral even though the blue fill (a property this rule doesn't touch) stayed put. */
+.provider-chip:not(:disabled):not([aria-selected="true"]):hover,
+.provider-chip:not(:disabled):not([aria-selected="true"]):focus-visible { border-color: var(--border-1); color: var(--text-1); }
+/* Selected chip is a solid fill, not a wash — the chooser should read as one real segmented
+ * control, not a set of outlined boxes with a tinted one among them. */
+.provider-chip[aria-selected="true"] { border-color: var(--accent-cool); color: var(--accent-cool-ink); background: var(--accent-cool); }
+.provider-chip:disabled { opacity: .45; cursor: not-allowed; }
+.provider-chip-note { font-size: .7rem; font-weight: 600; color: var(--text-4); }
+
+/* ---------------------------------------------------------------------------------------------
+ * ESPN league summary card — replaces the six repeated ConfirmRows (each carrying its own "read
+ * from your ESPN league page" tag) with one caption plus meta-chips/slot-pills.
+ * --------------------------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------------------------- * ESPN league summary card — 2026-08-28 flattening: the confirm card is ONE surface. The old
+ * .league-summary carried its own border inside the section outline (boxes in boxes); now the
+ * summary is borderless on the card surface, the "read from your ESPN league page" provenance
+ * is a tiny inline badge next to the title (tooltip carries the detail), and the derived /
+ * DEFAULTED dotted marker stays the only per-field callout.
+ * --------------------------------------------------------------------------------------------- */
+.league-summary { display: grid; gap: .6rem; padding: 0; }
+.league-summary-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: .5rem;
+}
+/* Tiny provenance badge replacing the full "Read from your ESPN league page" sentence — the
+ * tooltip on it explains what it covers. */
+.league-summary-provenance {
+  padding: .1rem .5rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-4);
+  font-size: .64rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: help;
+}
+.league-summary-caption { margin: 0; color: var(--text-4); font-size: .74rem; letter-spacing: .01em; }
+.league-summary-empty { color: var(--text-4); }
+/* Marks a field that was DERIVED or DEFAULTED rather than read directly — the one thing that
+ * still needs to stand out; a verified field gets no marker at all (previously every field, verified
+ * or not, got the same muted-gray tag, which was both noisy and undifferentiated). */
+.field-derived { border-bottom: 1px dotted var(--text-4); cursor: help; }
+
+/* Team picker — a compact wrapping pill list, sized to each team's name, rather than a grid of
+ * fixed-width tiles (2026-08-29; the old 9rem grid left short names swimming in empty tile space).
+ * Selected state is a solid accent fill; the visible border appears only on :focus-visible
+ * (keyboard affordance). */
+.team-pills { display: flex; flex-wrap: wrap; gap: .4rem; margin: .3rem 0 0; padding: 0; list-style: none; }
+.team-pill {
+  padding: .4rem .8rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-weight: 700;
+  font-size: .86rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.team-pill:hover { background: var(--surface-quiet); }
+/* Must follow :hover — equal specificity ((0,2,0) each), and the selected fill has to win over a
+ * hover wash when both apply (the cursor is still resting on the pill right after the click that
+ * selected it). */
+.team-pill[aria-checked="true"] { color: var(--accent-cool-ink); background: var(--accent-cool); }
+.team-pill:focus-visible { border-color: var(--border-1); }
+
+/* ESPN connect panel wrappers — previously unclassed divs relying on default block margins; the
+ * gap comes from the design system now, not incidental child spacing (2026-08-29). A bare <button>
+ * direct child (Try again / Scan again) gets `justify-self: start` so it keeps its natural
+ * shrink-to-fit width instead of grid's default item-stretch — everything else here (paragraphs,
+ * the league summary, the form) is already block-level and wants the full row. */
+.espn-connect { display: grid; gap: .9rem; }
+.espn-confirm-card { display: grid; gap: .9rem; }
+.espn-connect > button, .espn-confirm-card > button { justify-self: start; }
+
+/* A global <select> rule, matching `input`'s (App.css:40) — its absence is why the "which team is
+ * yours" dropdown used to render as a raw OS widget with none of this design system applied. */
+select {
+  width: 100%;
+  border: 1px solid var(--border-3);
+  border-radius: 7px;
+  padding: .55rem .65rem;
+  color: inherit;
+  background: var(--surface-2);
+  font: inherit;
+}
+
+/* League-roster panel — LeagueDetailRoute's roster wrapper, the Draft Room panel recipe without
+ * the .league-tile hover-lift (this holds static content, never a click target itself). */
+.league-roster-panel {
+  margin-top: 1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-panel);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Stored roster — LeagueDetailRoute's drafted-team display. Previously a completely unclassed
+ * <div> whose bench/IR <ul>s rendered with browser-default bullets, and whose starters reused
+ * .manual-picks' 4-column grid (built for the manual draft log) while supplying one text node.
+ * --------------------------------------------------------------------------------------------- */
+.stored-roster { display: grid; gap: 1rem; }
+.stored-roster h4 { margin: 0 0 .4rem; font-family: var(--font-display); font-size: .9rem; font-weight: 800; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.stored-roster-slots { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.stored-roster-slot { display: flex; align-items: center; gap: .7rem; padding: .5rem .7rem; border-radius: var(--radius-md); background: var(--surface-3); }
+.stored-roster-slot-label { flex-shrink: 0; min-width: 3rem; color: var(--text-4); font-size: .78rem; font-weight: 800; text-transform: uppercase; }
+.stored-roster-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.stored-roster-chip { padding: .3rem .6rem; border-radius: var(--radius-pill); background: var(--surface-quiet); color: var(--text-2); font-size: .82rem; }

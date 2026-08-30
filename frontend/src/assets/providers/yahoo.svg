@@ -1,4 +1,23 @@
 <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
-  <rect width="32" height="32" rx="7" fill="#5f01d1"/>
-  <text x="16" y="20" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-0.3">yahoo!</text>
+  <defs>
+    <linearGradient id="yahoo-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a44dff"/>
+      <stop offset="1" stop-color="#6a0bd8"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#yahoo-bg)"/>
+  <!-- Trophy with the blue bookmark ribbon, over the yahoo! wordmark. -->
+  <g>
+    <!-- handles -->
+    <path d="M 10.6 8 H 8.6 C 8.6 11.2 10.2 13.2 12.6 13.9" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M 21.4 8 H 23.4 C 23.4 11.2 21.8 13.2 19.4 13.9" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
+    <!-- cup -->
+    <path d="M 10.4 6.2 H 21.6 V 9.6 C 21.6 12.9 19.2 15.4 16 15.4 C 12.8 15.4 10.4 12.9 10.4 9.6 Z" fill="#ffffff"/>
+    <!-- blue ribbon -->
+    <path d="M 14.9 6.2 H 17.1 V 12.2 L 16 11.1 L 14.9 12.2 Z" fill="#2f9bff"/>
+    <!-- stem + base -->
+    <rect x="15.25" y="15.4" width="1.5" height="2.6" fill="#ffffff"/>
+    <rect x="12.9" y="18" width="6.2" height="1.7" rx=".6" fill="#ffffff"/>
+  </g>
+  <text x="16" y="26.5" font-family="Arial, Helvetica, sans-serif" font-size="7.5" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-.2">yahoo!</text>
 </svg>

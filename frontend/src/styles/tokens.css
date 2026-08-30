@@ -134,20 +134,26 @@
      neon-blue non-urgency identity accent. --accent stays the ONLY urgency color (on-clock,
      take-now, survival marker); --accent-cool is the app's structural identity color (nav active
      state, eyebrows, live dot) — see DECISIONS.md 2026-08-26 for why the redesign saturates this
-     one and leaves --accent alone. Contrast, re-measured for the new near-black chrome:
+     one and leaves --accent alone. 2026-08-29: brightened again — in the draft room the accent
+     only ever appears as hairlines/micro-labels/a single numeral (never a fill), which read as
+     dark against the near-black chrome even though the token itself cleared AA. Contrast,
+     re-measured:
        - --chrome-ink (#f2f6fb) 18.8:1 on --chrome (#0a0d11)                >=4.5:1 text
        - --chrome-ink 15.2:1 on --chrome-2 (#141a21)                        >=4.5:1 text
        - --chrome-border (= --border-divider, #1e242b) is decorative only, not a functional edge
-       - --accent-cool (#35a7ff) 6.0:1 on --surface-0 and 5.3:1 on --surface-2  >=4.5:1 text
-       - --accent-cool-ink (#04070a) 15.9:1 on --accent-cool                    >=4.5:1 text-on-chip */
+       - --accent-cool (#5bb8ff) 9.2:1 on --surface-0 and 8.5:1 on --surface-2 >=4.5:1 text
+       - --accent-cool-ink (#04070a) 9.4:1 on --accent-cool                    >=4.5:1 text-on-chip */
   --chrome: #0a0d11;
   --chrome-2: #141a21;
   --chrome-ink: #f2f6fb;
   --chrome-border: var(--border-divider);
-  --accent-cool: #35a7ff;
-  --accent-cool-bright: #7cc8ff;
+  --accent-cool: #5bb8ff;
+  --accent-cool-bright: #8ed0ff;
   --accent-cool-ink: #04070a;
-  --accent-cool-glow: rgb(53 167 255 / .3);
+  --accent-cool-glow: rgb(91 184 255 / .3);
+  /* Low-alpha wash of --accent-cool for selected/active chip backgrounds (provider chooser, team
+     picker, ESPN live tile) — named so styles/leagues.css stays literal-free. */
+  --accent-cool-wash: rgb(91 184 255 / .14);
 
   /* Landing trophy chrome — presentation-only accent for the cinematic landing scene
      (LandingPage / LandingHeroCanvas). Bright/deep are the highlight/shadow ends of the same
