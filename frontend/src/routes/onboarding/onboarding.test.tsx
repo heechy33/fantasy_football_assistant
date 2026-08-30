@@ -7,16 +7,19 @@ import { AppRoutes } from '../../App';
 import { espnAdapter } from '../../adapters/espn';
 import { mockSignIn, __resetMockAuthState } from '../../auth/adapters/mockAuthAdapter';
 
-// Regression guard for the 2026-08-15 ESPN sync outage: the setup form used to land in
-// `session.kind: 'manual'` with the bridge disarmed, and `sessionAlerts` returned `[]` for any
-// non-bridge session — so the Draft Room showed an ESPN pill, a league name, "0 picks", and NO
-// alert anywhere explaining why nothing was streaming. These tests assert that state can't recur:
-// the ESPN setup flow must land directly in a bridge session, and any manual session the header
+// Regression guard for the 2026-08-15 ESPN sync outage: a session could land out of `kind:
+// 'bridge'` with the bridge disarmed, and `sessionAlerts` returned `[]` for any non-bridge
+// session — so the Draft Room showed an ESPN pill, a league name, "0 picks", and NO alert anywhere
+// explaining why nothing was streaming. These tests assert that state can't recur: a bridge
+// session must self-announce when the relay isn't streaming, and any manual session the header
 // still calls "espn" must self-announce that it isn't connected.
 //
-// PORTED from App.test.tsx in Phase 3: the flow used to start on the landing's Sleeper card;
-// since the landing became illustration-only it starts at /onboarding/league, which hosts the
-// real ConnectSleeper/EspnSetupTabs unchanged. The assertions are untouched in meaning.
+// PORTED from App.test.tsx in Phase 3; RE-PORTED 2026-08-28 for the connect/start split, and
+// RE-DRIVEN 2026-08-28 when the manual-create path was removed (DECISIONS.md: drafts start only
+// from a saved league / the launcher card, so there is no form to drive anymore). The driver now
+// seeds a persisted bridge session (`ffa.draftSession.v3`, mode 'espn') and renders /draft — the
+// same `kind: 'bridge'` state the old flow produced, without the deleted entry point. The
+// assertions are unchanged in meaning.
 //
 // DraftWorkspace is mocked out — this file is about session routing (the provider's Session union
 // and the sessionAlerts memo), not engine/board rendering, which DraftWorkspace.test.tsx already
@@ -32,13 +35,28 @@ vi.mock('../../components/DraftWorkspace', async () => {
   };
 });
 
-const { requestEspnSnapshotMock } = vi.hoisted(() => ({ requestEspnSnapshotMock: vi.fn() }));
-vi.mock('../../adapters/espnBridge', () => ({ requestEspnSnapshot: requestEspnSnapshotMock }));
+const { requestEspnSnapshotMock, requestEspnLeagueMock, requestEspnDraftLeagueMock } = vi.hoisted(() => ({
+  requestEspnSnapshotMock: vi.fn(),
+  // Added alongside the 2026-08-27 connect-split work's EspnSetupTabs, which calls this on mount
+  // to detect the league — an unmocked import made every test in this file throw on mount.
+  requestEspnLeagueMock: vi.fn(),
+  // Draft-page settings poll (2026-08-29) — useEspnBridge runs for real whenever a bridge session
+  // exists (this file seeds one via persisted state), so it needs a stub too or its own effect
+  // throws on the missing export.
+  requestEspnDraftLeagueMock: vi.fn().mockResolvedValue({ responded: false, league: null }),
+}));
+vi.mock('../../adapters/espnBridge', () => ({
+  requestEspnSnapshot: requestEspnSnapshotMock,
+  requestEspnLeague: requestEspnLeagueMock,
+  requestEspnDraftLeague: requestEspnDraftLeagueMock,
+}));
 
 beforeEach(() => {
   vi.restoreAllMocks();
   requestEspnSnapshotMock.mockReset();
   requestEspnSnapshotMock.mockResolvedValue({ responded: false, live: null });
+  requestEspnLeagueMock.mockReset();
+  requestEspnLeagueMock.mockResolvedValue({ responded: false, league: null });
   __resetPlayerPoolCache();
   __resetMockAuthState();
   // /onboarding/* is account-required (Phase 4) — every test here drives the flow post-signup.
@@ -59,25 +77,63 @@ afterEach(() => {
   cleanup();
 });
 
-/** Drives Onboarding → League → "Set up ESPN draft" → fills the required draft position →
- * submits, landing in the Draft Room. Shared by every test below since the regression is
- * specifically about what this flow produces. */
-async function startEspnSetup(user: ReturnType<typeof userEvent.setup>) {
+/** Seeds a persisted ESPN bridge session (mode 'espn' + a valid frozenInit) and renders /draft,
+ * landing in the Draft Room workspace. Shared by every test below since the regression is
+ * specifically about what this session state produces. The bridge's `requestEspnSnapshot` mock
+ * stays at its default `{ responded: false }` — a bridge session whose relay isn't streaming. */
+function startEspnBridgeSession() {
+  const slotToTeam: Record<number, string> = {};
+  const slotToTeamName: Record<number, string> = {};
+  for (let slot = 1; slot <= 12; slot += 1) {
+    slotToTeam[slot] = String(slot);
+    slotToTeamName[slot] = `Team ${slot}`;
+  }
+  const frozenInit = {
+    provider: 'espn',
+    draftId: 'manual-session',
+    leagueId: 'espn-test-1',
+    draftType: 'snake',
+    teams: 12,
+    rounds: 15,
+    slotToTeam,
+    slotToTeamName,
+    myTeamId: '3',
+    mySlot: 3,
+    settings: {
+      provider: 'espn',
+      leagueId: 'espn-test-1',
+      name: 'ESPN Test League',
+      season: '2026',
+      teams: 12,
+      startingSlots: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'],
+      rosterSlots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DEF: 1, BN: 6, IR: 1 },
+      scoring: { pass_yd: 0.04, pass_td: 4, rush_yd: 0.1, rush_td: 6, rec: 1, rec_yd: 0.1, rec_td: 6 },
+      format: { reception: 'ppr', qb: 'one-qb', draft: 'snake' },
+    },
+  };
+  localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
+    userId: null,
+    draftId: null,
+    mode: 'espn',
+    overrides: [],
+    frozenInit,
+    completedAt: null,
+    from: null,
+    provider: 'espn',
+    savedLeagueId: null,
+  }));
   render(
-    <MemoryRouter initialEntries={['/onboarding/league']}>
+    <MemoryRouter initialEntries={['/draft']}>
       <AppRoutes />
     </MemoryRouter>,
   );
-  await act(async () => {});
-  await user.click(await screen.findByRole('button', { name: 'Set up ESPN draft' }));
-  await user.type(screen.getByLabelText(/Your draft position/), '3');
-  await user.click(screen.getByRole('button', { name: 'Start draft' }));
+  return act(async () => {});
 }
 
 describe('Onboarding league step — ESPN session routing', () => {
   it('lands the ESPN setup flow directly in a bridge session, not a disarmed manual one', async () => {
     const user = userEvent.setup();
-    await startEspnSetup(user);
+    await startEspnBridgeSession();
 
     // Bridge-only vs manual-only menu items are the observable proof of session.kind: 'bridge'
     // menus offer "Switch to manual"; plain manual-ESPN sessions offer "Connect ESPN tab" instead.
@@ -91,7 +147,7 @@ describe('Onboarding league step — ESPN session routing', () => {
 
   it('shows a working "bridge not connected" alert for a manual session the header still calls ESPN', async () => {
     const user = userEvent.setup();
-    await startEspnSetup(user);
+    await startEspnBridgeSession();
 
     // Explicitly downgrade to manual (the user's own "Switch to manual" action) — activeProvider
     // still reports 'espn' for this session, which is exactly the ambiguous state that rendered
@@ -122,7 +178,7 @@ describe('Onboarding league step — ESPN session routing', () => {
       fetchedAt: 1,
       unattributedCount: 2,
     });
-    await startEspnSetup(user);
+    await startEspnBridgeSession();
 
     const alertText = await screen.findByText(/Pick attribution isn't confirmed yet/i);
     expect(alertText.closest('[role="alert"]')).toHaveAttribute('data-severity', 'danger');
@@ -133,7 +189,6 @@ describe('Onboarding league step — ESPN session routing', () => {
   });
 
   it('warns when the ESPN tab attached mid-draft and names the attach point (Step 6d)', async () => {
-    const user = userEvent.setup();
     vi.spyOn(espnAdapter, 'picks').mockResolvedValue({
       status: 'drafting',
       picks: [
@@ -144,7 +199,7 @@ describe('Onboarding league step — ESPN session routing', () => {
       fetchedAt: 1,
       unattributedCount: 0,
     });
-    await startEspnSetup(user);
+    await startEspnBridgeSession();
 
     const alertText = await screen.findByText(/attached mid-draft at pick 138/i);
     expect(alertText.closest('[role="alert"]')).toHaveAttribute('data-severity', 'warn');

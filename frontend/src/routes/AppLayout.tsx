@@ -1,5 +1,4 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { picksMade } from '../adapters/draftOrder';
 import { useAuth } from '../auth/AuthProvider';
 import { ManualDraftSetup } from '../components/ManualDraftSetup';
 import { ManualPickCorrection } from '../components/ManualPickCorrection';
@@ -25,8 +24,6 @@ export function AppLayout() {
     session,
     board,
     poll,
-    effectiveInit,
-    adpFormat,
     activeProvider,
     sessionAlerts,
     manualSetup,
@@ -38,7 +35,6 @@ export function AppLayout() {
     manualTargetInfo,
     unavailablePlayerIds,
     rankedPlayers,
-    handleEspnSetupSubmit,
     handleManualSetupEdit,
   } = useDraftSession();
   const { status, signOut } = useAuth();
@@ -54,13 +50,13 @@ export function AppLayout() {
         authenticated={status === 'signed-in'}
         onSignOut={() => { void signOut(); }}
         immersive={location.pathname === '/'}
-        leagueName={onDraft ? effectiveInit?.settings.name ?? null : null}
-        adpFormat={onDraft ? adpFormat : null}
         isStale={false}
         dataAgeMs={null}
         pollHealthRef={onDraft && session.kind === 'connected' ? poll.healthRef : null}
-        statusProvider={onDraft ? (activeProvider === 'none' ? null : activeProvider) : null}
-        pickCount={onDraft ? picksMade(board.effectivePicks) : null}
+        // Provider pill only for a LIVE or in-progress session — a finished draft is not a live
+        // connection, and claiming "<Provider> connected" over a finished draft would be a lie.
+        statusProvider={onDraft && session.kind !== 'complete' ? (activeProvider === 'none' ? null : activeProvider) : null}
+        showDisconnected={onDraft && session.kind === 'disconnected'}
       />
       <main className="app-shell">
 
@@ -89,10 +85,10 @@ export function AppLayout() {
         />
       )}
 
-      {manualSetup && (
+      {manualSetup && (session.kind === 'manual' || session.kind === 'bridge') && session.frozenInit && (
         <ManualDraftSetup
-          initial={manualSetup.mode === 'edit' && (session.kind === 'manual' || session.kind === 'bridge') ? session.frozenInit : null}
-          onSubmit={manualSetup.mode === 'edit' ? handleManualSetupEdit : handleEspnSetupSubmit}
+          initial={session.frozenInit}
+          onSubmit={handleManualSetupEdit}
           onCancel={() => setManualSetup(null)}
         />
       )}

@@ -1,11 +1,18 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DataHealth } from '../components/DataHealth';
+import { DataHealth, type EspnCaptureSummary } from '../components/DataHealth';
+import { DraftLauncher } from '../components/DraftLauncher';
 import { DraftWorkspace } from '../components/DraftWorkspace';
 import { MANUAL_SCORING_DIAGNOSTICS } from '../components/ManualDraftSetup';
 import { SessionMenu } from '../components/SessionMenu';
+import { requestEspnResetSnapshot } from '../adapters/espnBridge';
+import { hasDetailIdentity } from '../adapters/espn';
+import { mapProvider, sessionKindToMode, shouldSyncDraft } from '../state/draftSync';
+import { useSavedLeagues } from '../data/useSavedLeagues';
 import { useDraftSession } from '../session/DraftSessionProvider';
 
-/** The live draft room — relocated verbatim from `App.tsx`'s `page === 'draft'` branch. */
+/** The live draft room — relocated verbatim from `App.tsx`'s `page === 'draft'` branch. The
+ * disconnected state is the DraftLauncher (2026-08-27 connect/start split). */
 export function DraftRoomRoute() {
   const navigate = useNavigate();
   const {
@@ -24,22 +31,129 @@ export function DraftRoomRoute() {
     nextManualOverall,
     setCorrecting,
     handleChooseAnotherDraft,
-    handleReturnToConnect,
+    handleEndDraft,
   } = useDraftSession();
+  const { saveLeague, saveDraft } = useSavedLeagues();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  /**
+   * "Save to My Leagues" on the completion banner (2026-08-29 live-only redesign): the Draft Room
+   * no longer creates a SavedLeague as a side effect of syncing (see draftSync.ts's `syncNow`), so
+   * a finished draft that was never separately saved — a live-detected ESPN draft, a friend's
+   * Sleeper league tracked by pasted draft id — would otherwise leave no record at all once the
+   * tab closes. One click does the upsertLeague + upsertDraft that used to happen silently, mirrored
+   * from draftSync.ts's own write shape (`mapProvider`/`sessionKindToMode` reused, not
+   * reimplemented). Never offered for a Sleeper mock (`shouldSyncDraft` — nothing worth keeping)
+   * or once a SavedLeague already exists for this session (`session.savedLeagueId`).
+   */
+  async function handleSaveToMyLeagues() {
+    if (session.kind !== 'complete') return;
+    const init = session.frozenInit;
+    const provider = mapProvider(init.provider);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const league = await saveLeague({
+        provider,
+        providerLeagueId: init.leagueId,
+        name: init.settings.name,
+        teams: init.teams,
+        rounds: init.rounds,
+        mySlot: init.mySlot,
+        settings: init.settings,
+        latestDraftId: provider === 'sleeper' ? init.draftId : null,
+      });
+      await saveDraft({
+        leagueId: league.id,
+        provider,
+        providerDraftId: init.draftId,
+        mode: sessionKindToMode(session.from),
+        frozenInit: init,
+        overrides: [...board.state.overrides.values()],
+        picks: provider === 'sleeper' ? undefined : board.effectivePicks,
+        status: 'complete',
+      });
+      navigate(`/leagues/${league.id}`);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save this league.');
+    } finally {
+      setSaving(false);
+    }
+  }
+  const canSaveToMyLeagues = session.kind === 'complete'
+    && session.savedLeagueId == null
+    && shouldSyncDraft(mapProvider(session.provider), session.frozenInit.leagueId);
+
+  // Bridge sessions only — a raw view of the extension's captured live stream (see DataHealth's
+  // EspnCapturePanel doc). Read straight off `bridge.live`/`bridge.offset`, never re-derived, so it
+  // can never disagree with what the board actually rendered from.
+  const espnCapture: EspnCaptureSummary | null = session.kind === 'bridge'
+    ? {
+        leagueId: bridge.live?.leagueId ?? null,
+        epoch: bridge.live?.epoch ?? 0,
+        resetReason: bridge.live?.resetReason ?? null,
+        streamPicks: bridge.live?.streamPicks.length ?? 0,
+        detailPicks: bridge.live?.detailPicks?.length ?? 0,
+        detailIdentified: bridge.live?.detailPicks?.filter(hasDetailIdentity).length ?? 0,
+        domPicks: bridge.live?.domPicks?.length ?? 0,
+        currentPickNumber: bridge.live?.currentPickNumber ?? null,
+        offsetSource: bridge.offset?.source ?? null,
+        offsetValue: bridge.offset?.offset ?? null,
+        offsetConfirmed: bridge.offset?.confirmed ?? false,
+        offsetReason: bridge.offset?.reason ?? null,
+        onReset: () => void requestEspnResetSnapshot(),
+      }
+    : null;
 
   return (
     <>
-      {session.kind === 'disconnected' && (
-        <section className="draft-room-empty">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Draft Room</p>
-              <h2>No active draft</h2>
+      {session.kind === 'disconnected' && <DraftLauncher />}
+
+      {session.kind === 'complete' && (
+        <>
+          {/* Explicit-exit banner (2026-08-28) — the draft is over, the poll/bridge already
+              stopped on their own (see the completion effect in DraftSessionProvider), and the
+              board below stays visible read-only for review. Deliberately NOT auto-navigation:
+              the user leaves via one of these two buttons, never automatically. */}
+          <div className="draft-complete-banner" role="status">
+            <p>
+              <strong>This draft is complete.</strong> The board below is a read-only record of how it went.
+            </p>
+            {saveError && <p role="alert">{saveError}</p>}
+            <div className="draft-complete-banner-actions">
+              {canSaveToMyLeagues && (
+                <button type="button" className="quiet-button" disabled={saving} onClick={() => void handleSaveToMyLeagues()}>
+                  {saving ? 'Saving…' : 'Save to My Leagues'}
+                </button>
+              )}
+              {sessionActions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  className={action.id === 'view-league' ? 'primary-button' : 'quiet-button'}
+                  onClick={action.onSelect}
+                  disabled={action.disabled}
+                >
+                  {action.label}
+                </button>
+              ))}
             </div>
           </div>
-          <p>Connect a league to track its draft live, or log one manually via ESPN setup.</p>
-          <button type="button" onClick={() => navigate('/leagues')}>Go to My Leagues</button>
-        </section>
+          {effectiveInit && (
+            <DraftWorkspace
+              draftInit={effectiveInit}
+              effectivePicks={board.effectivePicks}
+              manifest={manifest}
+              adpFormat={adpFormat}
+              activeProvider={activeProvider}
+              picksSignature={picksSignature}
+              onTheClock={onTheClock}
+              boundaries={boundaries}
+              sessionActions={sessionActions}
+            />
+          )}
+        </>
       )}
 
       {session.kind === 'connected' && (
@@ -87,7 +201,7 @@ export function DraftRoomRoute() {
               <h2>Manual draft log</h2>
             </div>
             <div className="board-toolbar-right">
-              <button className="quiet-button" type="button" onClick={handleReturnToConnect}>Connect a draft</button>
+              <button className="quiet-button" type="button" onClick={handleEndDraft}>Connect a draft</button>
               {sessionActions.length > 0 && <SessionMenu actions={sessionActions} />}
             </div>
           </div>
@@ -120,7 +234,12 @@ export function DraftRoomRoute() {
           pollHealthRef={session.kind === 'connected' ? poll.healthRef : null}
           adpFormat={adpFormat}
           activeProvider={activeProvider}
-          scoringDiagnostics={session.kind === 'manual' || session.kind === 'bridge' ? MANUAL_SCORING_DIAGNOSTICS : undefined}
+          scoringDiagnostics={
+            session.kind === 'manual' || (session.kind === 'bridge' && session.usesPresetSettings)
+              ? MANUAL_SCORING_DIAGNOSTICS
+              : undefined
+          }
+          espnCapture={espnCapture}
         />
       )}
     </>
