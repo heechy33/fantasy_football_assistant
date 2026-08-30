@@ -8,6 +8,14 @@ import { parseEspnDomPickRow } from './espnDom';
  * confirmation only needs one agreeing join (see 'corroborated' below). */
 const MIN_JOINS_WITHOUT_BOARD_DEPTH = 2;
 
+/** A NON-ZERO detail-alignment must be corroborated by at least this many detail-history rows
+ * beyond the aligned window itself (2026-08-28) — a window that consumes (almost) the entire
+ * truncated history is only trivially "unique" because there was nowhere else for it to slide to,
+ * not because the surrounding sequence actually confirms it. Offset 0 is exempt: the equal-length,
+ * from-pick-1 case (detailHistory.length === streamPicks.length) is legitimate and has no room for
+ * this margin by construction. */
+const MIN_ALIGNMENT_MARGIN = 2;
+
 export interface EspnStreamOffset {
   /** absoluteOverall = EspnLivePick.overall + offset. Null until confirmed. */
   offset: number | null;
@@ -17,7 +25,7 @@ export interface EspnStreamOffset {
    *  'corroborated': a non-zero board-depth candidate (domMaxAtStreamStart, or the on-the-clock
    *  reading) agrees with at least one crosswalk join -- the late-attach case.
    *  'crosswalk-join': no usable board-depth signal, but >= 2 independent crosswalk joins agree. */
-  source: 'board-empty' | 'corroborated' | 'crosswalk-join' | null;
+  source: 'board-empty' | 'corroborated' | 'crosswalk-join' | 'detail-alignment' | null;
   /** Number of stream picks that successfully joined to a DOM row via a shared resolved playerId. */
   joins: number;
   /** Distinct offset values implied by those joins. >1 means contradictory evidence -- never
@@ -94,6 +102,37 @@ export function deriveEspnStreamOffset(live: EspnLiveSnapshot | null, index: Esp
   }
   if (joinOffset != null && joinOffset < 0) {
     return UNCONFIRMED(`a crosswalk join implies a negative offset (${joinOffset}) -- the DOM cannot lag the stream by a whole pick`, joins, distinctCandidates);
+  }
+
+  // Detail-alignment joins (2026-08-28 mock drafts): autopick mocks send SELECTED playerId '-1',
+  // so player-id crosswalk joins can never fire. But the stream's team-id sequence and ESPN's own
+  // mDraftDetail history's team-id sequence must align at exactly ONE offset when both are present
+  // — offset evidence that needs no player ids at all. The snake order makes the sequence
+  // non-periodic (round 2 runs reversed), so a unique alignment is strong evidence; it also
+  // outranks a one-shot board-depth ticker reading (the DOM can read a pick ahead of the socket).
+  const detailHistory = live.detailPicks ?? [];
+  if (detailHistory.length > 0) {
+    const alignments: number[] = [];
+    for (let o = 0; o + live.streamPicks.length <= detailHistory.length; o += 1) {
+      let matches = true;
+      for (let i = 0; i < live.streamPicks.length; i += 1) {
+        const teamId = detailHistory[o + i]!.teamId;
+        if (teamId == null || teamId === '' || String(teamId) !== String(live.streamPicks[i]!.slot)) { matches = false; break; }
+      }
+      if (matches) alignments.push(o);
+    }
+    if (alignments.length === 1) {
+      const aligned = alignments[0]!;
+      if (boardEmpty && aligned !== 0) {
+        return UNCONFIRMED(`the board was confirmed empty at stream start, but the detail-history alignment implies offset ${aligned} — trusting neither`, joins, distinctCandidates);
+      }
+      // A non-zero alignment must be corroborated by margin beyond the window itself, not just be
+      // the only offset that happened to fit (see MIN_ALIGNMENT_MARGIN's doc).
+      if (aligned !== 0 && detailHistory.length - live.streamPicks.length < MIN_ALIGNMENT_MARGIN) {
+        return UNCONFIRMED(`the detail-history alignment (offset ${aligned}) fits with no corroborating margin (${detailHistory.length} history rows for ${live.streamPicks.length} stream picks) -- trusting it would be indistinguishable from a padded/undrafted slate tail`, joins, distinctCandidates);
+      }
+      return { offset: aligned, confirmed: true, source: 'detail-alignment', joins, distinctCandidates, reason: null };
+    }
   }
 
   if (boardEmpty) {

@@ -1,6 +1,6 @@
-import type { DraftInit, DraftProviderAdapter, EspnDomPick, EspnLivePick, EspnLiveSnapshot, Pick, PlayerId, PlayerMeta } from '../../../shared/types';
+import type { DraftInit, DraftProviderAdapter, EspnDetailPick, EspnDomPick, EspnLivePick, EspnLiveSnapshot, Pick, PlayerId, PlayerMeta } from '../../../shared/types';
 import { loadPlayerPool } from '../data/loadPlayerPool';
-import { computeOnTheClock, deriveDraftStatus, picksMade, roundForOverall } from './draftOrder';
+import { computeOnTheClock, deriveDraftStatus, picksMade, roundForOverall, slotForOverall } from './draftOrder';
 import { canonicalTeam, teamFromFranchiseName, teamFromProTeamId } from './espnTeams';
 import { deriveEspnDraftOrder, streamPickPosition, type EspnDraftOrder } from './espnDraftOrder';
 import { parseEspnDomPickRow } from './espnDom';
@@ -236,6 +236,35 @@ export function learnPosTokenPositions(streamPicks: readonly EspnLivePick[], ind
   return learned;
 }
 
+/** Does this detail-history row carry a real identity (a usable player id or a name), rather than
+ * ESPN's pre-generated slate padding (teamId set, playerId '-1'/'0'/'', no name)? Prefers the
+ * extension's own `identified` flag (normalize.js's `applyDetailPicks`); falls back to checking the
+ * raw fields for a snapshot captured before that flag existed. */
+export function hasDetailIdentity(entry: EspnDetailPick): boolean {
+  if (entry.identified != null) return entry.identified;
+  const idUsable = entry.playerId !== '' && entry.playerId !== '0' && entry.playerId !== '-1';
+  return idUsable || Boolean(entry.name);
+}
+
+/** Drop any pick whose resolved playerId already appears earlier in `list` — a player can only be
+ * drafted once, so a second occurrence is always a numbering disagreement between the live stream
+ * and the detail history (the screenshot bug: the same player logged at two different `overall`s).
+ * `list` must already be sorted by `overall`; the earlier (lower-overall) copy is kept since the
+ * detail history — when it wins that copy — owns absolute numbering. Unresolved picks
+ * (`playerId: null`) are never deduped against each other. */
+function dedupeByResolvedPlayer(list: Pick[]): Pick[] {
+  const seen = new Set<PlayerId>();
+  const result: Pick[] = [];
+  for (const pick of list) {
+    if (pick.playerId != null) {
+      if (seen.has(pick.playerId)) continue;
+      seen.add(pick.playerId);
+    }
+    result.push(pick);
+  }
+  return result;
+}
+
 /** Normalize the relayed stream into canonical Pick[]. Unresolved PLAYERS keep `playerId: null` and
  * any available name — never silently dropped (CLAUDE.md). Unresolved ATTRIBUTION (Step 6) is the
  * same principle applied to seat/position: the drafted player still comes off the board (the pick
@@ -256,7 +285,7 @@ export function bridgePicksToNormalized(init: DraftInit, index: EspnPlayerIndex,
   const domByAbsolute = new Map<number, EspnDomPick>();
   for (const dom of live.domPicks ?? []) domByAbsolute.set(dom.pickNumber, dom);
   const posTokenPositions = learnPosTokenPositions(live.streamPicks, index);
-  return live.streamPicks.map((stream) => {
+  const picks: Pick[] = live.streamPicks.map((stream) => {
     const absolute = confirmedOffset != null ? stream.overall + confirmedOffset : null;
     const dom = absolute != null ? domByAbsolute.get(absolute) : undefined;
     const row = dom ? parseEspnDomPickRow(dom.text, dom.pickNumber) : null;
@@ -280,11 +309,94 @@ export function bridgePicksToNormalized(init: DraftInit, index: EspnPlayerIndex,
       teamId: position != null ? (init.slotToTeam[position] ?? String(position)) : '',
       playerId: resolved.playerId,
       providerPlayerId: stream.playerId,
-      providerPlayerName: resolved.providerPlayerName ?? undefined,
+      providerPlayerName: resolved.providerPlayerName ?? row?.name ?? undefined,
       providerTeamId: String(stream.slot),
       unattributed: position == null ? true : undefined,
     };
   });
+  // Missed-frame self-correction + MOCK-DRAFT identity (2026-08-28). detailPicks is ESPN's OWN
+  // full pick history (absolute overalls, re-read by the extension every 30s). When it is
+  // contiguous from pick 1 — which it always is for a draft in progress — it is authoritative for
+  // BOTH numbering and identity, and it decouples mock drafts (whose autopick SELECTED frames
+  // carry the '-1' sentinel and no id at all) from the stream's crosswalk-join offset derivation.
+  // Identity resolves through ids.espn when the id is real, otherwise through the DOM pick row
+  // joined at the same absolute pick (name tiers) — never guessed. A row with neither resolves to
+  // an honest hole rather than an "Unmatched: -1" row.
+  const detailList = (live.detailPicks ?? []).slice().sort((a, b) => a.overall - b.overall);
+  const detailContiguous = detailList.length > 0 && detailList.every((entry, i) => entry.overall === i + 1);
+  // A contiguous-from-1 slate is NOT automatically real history: ESPN pre-generates the full
+  // un-drafted snake slate with teamId set and playerId '-1'/no name, and that padding is
+  // structurally indistinguishable from a genuine draft's history by contiguity alone. Only treat
+  // it as authoritative once at least one row actually carries an identity — otherwise this falls
+  // through to the backfill branch below, which already skips unidentified rows individually.
+  const detailAuthoritative = detailContiguous && detailList.some((entry) => hasDetailIdentity(entry));
+  if (detailAuthoritative) {
+    const byOverall = new Map<number, Pick>();
+    for (const entry of detailList) {
+      const domEntry = domByAbsolute.get(entry.overall);
+      const domRow = domEntry ? parseEspnDomPickRow(domEntry.text, domEntry.pickNumber) : null;
+      const idUsable = entry.playerId !== '' && entry.playerId !== '0' && entry.playerId !== '-1';
+      const resolved = resolveEspnPlayer(index, {
+        providerPlayerId: idUsable ? entry.playerId : '',
+        name: entry.name ?? domRow?.name ?? null,
+        position: entry.position ?? domRow?.position ?? null,
+        teamText: entry.proTeam ?? domRow?.teamAbbrev ?? null,
+      });
+      if (!resolved.playerId && resolved.providerPlayerName == null) continue;
+      const slot = slotForOverall(init.draftType, init.teams, entry.overall);
+      byOverall.set(entry.overall, {
+        overall: entry.overall,
+        round: roundForOverall(init.teams, entry.overall),
+        slot,
+        teamId: init.slotToTeam[slot] ?? '',
+        playerId: resolved.playerId,
+        providerPlayerId: entry.playerId,
+        providerPlayerName: resolved.providerPlayerName ?? entry.name ?? domRow?.name ?? undefined,
+        providerTeamId: entry.teamId ?? '',
+      });
+    }
+    if (confirmedOffset != null) {
+      // Live stream picks the last reconcile had not captured yet — or that resolved where the
+      // detail row could not — win. They are fresher than the 30s-old detail history. An
+      // UNATTRIBUTED stream pick (slot 0 — offset unconfirmed for it) must never overwrite an
+      // authoritative, correctly-numbered board; it would only ever add a bogus "Team 0" row.
+      for (const pick of picks) {
+        if (pick.unattributed) continue;
+        if (!byOverall.has(pick.overall) || pick.playerId) byOverall.set(pick.overall, pick);
+      }
+    }
+    return dedupeByResolvedPlayer([...byOverall.values()].sort((a, b) => a.overall - b.overall));
+  }
+  // Non-contiguous detail (defensive; ESPN's history is contiguous in practice): the append-only
+  // backfill for picks the websocket missed, gated on a confirmed offset as before.
+  if (detailList.length > 0 && confirmedOffset != null) {
+    const covered = new Set(picks.map((pick) => pick.overall));
+    for (const entry of detailList) {
+      if (covered.has(entry.overall)) continue;
+      const domEntry = domByAbsolute.get(entry.overall);
+      const domRow = domEntry ? parseEspnDomPickRow(domEntry.text, domEntry.pickNumber) : null;
+      const idUsable = entry.playerId !== '' && entry.playerId !== '0' && entry.playerId !== '-1';
+      const resolved = resolveEspnPlayer(index, {
+        providerPlayerId: idUsable ? entry.playerId : '',
+        name: entry.name ?? domRow?.name ?? null,
+        position: entry.position ?? domRow?.position ?? null,
+        teamText: entry.proTeam ?? domRow?.teamAbbrev ?? null,
+      });
+      if (!idUsable && !resolved.playerId && resolved.providerPlayerName == null) continue;
+      picks.push({
+        overall: entry.overall,
+        round: roundForOverall(init.teams, entry.overall),
+        slot: slotForOverall(init.draftType, init.teams, entry.overall),
+        teamId: init.slotToTeam[slotForOverall(init.draftType, init.teams, entry.overall)] ?? '',
+        playerId: resolved.playerId,
+        providerPlayerId: entry.playerId,
+        providerPlayerName: resolved.providerPlayerName ?? entry.name ?? domRow?.name ?? undefined,
+        providerTeamId: entry.teamId ?? '',
+      });
+    }
+    picks.sort((a, b) => a.overall - b.overall);
+  }
+  return dedupeByResolvedPlayer(picks);
 }
 
 /** Guard that would have caught the 2026-08-15 rehearsal bug live: the form's typed slot (a draft
@@ -323,20 +435,29 @@ export function espnDesyncReason(live: EspnLiveSnapshot | null, order: EspnDraft
   const lastAbsolute = live.streamPicks.length && offset.offset != null
     ? live.streamPicks[live.streamPicks.length - 1]!.overall + offset.offset
     : 0;
+  // Missed-frame self-correction (2026-08-28): picks recovered from the league's own mDraftDetail
+  // pick history (`detailPicks`) count as confirmed — the extension's reconciler backfilled them,
+  // so once they reach the board depth the gap no longer exists and the alert clears.
+  let detailMax = 0;
+  for (const entry of live.detailPicks ?? []) {
+    if (entry.overall > detailMax) detailMax = entry.overall;
+  }
+  const confirmedLatest = Math.max(lastAbsolute, detailMax);
   let maxDomPickNumber = 0;
   for (const dom of live.domPicks ?? []) {
     if (dom.pickNumber > maxDomPickNumber) maxDomPickNumber = dom.pickNumber;
   }
-  if (maxDomPickNumber > lastAbsolute) {
-    const missed = maxDomPickNumber - lastAbsolute;
-    return `The ESPN tab missed frames — the board shows pick #${maxDomPickNumber} but the stream's latest confirmed pick is #${lastAbsolute} (${missed} missing). Verify the log below.`;
+  if (maxDomPickNumber > confirmedLatest) {
+    const missed = maxDomPickNumber - confirmedLatest;
+    return `The ESPN tab missed frames — the board shows pick #${maxDomPickNumber} but the stream's latest confirmed pick is #${confirmedLatest} (${missed} missing). Verify the log below.`;
   }
   return null;
 }
 
 let playerIndexPromise: Promise<EspnPlayerIndex> | null = null;
-/** players.json is memoized upstream; this additionally caches the built crosswalk across polls. */
-function loadEspnPlayerIndex(): Promise<EspnPlayerIndex> {
+/** players.json is memoized upstream; this additionally caches the built crosswalk across polls.
+ * Exported for the completed-draft import path (espnDraftImport) — same crosswalk, same tiers. */
+export function loadEspnPlayerIndex(): Promise<EspnPlayerIndex> {
   if (!playerIndexPromise) {
     playerIndexPromise = loadPlayerPool()
       .then((players) => buildEspnPlayerIndex(players))
@@ -346,6 +467,43 @@ function loadEspnPlayerIndex(): Promise<EspnPlayerIndex> {
       });
   }
   return playerIndexPromise;
+}
+
+/**
+ * The league size a from-pick-1 snake stream itself reveals: the arrival index of the FIRST team
+ * id to repeat is exactly the team count (one full round completed). Null when no repeat has been
+ * seen yet, when the repeat comes too early to trust (a mid-draft attach repeats immediately), or
+ * when the count is not a plausible league size. This is what lets the live-detected card's
+ * seeded team-count guess be corrected from the stream itself — the socket never states it.
+ */
+/**
+ * The league size from ESPN's OWN pick history: `detailPicks` is the full history from absolute
+ * pick 1, so the first team id to repeat sits at index exactly `teams` (round 2 begins with the
+ * last pick of round 1 in snake, or team 1 again in linear). Because it starts at pick 1, this is
+ * immune to the mid-draft-attach hazard that breaks the stream-based count: a stream attaching at
+ * pick 15 of a 10-team league reads t6..t1,t1 and its first repeat lands at index 6 - the exact
+ * wrong answer. Any teamId missing before the first repeat makes the count untrustworthy.
+ */
+export function observedTeamCountFromDetail(detailPicks: readonly EspnDetailPick[] | undefined): number | null {
+  if (!detailPicks || detailPicks.length === 0) return null;
+  const seen = new Set<string>();
+  for (let i = 0; i < detailPicks.length; i += 1) {
+    const teamId = detailPicks[i]!.teamId;
+    if (teamId == null || teamId === '') return null; // a hole before the repeat - no count
+    if (seen.has(teamId)) return i >= 4 && i <= 20 ? i : null;
+    seen.add(teamId);
+  }
+  return null;
+}
+
+export function observedTeamCount(streamPicks: readonly EspnLivePick[]): number | null {
+  const seen = new Set<number>();
+  for (let i = 0; i < streamPicks.length; i += 1) {
+    const slot = streamPicks[i]!.slot;
+    if (seen.has(slot)) return i >= 6 && i <= 20 ? i : null;
+    seen.add(slot);
+  }
+  return null;
 }
 
 export const espnAdapter: DraftProviderAdapter = {

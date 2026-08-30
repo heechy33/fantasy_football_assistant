@@ -1,10 +1,44 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { EspnDomPick, EspnLivePick, EspnLiveSnapshot, PlayerMeta, Position } from '../../../shared/types';
-import { buildManualDraftInit } from '../components/ManualDraftSetup';
-import { bridgePicksToNormalized, buildEspnPlayerIndex, espnAdapter, espnDesyncReason, espnSeatMismatch, learnPosTokenPositions, mergeBridgeInit, resolveEspnPlayer } from './espn';
+import type { DraftInit, EspnDomPick, EspnLivePick, EspnLiveSnapshot, PlayerMeta, Position } from '../../../shared/types';
+import { bridgePicksToNormalized, buildEspnPlayerIndex, espnAdapter, espnDesyncReason, espnSeatMismatch, learnPosTokenPositions, mergeBridgeInit, observedTeamCount, observedTeamCountFromDetail, resolveEspnPlayer } from './espn';
 import { deriveEspnDraftOrder } from './espnDraftOrder';
 import { canonicalTeam, teamFromFranchiseName, teamFromProTeamId } from './espnTeams';
 import type { EspnStreamOffset } from './espnOffset';
+
+/** A minimal ESPN bridge DraftInit — replaces the removed `buildManualDraftInit` as the test
+ * base (the manual-create path is gone; bridge sessions only ever start from saved leagues). */
+function espnDraftInit(leagueName: string, mySlot: number): DraftInit {
+  const teams = 10;
+  const slotToTeam: Record<number, string> = {};
+  const slotToTeamName: Record<number, string> = {};
+  for (let slot = 1; slot <= teams; slot += 1) {
+    slotToTeam[slot] = String(slot);
+    slotToTeamName[slot] = `Team ${slot}`;
+  }
+  return {
+    provider: 'espn',
+    draftId: 'manual-session',
+    leagueId: 'espn-test',
+    draftType: 'snake',
+    teams,
+    rounds: 14,
+    slotToTeam,
+    slotToTeamName,
+    myTeamId: String(mySlot),
+    mySlot,
+    settings: {
+      provider: 'espn',
+      leagueId: 'espn-test',
+      name: leagueName,
+      season: '2026',
+      teams,
+      startingSlots: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'DEF', 'K'],
+      rosterSlots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DEF: 1, K: 1, BN: 5, IR: 1 },
+      scoring: { rec: 1, pass_yd: 0.04, pass_td: 4, rush_yd: 0.1, rush_td: 6 },
+      format: { reception: 'ppr', qb: 'one-qb', draft: 'snake' },
+    },
+  };
+}
 
 function player(playerId: string, name: string, position: Position | null, team: string | null, espnId?: string): PlayerMeta {
   return {
@@ -155,7 +189,7 @@ describe('learnPosTokenPositions', () => {
 });
 
 describe('mergeBridgeInit', () => {
-  const base = buildManualDraftInit({ leagueName: 'LeAgUe', teams: 10, rounds: 14, mySlot: 2 });
+  const base = espnDraftInit('LeAgUe', 2);
 
   it('keeps the form\'s typed slot authoritative — JOINED/TOKEN mySlot is an ESPN team id, not a position', () => {
     const live: EspnLiveSnapshot = { schemaVersion: 2, streamPicks: [], mySlot: 5, leagueId: '996408758', lastHeartbeatAt: 123 };
@@ -202,7 +236,7 @@ describe('mergeBridgeInit', () => {
 });
 
 describe('bridgePicksToNormalized', () => {
-  const init = mergeBridgeInit(buildManualDraftInit({ leagueName: 'LeAgUe', teams: 10, rounds: 14, mySlot: 2 }), null);
+  const init = mergeBridgeInit(espnDraftInit('LeAgUe', 2), null);
   const index = buildEspnPlayerIndex(PLAYERS);
 
   it('maps the stream\'s ESPN team ids to draft positions and keeps the raw team id on providerTeamId', () => {
@@ -307,7 +341,7 @@ describe('espnAdapter.picks', () => {
       throw new Error(`unexpected fetch in test: ${url}`);
     }));
     try {
-      const init = mergeBridgeInit(buildManualDraftInit({ leagueName: 'LeAgUe', teams: 10, rounds: 14, mySlot: 2 }), null);
+      const init = mergeBridgeInit(espnDraftInit('LeAgUe', 2), null);
       // Confirmed offset 100 (board-depth 100 at stream start, corroborated by the DOM row that
       // joins CMC — arrival pick 1 — to absolute pick 101). Normalized picks therefore carry
       // GAPPED absolute overalls (101, 102): exactly the case picks.length undercounts.
@@ -396,6 +430,323 @@ describe('espnDesyncReason', () => {
     const picks = [10, 7].map((slot, i) => ({ overall: i + 1, slot, playerId: 'p' }));
     const offset = confirmedOffset(0);
     expect(espnDesyncReason(liveWith(picks), deriveEspnDraftOrder(picks, 10, 'snake', offset), offset)).toBeNull();
+  });
+
+  it('clears the missed-frames gap once the reconciled detailPicks cover the board depth', () => {
+    // Missed-frame self-correction (2026-08-28): the extension backfilled picks 4+ from ESPN's own
+    // mDraftDetail history. detailPicks reaching board depth means the gap no longer exists.
+    const picks = [10, 7, 9].map((slot, i) => ({ overall: i + 1, slot, playerId: `p${i + 1}` }));
+    const domPicks: EspnDomPick[] = [{ pickNumber: 6, text: '6Name', segments: [] }];
+    const live = { ...liveWith(picks, domPicks), detailPicks: [{ overall: 4, playerId: 'x' }, { overall: 5, playerId: 'y' }, { overall: 6, playerId: 'z' }] };
+    const offset = confirmedOffset(0);
+    const order = deriveEspnDraftOrder(picks, 10, 'snake', offset);
+    expect(espnDesyncReason(live, order, offset)).toBeNull();
+    // But a board STILL ahead of the recovered history stays flagged.
+    const domAhead: EspnDomPick[] = [{ pickNumber: 8, text: '8Name', segments: [] }];
+    expect(espnDesyncReason({ ...live, domPicks: domAhead }, order, offset)).toContain('2 missing');
+  });
+});
+
+describe('bridgePicksToNormalized detail reconciliation (missed frames)', () => {
+  const init = mergeBridgeInit(espnDraftInit('LeAgUe', 2), null);
+  const index = buildEspnPlayerIndex(PLAYERS);
+
+  it('appends picks the websocket missed from the authoritative detail history', () => {
+    // Stream saw overalls 1-2 (absolute 101-102 at offset 100); the tab missed frames for absolute
+    // picks 103-105. detailPicks (absolute overalls, real ids) repair the gap — resolved through
+    // ids.espn directly (two DISTINCT players at 103/104 — a repeat of a player already on the
+    // board must never appear twice; see the dedupe-by-resolved-player test below for that guard).
+    // Stream picks are never renumbered.
+    const backfillIndex = buildEspnPlayerIndex([
+      ...PLAYERS,
+      player('6', 'Justin Jefferson', 'WR', 'MIN', '3139479'),
+      player('7', 'Josh Jacobs', 'RB', 'GB', '3139481'),
+    ]);
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [
+        { overall: 1, slot: 10, playerId: '3139477' },
+        { overall: 2, slot: 7, playerId: '15847' },
+      ],
+      detailPicks: [
+        { overall: 101, playerId: '3139477' },
+        { overall: 102, playerId: '15847' },
+        { overall: 103, playerId: '3139479' },
+        { overall: 104, playerId: '3139481' },
+        { overall: 105, playerId: '9999999' },
+      ],
+      // Offset-100 confirmation, same shape as the picksMade regression test above: board-depth
+      // 100 at stream start corroborated by the DOM row that joins CMC's arrival pick 1 to 101.
+      domPicks: [{ pickNumber: 101, text: "101Christian McCaffreySFRBKoston's Top-Notch Team2", segments: [] }],
+      domMaxAtStreamStart: 100,
+      domSampledBeforeStream: false,
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, backfillIndex, live);
+    expect(picks.map((pick) => pick.overall)).toEqual([101, 102, 103, 104, 105]);
+    expect(picks[2]!.playerId).toBe('6'); // Justin Jefferson via ids.espn — direct crosswalk, no name tier
+    expect(picks[3]!.playerId).toBe('7'); // Josh Jacobs, same tier
+    expect(picks[4]!.playerId).toBeNull(); // unknown id stays unattributed, never guessed
+    // Unattributed-free ordering: the clock math keys off max(overall) = 105.
+  });
+
+  it('leaves detailPicks alone while the stream offset is unconfirmed', () => {
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [{ overall: 1, slot: 10, playerId: '3139477' }],
+      detailPicks: [{ overall: 101, playerId: '3139477' }],
+      mySlot: null,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, index, live);
+    expect(picks).toHaveLength(1);
+    expect(picks[0]!.overall).toBe(1); // arrival ordinal, untouched — absolutes are not trusted yet
+  });
+
+  it('resolves a sentinel-id (-1) detail row through the DOM pick row instead of logging Unmatched: -1', () => {
+    // Mock drafts: mDraftDetail can report playerId -1 with no name. The DOM row at the same
+    // absolute pick carries the real name/position/NFL team, so the name tiers resolve it.
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      // Stream captured picks 1-2 with real ids (board-empty, offset 0); the sentinel row backfills
+      // absolute pick 3. Its DOM row is a player NOT in the stream, so offset-0 joins stay clean.
+      streamPicks: [
+        { overall: 1, slot: 10, playerId: '3139477' },
+        { overall: 2, slot: 7, playerId: '15847' },
+      ],
+      detailPicks: [{ overall: 3, playerId: '-1' }],
+      domPicks: [{ pickNumber: 3, text: '3James CookCHIRBTeam 762', segments: [] }],
+      domMaxAtStreamStart: 0,
+      domSampledBeforeStream: true,
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, index, live);
+    expect(picks.map((pick) => pick.overall)).toEqual([1, 2, 3]);
+    expect(picks[2]!.providerPlayerName).toBe('James Cook');
+    expect(picks[2]!.playerId).toBe('3'); // resolved via DOM name + position + NFL team, never the sentinel id
+  });
+
+  it('skips a sentinel-id detail row with no DOM row rather than emitting Unmatched: -1', () => {
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [],
+      detailPicks: [{ overall: 1, playerId: '-1' }],
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    expect(bridgePicksToNormalized(init, index, live)).toEqual([]);
+  });
+
+  it('mock draft end-to-end: sentinel stream + contiguous detail history resolves names, numbering, and attribution', () => {
+    // The real mock-draft failure: every SELECTED frame is `SELECTED <teamId> -1` (autopick), so
+    // the stream has NO player ids. ESPN's own mDraftDetail history (absolute overalls + teamId)
+    // is authoritative for numbering; names join from the DOM rows that WERE captured; slots come
+    // from the snake grid once the team count is right.
+    const mockIndex = buildEspnPlayerIndex([
+      ...PLAYERS,
+      player('4', 'Justin Jefferson', 'WR', 'MIN', '3139479'),
+      player('5', "Ja'Marr Chase", 'WR', 'CIN', '3139480'),
+    ]);
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [
+        { overall: 1, slot: 10, playerId: '-1' },
+        { overall: 2, slot: 7, playerId: '-1' },
+        { overall: 3, slot: 9, playerId: '-1' },
+        { overall: 4, slot: 3, playerId: '-1' },
+      ],
+      detailPicks: [
+        { overall: 1, playerId: '', teamId: '10' },
+        { overall: 2, playerId: '', teamId: '7' },
+        { overall: 3, playerId: '', teamId: '9' },
+        { overall: 4, playerId: '', teamId: '3' },
+      ],
+      domPicks: [
+        { pickNumber: 1, text: '1Christian McCaffreySFRBHome Team976', segments: [] },
+        { pickNumber: 2, text: '2James CookBUFRBHome Team762', segments: [] },
+        { pickNumber: 3, text: '3Justin JeffersonMINWRHome Team143', segments: [] },
+        { pickNumber: 4, text: "4Ja'Marr ChaseCINWRHome Team891", segments: [] },
+      ],
+      domMaxAtStreamStart: 0,
+      domSampledBeforeStream: true,
+      mySlot: 3,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, mockIndex, live);
+    expect(picks.map((pick) => pick.overall)).toEqual([1, 2, 3, 4]);
+    expect(picks.map((pick) => pick.playerId)).toEqual(['1', '2', '4', '5']);
+    // Absolute snake positions for a 10-team draft (init.teams = 10): overalls 1-4 are all round 1,
+    // so positions 1-4 — NOT the stream's arrival ordinals and NOT the raw ESPN team ids.
+    expect(picks.map((pick) => pick.slot)).toEqual([1, 2, 3, 4]);
+    expect(picks.map((pick) => pick.providerTeamId)).toEqual(['10', '7', '9', '3']);
+  });
+
+  it('mid-draft attach: reconstructs the full board from detailPicks alone with an empty stream (2026-08-30)', () => {
+    // The mid-draft-attach case this fix targets: a tab that joined an already-running draft has
+    // seen NO socket frames at all (streamPicks empty) — only the extension's periodic mDraftDetail
+    // reconcile has run, which (as of the leagueId-stamping fix) starts immediately from the draft
+    // page's own API traffic rather than waiting for a frame. detailPicks alone, with real ids and
+    // names, must resolve the entire board.
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [],
+      detailPicks: [
+        { overall: 1, playerId: '3139477', name: 'Christian McCaffrey', teamId: '10' },
+        { overall: 2, playerId: '15847', name: 'James Cook', teamId: '7' },
+      ],
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: null,
+    };
+    const picks = bridgePicksToNormalized(init, index, live);
+    expect(picks.map((pick) => pick.overall)).toEqual([1, 2]);
+    expect(picks.map((pick) => pick.playerId)).toEqual(['1', '2']);
+    expect(picks.map((pick) => pick.providerTeamId)).toEqual(['10', '7']);
+  });
+
+  it('a live stream pick that resolved where the detail row could not wins the merge', () => {
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [{ overall: 1, slot: 10, playerId: '3139477' }],
+      detailPicks: [{ overall: 1, playerId: '', teamId: '10' }],
+      domPicks: [],
+      domMaxAtStreamStart: 0,
+      domSampledBeforeStream: true,
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, index, live);
+    expect(picks).toHaveLength(1);
+    expect(picks[0]!.playerId).toBe('1');
+    expect(picks[0]!.providerTeamId).toBe('10');
+  });
+
+  // 2026-08-29 regression coverage for the "abandoned draft leaves a wedged, duplicated board"
+  // bug: ESPN pre-generates the full un-drafted snake slate (teamId set, no identity) as part of
+  // `detailPicks`, and it is structurally indistinguishable from real history by contiguity alone.
+  it('does not let an all-padding contiguous detail slate supersede the stream (screenshot regression)', () => {
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [
+        { overall: 1, slot: 10, playerId: '3139477' },
+        { overall: 2, slot: 7, playerId: '15847' },
+      ],
+      // Contiguous from 1, but every row is pure padding — no id, no name, `identified: false`.
+      detailPicks: Array.from({ length: 10 }, (_, i) => ({
+        overall: i + 1,
+        playerId: '-1',
+        teamId: String((i % 10) + 1),
+        identified: false,
+      })),
+      domMaxAtStreamStart: 0,
+      domSampledBeforeStream: true,
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, index, live);
+    // Before the fix: the padding slate won on contiguity alone, replacing this healthy 2-pick
+    // stream with a 10-row board where only rows with a matching DOM ticker entry had a name.
+    expect(picks.map((pick) => pick.overall)).toEqual([1, 2]);
+    expect(picks.map((pick) => pick.playerId)).toEqual(['1', '2']);
+  });
+
+  it('never overlays an unattributed stream pick onto an authoritative board (the "Team 0" screenshot bug)', () => {
+    const detailAuthIndex = buildEspnPlayerIndex([...PLAYERS, player('6', 'Justin Jefferson', 'WR', 'MIN', '3139479')]);
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      // Two picks from the SAME ESPN team id (slot 1) computing to two different draft positions —
+      // an internally-inconsistent order (espnDraftOrder.ts's conflict guard), so both stream picks
+      // resolve `slot: 0, unattributed: true` even though the offset itself is confirmed (0,
+      // board-empty). This is the exact shape a wrong/racing offset produces in the wild.
+      streamPicks: [
+        { overall: 1, slot: 1, playerId: '3139477' },
+        { overall: 2, slot: 1, playerId: '15847' },
+      ],
+      detailPicks: [
+        { overall: 1, playerId: '3139477', identified: true },
+        { overall: 2, playerId: '15847', identified: true },
+        { overall: 3, playerId: '3139479', identified: true },
+      ],
+      domMaxAtStreamStart: 0,
+      domSampledBeforeStream: true,
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, detailAuthIndex, live);
+    // Before the fix: the unattributed stream copy (`slot: 0`) overwrote/duplicated onto the
+    // authoritative, correctly-numbered board — rendered as a bogus "Team 0" row (DraftLog.tsx
+    // falls back to `Team ${slot}` when `slotToTeamName[0]` is undefined).
+    expect(picks).toHaveLength(3);
+    expect(picks.every((pick) => pick.slot !== 0 && !pick.unattributed)).toBe(true);
+    expect(picks.map((pick) => pick.playerId)).toEqual(['1', '2', '6']);
+  });
+
+  it('drops a detail-history row that duplicates a player already on the board at a different overall', () => {
+    const live: EspnLiveSnapshot = {
+      schemaVersion: 2,
+      streamPicks: [{ overall: 1, slot: 10, playerId: '3139477' }],
+      detailPicks: [
+        { overall: 1, playerId: '3139477', identified: true },
+        // A gap (no row at overall 2-8) makes the history non-contiguous, so this goes through the
+        // append-only backfill path — which used to key ONLY on `overall`, so the same player
+        // (CMC) legitimately already on the board at #1 got a second, bogus row at #9.
+        { overall: 9, playerId: '3139477', identified: true },
+      ],
+      domMaxAtStreamStart: 0,
+      domSampledBeforeStream: true,
+      mySlot: 7,
+      leagueId: 'L1',
+      lastHeartbeatAt: 1,
+    };
+    const picks = bridgePicksToNormalized(init, index, live);
+    expect(picks.map((pick) => pick.overall)).toEqual([1]);
+    expect(picks[0]!.playerId).toBe('1');
+  });
+});
+
+describe('observedTeamCount', () => {
+  const stream = (slots: number[]) => slots.map((slot, i) => ({ overall: i + 1, slot, playerId: '-1' }));
+
+  it('derives the league size from the first repeated team id (one full round completed)', () => {
+    expect(observedTeamCount(stream([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9]))).toBe(10);
+    expect(observedTeamCount(stream([1, 2, 3, 4, 5, 6, 7, 8, 8, 7]))).toBe(8);
+  });
+
+  it('returns null before a full round completes or on a mid-draft attach (immediate repeats)', () => {
+    expect(observedTeamCount(stream([1, 2, 3]))).toBeNull();
+    expect(observedTeamCount(stream([5, 5, 5, 5, 5, 5, 5, 5, 5]))).toBeNull();
+    expect(observedTeamCount([])).toBeNull();
+  });
+});
+
+describe('observedTeamCountFromDetail', () => {
+  const detail = (teamIds: (string | null)[]) =>
+    teamIds.map((teamId, i) => ({ overall: i + 1, playerId: '', teamId }));
+
+  it('derives the size from the detail history, immune to the snake-turnaround false repeat', () => {
+    // A mid-draft STREAM attach reads t6..t1,t1 and its first repeat lands at 6 — the exact
+    // wrong answer that corrected a 10-team league to 6. The DETAIL history starts at pick 1,
+    // so its first repeat sits at index exactly `teams` in both snake and linear orders.
+    expect(observedTeamCountFromDetail(detail(['6', '5', '4', '3', '2', '1', '1', '2', '3', '4']))).toBe(6);
+    expect(observedTeamCountFromDetail(detail(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '10', '9']))).toBe(10);
+    expect(observedTeamCountFromDetail(detail(['1', '2', '3', '4', '4', '3', '2', '1']))).toBe(4);
+  });
+
+  it('refuses to count when a teamId is missing before the first repeat, or the repeat is implausible', () => {
+    expect(observedTeamCountFromDetail(detail(['6', '5', '4', null, '2', '1', '1']))).toBeNull();
+    expect(observedTeamCountFromDetail(detail(['1', '1']))).toBeNull(); // repeat at index 1 — not a league
+    expect(observedTeamCountFromDetail([])).toBeNull();
+    expect(observedTeamCountFromDetail(undefined)).toBeNull();
   });
 });
 

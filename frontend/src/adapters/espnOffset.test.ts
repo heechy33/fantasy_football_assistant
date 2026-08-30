@@ -104,6 +104,40 @@ describe('deriveEspnStreamOffset', () => {
     expect(result.offset).toBeNull();
   });
 
+  it('confirms via detail-history team-id alignment when the stream carries only sentinel ids (mock autopick)', () => {
+    // Mock drafts: every SELECTED frame is `SELECTED <teamId> -1` -- no crosswalk joins can ever
+    // fire. The stream team-id sequence aligns with the detail history teamId sequence at exactly
+    // one offset, which confirms without any player id -- and outranks the one-shot ticker reading
+    // (here the race stamped the board one pick ahead; the full-sequence alignment wins).
+    const live = liveWith({
+      streamPicks: [
+        { overall: 1, slot: 5, playerId: '-1', source: 'frame' },
+        { overall: 2, slot: 12, playerId: '-1', source: 'frame' },
+        { overall: 3, slot: 3, playerId: '-1', source: 'frame' },
+      ],
+      domMaxAtStreamStart: 1,
+      domSampledBeforeStream: false,
+      detailPicks: [
+        { overall: 1, playerId: '', teamId: '5' },
+        { overall: 2, playerId: '', teamId: '12' },
+        { overall: 3, playerId: '', teamId: '3' },
+      ],
+    });
+    expect(deriveEspnStreamOffset(live, INDEX)).toMatchObject({ offset: 0, confirmed: true, source: 'detail-alignment' });
+  });
+
+  it('refuses to confirm when the detail alignment is ambiguous (multiple valid offsets)', () => {
+    const live = liveWith({
+      streamPicks: [{ overall: 1, slot: 5, playerId: '-1', source: 'frame' }],
+      detailPicks: [
+        { overall: 1, playerId: '', teamId: '5' },
+        { overall: 2, playerId: '', teamId: '5' },
+      ],
+    });
+    const result = deriveEspnStreamOffset(live, INDEX);
+    expect(result.confirmed).toBe(false);
+  });
+
   it('does not confirm a non-zero board-depth candidate with zero crosswalk joins (correction #2: board-depth alone never confirms a non-zero offset)', () => {
     const live = liveWith({
       streamPicks: [{ overall: 1, slot: 5, playerId: '9999999', source: 'frame' }], // unresolvable -> no join possible
@@ -184,6 +218,42 @@ describe('deriveEspnStreamOffset', () => {
     const result = deriveEspnStreamOffset(live, INDEX);
     expect(result.confirmed).toBe(false);
     expect(result.reason).toMatch(/negative offset/);
+  });
+
+  it('refuses a non-zero detail-alignment with no corroborating margin beyond the window (a padded/undrafted slate tail would look identical)', () => {
+    const live = liveWith({
+      streamPicks: [
+        { overall: 1, slot: 3, playerId: '-1', source: 'frame' },
+        { overall: 2, slot: 7, playerId: '-1', source: 'frame' },
+      ],
+      // The unique window happens to be offset 1, but the history has NO rows beyond the window
+      // itself (length 3, stream length 2 -- margin of only 1, below MIN_ALIGNMENT_MARGIN).
+      detailPicks: [
+        { overall: 1, playerId: '', teamId: '9' }, // does not match slot 3 at offset 0 -- ruled out
+        { overall: 2, playerId: '', teamId: '3' },
+        { overall: 3, playerId: '', teamId: '7' },
+      ],
+    });
+    const result = deriveEspnStreamOffset(live, INDEX);
+    expect(result.confirmed).toBe(false);
+    expect(result.reason).toMatch(/no corroborating margin/);
+  });
+
+  it('confirms a non-zero detail-alignment once the history carries enough margin beyond the window', () => {
+    const live = liveWith({
+      streamPicks: [
+        { overall: 1, slot: 3, playerId: '-1', source: 'frame' },
+        { overall: 2, slot: 7, playerId: '-1', source: 'frame' },
+      ],
+      detailPicks: [
+        { overall: 1, playerId: '', teamId: '9' },
+        { overall: 2, playerId: '', teamId: '5' },
+        { overall: 3, playerId: '', teamId: '3' },
+        { overall: 4, playerId: '', teamId: '7' },
+      ],
+    });
+    const result = deriveEspnStreamOffset(live, INDEX);
+    expect(result).toMatchObject({ offset: 2, confirmed: true, source: 'detail-alignment' });
   });
 
   it('D/ST-only joins never satisfy MIN_JOINS_WITHOUT_BOARD_DEPTH alone if fewer than 2 (documents the tier-1 limitation for skill positions, not a defect)', () => {

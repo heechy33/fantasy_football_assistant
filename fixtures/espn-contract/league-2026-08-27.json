@@ -1,0 +1,38 @@
+{
+  "_provenance": "SYNTHETIC stand-in (2026-08-27; scoringItems corrected 2026-08-28 to the VERIFIED ESPN stat catalog, 24=rush yd, 25=rush TD, 20=INT -- see espnLeague.ts): written to the documented ESPN league-API shape pending the real extension recon slice (Phase 0). Slot keys use the CORRECT lineupSlotId vocabulary (cross-checked live against pipeline/espn_projections.py's filterSlotIds [0,2,4,6,17,16]); scoring sits at the documented settings.scoringSettings.scoringItems path. Replace with a scrubbed capture from a real league page before trusting the parser against production payloads.",
+  "id": 983371779,
+  "seasonId": 2026,
+  "settings": {
+    "name": "Gridiron Gurus League",
+    "teams": 10,
+    "rosterSettings": {
+      "lineupSlotCounts": { "0": 1, "2": 2, "4": 2, "6": 1, "23": 1, "17": 1, "16": 1, "20": 5, "21": 1 }
+    },
+    "scoringSettings": {
+      "scoringItems": [
+        { "statId": 3, "points": 0.04 },
+        { "statId": 4, "points": 4 },
+        { "statId": 20, "points": -2 },
+        { "statId": 24, "points": 0.1 },
+        { "statId": 25, "points": 6 },
+        { "statId": 41, "points": 1 },
+        { "statId": 42, "points": 0.1 },
+        { "statId": 43, "points": 6 },
+        { "statId": 55, "points": 2 }
+      ]
+    }
+  },
+  "draftDetail": { "rounds": 14, "inProgress": false },
+  "teams": [
+    { "id": 1, "location": "Gridiron", "nickname": "Gurus", "draftSlot": 1 },
+    { "id": 2, "location": "Two", "nickname": "Minute Drill", "draftSlot": 2 },
+    { "id": 3, "location": "Three", "nickname": "And Out", "draftSlot": 3 },
+    { "id": 4, "location": "Four", "nickname": "Corners", "draftSlot": 4 },
+    { "id": 5, "location": "Five", "nickname": "Yard Infraction", "draftSlot": 5 },
+    { "id": 6, "location": "Six", "nickname": "Shooter", "draftSlot": 6 },
+    { "id": 7, "location": "Seven", "nickname": "Blockers", "draftSlot": 7 },
+    { "id": 8, "location": "Eight", "nickname": "Men in the Box", "draftSlot": 8 },
+    { "id": 9, "location": "Nine", "nickname": "Routes", "draftSlot": 9 },
+    { "id": 10, "location": "Ten", "nickname": "Yard Penalty", "draftSlot": 10 }
+  ]
+}
