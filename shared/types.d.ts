@@ -211,6 +211,26 @@ export interface EspnDomPick {
   playerId?: string | null;
 }
 
+/**
+ * One authoritative pick from ESPN's own `mDraftDetail` pick history (missed-frame
+ * self-correction, 2026-08-28) — normalized by the extension's `asPick` from the raw payload.
+ * `overall` is the ABSOLUTE draft pick number; `playerId` is the real ESPN player id (resolved
+ * directly through the app's `ids.espn` crosswalk, never the fuzzy name tiers). `teamId` is the
+ * drafting team's ESPN league team id, when the payload carried it.
+ */
+export interface EspnDetailPick {
+  overall: number;
+  playerId: string;
+  name?: string | null;
+  teamId?: string | null;
+  position?: string | null;
+  proTeam?: string | null;
+  /** Whether this row carried a resolvable player id or name when captured (normalize.js's
+   * `applyDetailPicks`) — `false` for ESPN's pre-generated teamId-only slate padding. Absent on
+   * older snapshots (treat as unknown, not as padding). */
+  identified?: boolean;
+}
+
 export interface EspnLiveSnapshot {
   schemaVersion: number;
   /** Monotonic draft-generation counter: the extension increments it on every league-change reset,
@@ -224,7 +244,7 @@ export interface EspnLiveSnapshot {
    * stored shape didn't match `LIVE_SCHEMA_VERSION`). Absent on pre-Step-7 snapshots. Lets the app
    * distinguish a genuine new draft from a silent mid-draft restart instead of re-deriving pick 1
    * from wherever the stream happens to resume. */
-  resetReason?: 'new' | 'league-change' | 'schema-change';
+  resetReason?: 'new' | 'league-change' | 'schema-change' | 'draft-restart';
   streamPicks: EspnLivePick[];
   mySlot: number | null;
   leagueId: string | null;
@@ -245,6 +265,15 @@ export interface EspnLiveSnapshot {
    * mid-draft attach (the 400ms DOM-reconcile debounce can lose the race against the first SELECTED
    * frame). */
   domSampledBeforeStream?: boolean;
+  /**
+   * Missed-frame self-correction (2026-08-28): the league's OWN pick history, re-read by the
+   * extension from ESPN's `mDraftDetail` read API (absolute overall numbers + real player ids)
+   * and merged by overall. The socket `streamPicks` stay the fast path and are never renumbered;
+   * entries here REPAIR picks the tab's websocket missed. App readers must treat a `detailPicks`
+   * entry as authoritative for "this player was taken at this absolute pick" — `EspnLivePick`
+   * arrival ordinals remain provisional until the offset is confirmed.
+   */
+  detailPicks?: EspnDetailPick[];
   /** The DOM's own on-the-clock absolute pick number, from `[data-testid="current-pick"]` (e.g.
    * "On the Clock: Pick 146Team 3"). Present on the very first DOM reconcile, unlike `domMaxSeen`
    * which only accumulates from the (at most 4-row) pick-number ticker — the fastest offset signal
@@ -253,6 +282,94 @@ export interface EspnLiveSnapshot {
   /** The ESPN team id named in the on-the-clock reading, when the league still uses ESPN's default
    * "Team N" names. A bonus cross-check only; null whenever the league has custom team names. */
   currentPickTeam?: number | null;
+  /** League facts ESPN ITSELF reports (the extension's periodic mDraftDetail,mSettings read —
+   * the same fetch that fills `detailPicks`). The socket cannot state the league size, draft
+   * length, or season; these stamped values are authoritative where present and are what the app
+   * corrects its seeded guesses against. Absent until the first reconcile lands. */
+  leagueRounds?: number | null;
+  leagueTeams?: number | null;
+  leagueSeason?: string | null;
+  /** The league's display name (`settings.name`), stamped by the same reconcile. Lets the launcher
+   * show the real league name instead of `ESPN live draft (<id>)`. */
+  leagueName?: string | null;
+}
+
+/**
+ * A league (not draft) snapshot captured by the extension from ESPN's own league-API JSON
+ * (`/apis/v3/games/ffl/seasons/<season>/segments/0/leagues/<id>?view=...`), stored in the
+ * extension's `LEAGUE_STORAGE_KEY` and relayed to the app on request (see
+ * `frontend/src/adapters/espnBridge.ts`'s `requestEspnLeague`). The RAW ESPN payload is stored
+ * verbatim (redacted by the extension, as with the draft recon); parsing into this shape happens
+ * at the adapter boundary in `frontend/src/adapters/espnLeague.ts` — the one place ESPN's integer
+ * slot ids and scoringItems may be translated into RosterSlots and Sleeper's stat vocabulary
+ * (CLAUDE.md, "Provider adapters"). What lands here is the PARSED, translated result.
+ *
+ * NOTE: the field mapping is provisional until the extension recon (fixtures/espn-contract)
+ * confirms which `?view=` payloads the real league page emits (mSettings/mTeam/mDraftDetail) and
+ * that the extension's redaction bounds don't truncate anything load-bearing.
+ */
+export interface EspnLeagueSnapshot {
+  schemaVersion: number;
+  /** The REAL ESPN league id — what retires the `'manual-session'` placeholder leagueId. */
+  leagueId: string;
+  season: string;
+  name: string;
+  teams: number;
+  /** Null when mDraftDetail wasn't among the captured views. */
+  rounds: number | null;
+  startingSlots: RosterSlot[];
+  rosterSlots: Partial<Record<RosterSlot, number>>;
+  /** Sleeper's stat vocabulary — translated at the adapter boundary, never raw ESPN statIds. */
+  scoring: ScoringMap;
+  format: LeagueFormat;
+  /** Non-null when the draftedPlayers/roster data identifies the viewer's team — usually null on
+   * a plain league-page capture; the seat is typed at draft time in the Draft Room. */
+  myTeamId: number | null;
+  /** Untranslated ESPN values the parser couldn't map (slot ids, scoringItems) — surfaced, never
+   * silently dropped (CLAUDE.md). */
+  diagnostics: string[];
+  /** The `?view=` params seen in the captured league-API calls (mirrored from the extension's
+   * raw capture) — lets the connect UI say "open your Rosters tab too" instead of a dead end
+   * when a needed view never fired. Absent on snapshots parsed before this existed. */
+  views?: string[];
+  /** Every team scraped from the league page (mTeam/mRoster views): ESPN id + display name.
+   * The connect panel's "which team is yours?" dropdown is built from this — the capture cannot
+   * know which team is the user's (swid|session are redacted), so the USER picks once. */
+  teamNames: { id: number; name: string }[];
+  /** ESPN scoring items that carried non-zero points but have NO Sleeper-vocabulary equivalent
+   * (long-TD / yardage-game / tiered-FG bonuses the engine cannot score). Structured — statId +
+   * the league's actual point value — so the confirm card can render readable per-bonus tags
+   * instead of a prose diagnostic. Companion to (not a replacement for) the summarized
+   * `diagnostics` string, which stays the full-disclosure fallback. Absent on older snapshots. */
+  unmodeledScoringItems?: { statId: number; points: number }[];
+  /** True when `rounds` was DERIVED (summed from roster size — a snake draft picks once per
+   * roster spot) rather than read from mDraftDetail. The confirm card labels it honestly. */
+  roundsDerived?: boolean;
+  /** True when the capture's draftDetail says the league's draft has completed (the real 2026
+   * draftDetail is `[completeDate, drafted, inProgress, picks]`). When true AND `draftPicks` is
+   * populated, the connect card offers "Save league + import drafted roster". */
+  drafted?: boolean;
+  /** Raw pick summary from draftDetail.picks (2026-08-28 real-shape recon, league 2018058011).
+   * One entry per drafted pick, in overall order; `playerId` is the raw ESPN id (resolved to a
+   * canonical id only by the import adapter's crosswalk). Absent when the capture carried no
+   * picks. */
+  draftPicks?: EspnDraftPickSummary[];
+  capturedAt: number;
+}
+
+/** One pick from the league capture's draftDetail.picks, untranslated. */
+export interface EspnDraftPickSummary {
+  /** 1-indexed overall pick number. */
+  overall: number;
+  /** The ESPN league team id that made the pick. Null when the capture omitted it. */
+  teamId: number | null;
+  /** Raw ESPN player id (D/ST ids are negative synthetics). Null when omitted. */
+  playerId: string | null;
+  playerName: string | null;
+  /** Canonical position abbreviation (QB/RB/WR/TE/K/DEF) decoded from defaultPositionId. */
+  position: string | null;
+  /** ESPN NFL proTeamId, when the pick's player carried one — feeds the D/ST identity resolver. */
+  proTeamId: number | null;
 }
 
 export interface Pick {
@@ -838,6 +955,18 @@ export interface SavedLeague {
    * hub card reconstruct a `SleeperCred` and re-track a draft without re-asking for a username.
    * Null/absent for manual/ESPN "leagues" with no upstream account. */
   providerUserId?: string | null;
+  /** Sleeper username of the connected account, when known — `resolveUser` returns it and the
+   * connect surface keeps it, so the app can say "connected as coach_x" instead of a numeric id.
+   * Null/absent for leagues saved before this existed (the next save fills it in) and for
+   * manual/ESPN leagues with no upstream account. */
+  providerUsername?: string | null;
+  /** The ESPN team id the user picked on the confirm card ("which team is yours?") — the capture
+   * redacts swid|session, so ownership cannot be read from ESPN; it is chosen once and saved.
+   * Null/absent for non-ESPN leagues and before the user confirms. */
+  providerTeamId?: number | null;
+  /** Display name of the team picked as `providerTeamId` (from the capture's team list) so hub
+   * cards show "your team: X" without re-fetching ESPN. Null/absent when unset. */
+  providerTeamName?: string | null;
   /** Last draft id tracked for this league, when known — either from `LeagueRef.draftId` at
    * save time or backfilled by draft sync whenever a tracked draft reports one. What makes the
    * hub's per-league "Track draft" button possible without another Sleeper round-trip. */
@@ -871,6 +1000,14 @@ export interface SavedDraft {
   mode: 'live' | 'manual' | 'espn';
   frozenInit: DraftInit | null;
   overrides: PickOverride[];
+  /**
+   * The board's effective picks at last sync — written ONLY for providers with no upstream record
+   * to re-read (`espn`/`manual`; the 2026-08-27 connect/start split reconstructs the drafted team
+   * from these on /leagues/:id). Sleeper is deliberately excluded: its own API is the permanent
+   * record, which is exactly why draftSync deletes completed Sleeper transcripts — storing a copy
+   * that could drift against Sleeper's rosters would be an archive, not a pointer.
+   */
+  picks?: Pick[];
   status: 'active' | 'complete';
   createdAt: string;
   updatedAt: string;
