@@ -16,7 +16,10 @@ the Phase 1 safety net (main-thread fallback board + clock test) are implemented
 verified — see `archive/PLAN-history.md` for the phase-by-phase build record and measured results.
 Stage C runs in a long-lived Web Worker (`frontend/src/workers/recommendation.worker.ts`, shipped in
 `f821318`) with a deterministic main-thread fallback board; empirical opponent-model calibration and
-real clock testing against a live mock remain open S5/S6 items.
+real clock testing against a live mock remain open S5/S6 items. The 2026-08-27 **connect/start
+split** (`DECISIONS.md`) shipped: `/leagues/connect` is save-only, drafts start from the Draft Room
+launcher, `/leagues/:id` shows the drafted team, and the extension captures the ESPN league page
+(parser provisional pending a real recon slice — see the decision entry).
 
 **Active work — Phase 2 (survival curve): closed; the current model ships unchanged.** Phase 2a
 diagnosed the survival-curve assumptions with `pipeline/survival_diagnose.py` against the pinned FFC
@@ -61,6 +64,17 @@ restructure also shipped: the league-first connect split and `/leagues` hub repl
 (see `DECISIONS.md`, 2026-08-26). Evaluation layers B-D and the owner-review step remain open —
 this is an explicit priority call under the expansion rule, not a gate pass, and it authorizes no
 in-season ESPN/Yahoo work.
+
+**Since 2026-08-26 (edge-validation phase, user-directed UI/UX work):** the Sleeper account is now
+remembered (`providerUsername` on `SavedLeague`, `data/useSleeperAccount.ts`) so the username form
+never re-appears once one Sleeper league is saved; the Draft Room launcher auto-lists the account's
+live Sleeper drafts and hard-gates ESPN start on the extension being present; a live session now
+detects its own draft ending (`session/completion.ts`, a real `{ kind: 'complete' }` session state)
+and shows an explicit-exit banner instead of the poll running forever against a finished draft
+(`ffa.draftSession.v2` → `v3`); and the leagues/connect surfaces were rebuilt off the unstyled
+`.league-card`/`.espn-confirm-*` classes onto a real design system (`styles/leagues.css`) — see
+`DECISIONS.md`, 2026-08-28, for all four. None of this touches the recommendation engine or the
+gate track.
 
 The **ESPN draft-day exception** (see `DECISIONS.md`'s 2026-08-14 entry) is closed — that August 15
 draft has completed. Active work is Sleeper-first again; the two remaining leagues' drafts continue

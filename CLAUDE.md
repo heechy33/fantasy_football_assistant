@@ -64,11 +64,17 @@ deliberately — future work, not dead code to delete.
   card composite has been deleted.)
 - `frontend/src/adapters/` — `sleeper.ts`/`draftOrder.ts` are the only in-season/live-poll
   adapters. `espn*.ts` are draft-day-only from the closed exception — **do not extend into an
-  in-season ESPN adapter without a new decision**. Yahoo isn't created yet.
+  in-season ESPN adapter without a new decision** (`espnLeague.ts` is the same exception, one page
+  wider: it parses the extension's league-page capture into `EspnLeagueSnapshot`/`LeagueSettings`
+  — the ONLY place ESPN slot ids/statIds are translated; unmapped values become diagnostics).
+  Yahoo isn't created yet.
 - `frontend/src/data/` — context/data-health/player-pool helpers (not engine logic), incl.
   `percentileRankings.ts`/`qbPercentileRankings.ts`/`cardRoleStats.ts` (Role-tab and card-bottom
   cohort percentile ranking, display-only, never feeds `planValue`). `state/`, `hooks/`,
-  `components/`, `styles/tokens.css` — draft-board state, UI. `DraftWorkspace` + `MyTeamRail` +
+  `components/`, `styles/tokens.css` — draft-board state, UI. `styles/leagues.css` is the
+  leagues/connect design system (meta-chips, slot-pills, league tiles, the provider chooser, the
+  ESPN league-summary card) — no `--border-1/2/3` used decoratively there, those stay reserved for
+  focusable controls per tokens.css's own doc. `DraftWorkspace` + `MyTeamRail` +
   `RecommendationBoard` / `PlayerCard` (+ its row twin `PlayerBoardRow`, shared logic in
   `playerBoardFace.ts`) + `PlayerDetailDrawer` are the current workspace components (earlier
   `DraftBoard`/`RecommendationPanel` sketches were superseded; don't recreate them).
@@ -76,21 +82,34 @@ deliberately — future work, not dead code to delete.
   `format.qb === 'one-qb'` and the starting QB slot is filled (see `DECISIONS.md`, 2026-08-22) —
   both are presentation filters, not engine changes; position tabs are never filtered.
 - `frontend/src/routes/` — the route tree (`App.tsx` composes it): `AppLayout` (nav shell),
-  `LandingRoute`, `DraftGuideRoute` (public), `DraftRoomRoute`, `LeaguesRoute` (the `/leagues`
-  hub — SavedLeague cards with Track draft / Remove; replaced the retired `TeamsPage`),
-  `ConnectLeagueRoute` (`/leagues/connect`, the ONE connect surface — `routes/onboarding/OnboardingLeague`
-  aliases it for the wizard step), and `routes/onboarding/`. The connect flow is league-first
-  split: saving a league (SavedLeague pointer, real season) and tracking a draft (a live session)
-  are independent actions reconciled by `state/draftSync.ts`. The landing renders illustrations
-  with a CTA only. `session/DraftSessionProvider` sits above `<Routes>` so the live poll survives
-  navigation.
-- `extension/` — draft-day-only ESPN reconnaissance Chrome extension (closed exception), not an
-  in-season sync product.
+  `LandingRoute`, `DraftGuideRoute` (public), `DraftRoomRoute` (disconnected state = `DraftLauncher`,
+  which auto-lists the remembered Sleeper account's drafts, hard-gates ESPN start on the extension
+  being present, and never navigates; a finished draft shows a `.draft-complete-banner`, never
+  auto-navigates away), `LeaguesRoute` (the `/leagues` hub — SavedLeague cards that are LINKS to
+  `LeagueDetailRoute` (`/leagues/:leagueId`, summary + drafted team) plus Remove; replaced the
+  retired `TeamsPage`), `ConnectLeagueRoute` (`/leagues/connect`, the ONE connect surface — SAVE-ONLY,
+  never starts a draft; a provider chooser with Sleeper active by default; `routes/onboarding/
+  OnboardingLeague` aliases it for the wizard step, where it drops its own page heading —
+  `OnboardingLayout` already supplies one), and `routes/onboarding/`. The 2026-08-27 connect/start
+  split: saving a league (SavedLeague pointer) happens on the connect surface; starting a draft
+  happens only in the Draft Room launcher, reconciled by `state/draftSync.ts`. The landing renders
+  illustrations with a CTA only. `session/DraftSessionProvider` sits above `<Routes>` so the live
+  poll survives navigation; `session/completion.ts` is the one place a live session (Sleeper poll,
+  ESPN bridge, or manual log) is flagged finished, driving the `{ kind: 'complete' }` session state.
+- `extension/` — draft-day-only ESPN Chrome extension (closed exception), not an in-season sync
+  product. Content scripts run on the ESPN DRAFT pages (socket/pick capture) and, since the
+  2026-08-27 connect split, also on the LEAGUE page (`/football/league*`) — where the league's own
+  API JSON is captured (redacted, verbatim, its own storage key) so `/leagues/connect` can save a
+  real ESPN league. Still read-only, still no cookies; DOM pick recon stays draft-page-scoped.
 - `frontend/src/data/savedLeaguesRepository.ts` + `repositories/httpRepository.ts` — the single
   repository seam (`useSavedLeagues.ts` consumes it for UI pages; `state/draftSync.ts` mirrors
-  sessions through it). `state/persistence.ts` (localStorage `ffa.draftSession.v2`) holds ONLY the
-  active draft-session record for refresh-resume — never league data — and is cleared when a draft
-  session ends (`handleChooseAnotherDraft`/`handleReturnToConnect`) or completes live.
+  sessions through it). `data/useSleeperAccount.ts` derives the remembered Sleeper account (id +
+  username) from the most recently updated Sleeper `SavedLeague` — the one place that lookup
+  happens; `data/season.ts` holds the shared `CURRENT_SEASON`. `state/persistence.ts` (localStorage
+  `ffa.draftSession.v3`) holds ONLY the active draft-session record for refresh-resume — never
+  league data — including a `complete` mode so a refresh on the completion banner restores the
+  banner rather than resurrecting a live poll; cleared only when a draft session ends
+  (`handleChooseAnotherDraft`/`handleReturnToConnect`).
 - `api/src/functions/health.ts`, `leagues.ts`, `drafts.ts`. Leagues upserts are idempotent on
   `(userId, provider, providerLeagueId)` — never assume an absent client id means "new doc".
   `shared/types.d.ts` is the frontend/api contract, type-only.

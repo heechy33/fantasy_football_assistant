@@ -1002,3 +1002,429 @@ decision's full statistical/instrumentation detail belongs in a linked `benchmar
 this file readable as it grows. If this file gets long again, condense old entries into
 `archive/DECISIONS-history.md` the same way this 2026-08-25 pass did, preserving every dated header
 so existing cross-references from `PLAN.md`/`CLAUDE.md` keep resolving.
+
+---
+
+## 2026-08-27 — Connect split from start: /leagues connects, /draft starts
+
+**Decision:** connecting a platform and starting a draft are now two separate acts on two separate
+surfaces. `/leagues/connect` (and the `/onboarding/league` alias) is SAVE-ONLY: it writes durable
+`SavedLeague` pointers (Sleeper via the account, ESPN via the extension's league-page capture) and
+navigates to `/leagues` — it never starts a session and never lands on `/draft` (asserted in
+`routes.test.tsx`). Drafts start only from the Draft Room launcher (`DraftLauncher`, rendered on
+`/draft` while disconnected): Sleeper cards track via the saved credential, ESPN cards start via
+`handleEspnStart(league, seat)` — the seat is the one typed input, because ESPN reveals the snake
+order only at draft time. My Leagues cards are links to the new `/leagues/:leagueId` detail page.
+
+**Why:** the two ideas were fused — every connect success path jumped straight into the draft room,
+ESPN league details were hand-typed constants (`'manual-session'`, retyped every draft), and every
+ESPN draft collapsed onto one SavedLeague row because `leagueId` was that literal.
+
+**Sub-decisions:**
+1. ESPN league details come from EXTENDING THE EXTENSION to the ESPN league page (`/football/league*`),
+   not a manual form. The MAIN-world hook already allowed the leagues API tree; the raw (redacted)
+   league JSON is captured verbatim under its own storage key (`ffa.espn.league.snapshot.v1`, its own
+   `ffa.espn.league.request/response` message pair — the live snapshot's `version: 3` shape is pinned
+   and not overloaded) and parsed ONLY in `frontend/src/adapters/espnLeague.ts`, the one place ESPN's
+   slot ids/scoringItems may be translated. Unmapped values surface as diagnostics, never dropped.
+   There is deliberately NO manual-entry fallback on the connect panel: the hand-typed form was the
+   problem. A timeout means "extension or league page not present", and says so. PROVISIONAL: the
+   parser maps are validated against a synthetic fixture (`fixtures/espn-contract/league-*.json`)
+   pending a real recon slice (payload sizes vs the extension's JSON cap, redact bounds, `?view=` set).
+2. `SavedDraft.picks` (new, optional): picks persist ONLY for providers with no upstream record to
+   re-read (`espn`/`manual`). Sleeper is deliberately excluded — its own API is the permanent record,
+   which is exactly why completed Sleeper transcripts are deleted. `/leagues/:id` reconstructs the
+   drafted team from `frozenInit` + `picks` via the existing `MyTeamRail` (ESPN/manual) or live
+   `sleeperAdapter.rosters()` (Sleeper). This NARROWLY WIDENS the 2026-08-25 "no roster/waiver/lineup
+   affordances" boundary: the drafted roster is shown; no waiver or lineup management exists.
+3. My Leagues cards open league detail; drafts start only from the Draft Room. The hub card is a
+   link — it has no Track button and cannot navigate to `/draft`.
+
+**Also:** the launcher keeps a standalone paste-a-draft-id escape hatch (with username resolution)
+so a mock-only user with zero saved leagues is never stranded by the split. Previously saved
+ESPN rows keyed on `'manual-session'` stay broken/stale — the fix applies to leagues saved through
+the new ESPN connect path; no migration was added.
+
+---
+
+## 2026-08-28 — Remembered Sleeper identity, a real draft-end state, and the leagues/connect redesign
+
+Four related decisions, all shipped in one pass following user feedback that the leagues/connect
+surfaces looked unfinished and that a finished draft never stopped polling.
+
+**1. Sleeper identity lives on `SavedLeague`, not a new profile container.** `providerUsername`
+(alongside the existing `providerUserId`) now persists on every Sleeper `SavedLeague`, populated
+from `resolveUser()`'s canonical `username` (previously fetched and discarded) and read back by
+`data/useSleeperAccount.ts` as "the account" — the most recently updated Sleeper league carrying
+a `providerUserId`. Rejected alternative: a new `/api/profile` container implementing the
+already-declared-but-unused `UserRecord` type. Simpler wins here — no new container, no new
+endpoint, no `infra/main.bicep` change — and a league is exactly where a Sleeper identity already
+lived (just without a name attached). Consumers (`ConnectSleeper`, the Draft Room launcher,
+`LeagueDetailRoute`) now show "Connected as {username}" and never re-prompt for a username once
+one Sleeper league has been saved.
+
+**Bug fixed alongside:** `api/src/functions/leagues.ts`'s `upsertLeague` used to rebuild the whole
+document from the request body with `body.X ?? null` on every field. `state/draftSync.ts`'s
+periodic upsert never sends `providerUserId`/`providerUsername`/`season`/`providerTeamId`/
+`providerTeamName` — so every debounced sync tick during a live draft was silently **nulling the
+stored Sleeper identity**. Fixed at the API layer (writer-agnostic, so no future partial writer can
+reintroduce it): the handler now point-reads the existing document and merges — `undefined` on the
+wire means "keep what's stored," an explicit `null` means "clear it." `userId` still only ever
+comes from the verified token.
+
+**2. Draft Room entry page auto-lists Sleeper drafts; ESPN is hard-gated on the extension.**
+`adapters/sleeper.ts`'s `listSleeperDrafts` was written and unit-tested back when Sleeper drafts
+were first built, then never called from the app. `DraftLauncher` now calls it for the remembered
+account (`data/season.ts`'s `CURRENT_SEASON`) and lists live/finished drafts as cards, with a
+paste-a-draft-id fallback (username resolution kept only for the zero-saved-leagues escape hatch).
+ESPN cards' Start button is disabled until `useEspnBridge`'s `extensionPresent` is true — a
+draft with no extension has no picks to track, so a soft warning that lets Start through anyway
+would just relocate the failure into the workspace.
+
+**3. A real `{ kind: 'complete' }` session state, not just a sync-layer predicate.** Both
+adapters have always computed `DraftPicks.status`, and nothing consumed it — the one real
+completion predicate (`isDraftComplete`, relocated `state/draftSync.ts` → `session/completion.ts`
+so the SESSION layer can read it too) lived behind four sync-only gates (signed-in, non-mock,
+Sleeper-only, `connected`-only) and, even when it fired, only cleared localStorage without
+touching the session — so `DraftSessionProvider`'s unconditional persistence-save effect wrote the
+"cleared" record straight back on the next render. `DraftRoomRoute` could never fall back to the
+launcher, and the 1s poll ran against a finished draft forever.
+
+Fix: `session/completion.ts`'s `isSessionComplete` (count rule OR adapter status — the count rule
+is authoritative since `DraftInit`'s cached `rawStatus` is frozen at `init()` by design, and bridge/
+manual sessions have no poll at all, so the count rule is their *only* signal) drives one effect in
+`DraftSessionProvider` that freezes the board (same atomic freeze as manual takeover — nothing
+typed/streamed is lost) and transitions to a new `{ kind: 'complete' }` session, carrying `from`
+(which kind it completed FROM, for `draftSync`'s SavedDraft-mode mapping) and a separately-captured
+`provider` field (`activeProvider` as it stood the instant before completion — NOT re-derived from
+`from`, since a manual session's kind alone can't distinguish a Sleeper takeover from an ESPN one;
+that's `reconnectCred`, which the completed variant doesn't carry). Because `draftId`/the bridge
+init both derive from `session.kind`, the poll and bridge stop on their own. The Draft Room shows a
+dedicated `.draft-complete-banner` (not a `SessionAlert` severity — that component's contract is
+"renders nothing when healthy, only ever an honest-failure surface," and a success state doesn't
+belong there) with two actions: **View league** (to `/leagues/:id` when a SavedLeague id is known —
+captured directly at ESPN start, or reported asynchronously by `useDraftSync` via a new
+`reportSavedLeagueId` context callback for Sleeper, since draftSync resolves that id server-side
+and nothing else in the app tracks it) and **Start another draft**. Exit is always explicit, never
+automatic.
+
+**`draftSync` keeps syncing through completion, deliberately.** `draftIdentity` stays non-null for
+a `complete` session (by design — opting out via `draftIdentity` was considered and rejected: the
+sync is debounced 5s, so the final picks of an ESPN/manual draft — the providers whose picks
+actually persist — might not have synced yet when completion fires; one more cycle is what writes
+them). This exposed a real bug in `sessionKindToMode`: its call site cast `currentSession.kind as
+'connected' | 'manual' | 'bridge'`, which let a `'complete'` session fall through the cast to the
+`'manual'` SavedDraft mode silently. Fixed by widening the function to take every session kind
+(mapping `'complete'` via `from`) and replacing the cast with an explicit switch, so a future
+unhandled kind is a type error, not a silent misclassification.
+
+**`ffa.draftSession.v2` → `v3`.** The persisted-session write effect was unconditional (no
+`disconnected` guard, no completion gate) — before this fix, "Choose another draft"'s own
+`clearPersistedSession()` call never stayed cleared, because the effect immediately re-ran on the
+resulting re-render and wrote the empty-but-present record straight back. That is the actual
+mechanism behind "stuck on local storage." Fixed by gating the effect (`disconnected` writes
+nothing and clears; every other kind, including the new `complete`, persists deliberately) and
+bumping the storage key — which, as a side effect, drops every already-stale v2 record on a user's
+machine in one move rather than needing a migration path for a shape with no completion field to
+migrate from.
+
+**4. The leagues/connect UI rebuild drops the "confirm every field" pattern.** `.leagues-page`,
+`.league-card`, `.espn-connect`, `.espn-confirm-card`, `.espn-confirm-row`, and
+`.connect-sleeper-connected` had zero CSS rules and fell through to `section {}` /
+`.draft-list li`, both outlined in `--border-2` — a light-gray token solved to WCAG 1.4.11 3:1 for
+*focusable controls*, not decoration. New `frontend/src/styles/leagues.css` follows the two idioms
+already proven elsewhere instead: the Draft Room panel recipe (border-divider edge + shadow-panel
+elevation + hover lift) for anything holding content, and the landing's editorial recipe (no box,
+a hairline, Archivo display type) for page scaffolding. `ConnectLeagueRoute` gained a provider
+chooser (Sleeper/ESPN/Yahoo-disabled tiles, echoing `IntegrationsMap`) with Sleeper active by
+default, and drops its own page heading when mounted inside the onboarding wizard (`OnboardingLayout`
+already supplies one — the duplication, and a "Back to My Leagues" link that made no sense
+mid-wizard, were a rebuild-introduced regression caught and fixed live during browser verification).
+
+The ESPN confirm card's `Provenance` component — a "read from your ESPN league page" tag repeated
+on all six rows, verified and fallback fields rendered identically — is deleted entirely. One
+caption now labels the whole summary card; only DERIVED or DEFAULTED fields (not verified ones)
+get a `.field-derived` dotted-underline marker with a tooltip explaining why. The bare `<select>`
+"which team is yours" (there was no `select {}` rule at all — only `input`) becomes a
+`.team-tile-grid` of selectable tiles below ~16 teams, falling back to the `<select>` above that.
+Diagnostics collapse behind a native `<details>` (closed by default) instead of always-expanded.
+Verified live against a real captured ESPN league during browser testing (10 teams, 14 rounds, PPR,
+1 unmapped scoring category) — the redesign renders correctly end to end, including team-tile
+selection state and the enabled/disabled button hierarchy.
+
+**Also fixed while touched:** `frontend/src/routes/onboarding/onboarding.test.tsx`'s ESPN
+session-routing regression suite targeted a "Set up ESPN draft" trigger that only ever existed,
+disabled, on the landing illustration — a pre-existing stale test left over from before the
+2026-08-27 connect/start split, unrelated to this pass but blocking a clean `npm test`. Re-pointed
+at the current entry point (`/draft` → "Set up a draft manually"); the regression the suite guards
+(a bridge session rendering no alert explaining why nothing streams) is unchanged, only the entry
+point moved.
+
+---
+
+## 2026-08-28 — ESPN manual-start fallback removed; connect-only with readable bonus tags
+
+**Decision:** the Draft Room's "Set up a draft manually" launcher entry is removed. ESPN drafts
+start ONLY from a saved league via the launcher card; `ManualDraftSetup` is demoted to an
+edit-only seat-correction dialog (league name/teams/rounds read-only, `mySlot` editable), and the
+launcher card applies the bridge's JOINED/TOKEN-detected seat over a stale persisted
+`league.mySlot` whenever the user hasn't hand-edited the field this session (typed input always
+wins afterward). In the same change, the confirm card's unmodeled-scoring disclosure became a
+structured tag group (`unmodeledScoringItems` on the snapshot + `espnBonusCatalog` labels) with
+an honest "not reflected in player projections" footer; the old prose diagnostic stays as the
+full-disclosure fallback behind the closed `<details>`.
+
+**Why:** the extension already scrapes teams/rounds/roster and auto-detects the seat from the
+draft-room socket, so a manual form was a strictly less-accurate duplicate path (and its PPR
+preset rebuild once overwrote a bridge session's real scoring map — the edit dialog now spreads
+the session's own init). And 22 unmodeled rules buried in one sentence of raw statIds was
+unreadable; chips like `Rush TD 40+ yd +2` are not.
+
+**Label provenance (the important caveat):** the catalog is verified against espn-api's
+`PLAYER_STATS_MAP`, cross-checked in-repo by `pipeline/espn_projections.py`'s
+`_RAW_STAT_WEIGHTS` (agreement on 24/25, 42/43, 74/77/80/85). The first cut guessed 45/46 as
+rushing yardage-game bonuses and 56/57 as receiving long-TDs — upstream says the reverse
+(45/46 = receiving TD 40+/50+, 56/57 = receiving yardage games; 37/38 = rushing yardage games),
+and 58/59 have no confident meaning so they render generically. A wrong label is worse than a
+plain one; every "confident" label is now either upstream-verified or absent. Duplicate statIds
+merge with the same sum rule the scoring map uses, and bridge sessions no longer show the
+"PPR preset applied" diagnostic (they carry the league's real scoring map — that claim is now
+scoped to Sleeper takeover sessions only, where it is true).
+
+---
+
+## 2026-08-28 — ESPN draft-room capture: wrong extraction path, fail-open league gates, undrafted-slate padding, cross-league draftId collision
+
+**Symptom:** tracking a live ESPN mock draft (10 teams) showed the board at pick 97 while ESPN was
+paused at pick 14, and teams/rounds/seat/league-name never corrected off their launcher guesses —
+the previous round's `applyLeagueFacts`/precedence-chain/`draftSync` gate (2026-08-28, same day)
+built the right plumbing but was fed a value that was always `undefined`.
+
+**Root cause A — wrong field path.** `espn-content.js`'s `reconcileDetailPicks` read
+`payload.draftSettings.{rounds,teams}`. ESPN never populates that path — the real path is
+`payload.settings.draftSettings.rounds` (and on the real 2026 API, often absent entirely; the
+authoritative read is `draftDetail.picks.length / teams`), and `teams` is not a `draftSettings`
+field at all (`payload.teams.length` / `settings.teams`). This file's own debug logging, and
+`espnLeague.ts`'s already-proven connect-league parser, had the correct paths the whole time.
+`leagueRounds`/`leagueTeams` were therefore permanently `null` (write-once-first-value-wins), which
+silently kept `draftSync`'s hold-until-stamped gate closed forever for every live-detected league —
+nothing was ever written to the hub, with no alert saying why.
+
+**Root cause B — fail-open league gate.** `applyDomPicks`'s foreign-tab guard
+(`normalize.js`) only rejected a NAMED mismatched league (`incoming && base.leagueId && incoming
+!== base.leagueId`); a tab that hadn't yet identified its own league (a second mock lobby, a
+leftover page) read as `incoming === null` and fell straight through, free to write into an
+already-active draft's `domMaxSeen`/`currentPickNumber` — the primary inputs to the absolute-
+offset estimate. `applyDetailPicks`/`applyLeagueFacts` had no league gate at all.
+
+**Root cause C — undrafted-slate padding.** ESPN's `draftDetail.picks` pre-assigns `teamId` to
+picks that haven't happened yet (the full snake slate is generated up front), and a mock
+autopick's sentinel row (`playerId: -1`, no name) is structurally identical to that padding — both
+carry only a `teamId`. `applyDetailPicks` had no bound on this, so the padding could inflate
+`detailPicks` past the real pick count, and `bridgePicksToNormalized`'s `detailContiguous` branch
+then treated the padded list as authoritative for both numbering and identity.
+
+**Root cause D — cross-league draft collision.** Every ESPN bridge session shared the literal
+`draftId: 'manual-session'` (`buildEspnDraftInit`), and `draftSync.ts`'s one-shot reconcile matched
+`providerDraftId` across ALL leagues (`listDrafts()` takes no league argument) — starting a draft
+in league B could match league A's stored draft, apply league A's overrides onto league B's board,
+and overwrite league A's transcript with league B's picks.
+
+**Fix:** (A) extraction consolidated into one function, `normalize.js`'s `leagueFactsFromPayload`
+(mirrors `espnLeague.ts`'s precedence; also now stamps `leagueName` from `settings.name`, and the
+reconcile queries the league's own stamped season instead of `new Date().getFullYear()`, and uses
+repeated `?view=` params matching the proven league-page fetch). (B) `applyDomPicks`'s guard
+tightened to `base.leagueId && incoming !== base.leagueId` (an unknown-league write is now refused
+once a league is stamped); `applyDetailPicks`/`applyLeagueFacts` gained the same guard. (C)
+`applyDetailPicks` tags each row `identified` and truncates the merged list to the longest prefix
+ending at the last identified row (or the live-signal bound when nothing is identified yet);
+`espnOffset.ts`'s detail-alignment additionally requires a non-zero alignment to be corroborated by
+history beyond the aligned window itself (`MIN_ALIGNMENT_MARGIN`), not just be the only offset that
+happened to fit. (D) `buildEspnDraftInit` mints a league-scoped `draftId` (`espn-<leagueId>`)
+instead of the shared constant; `draftSync.ts`'s reconcile independently cross-checks the resolved
+SavedLeague doc id as a second guard against the same collision class. A new `sync-held`
+session alert makes a still-closed `draftSync` gate visible instead of silent.
+
+**Verification status:** `node extension/test/normalize.test.mjs`, the targeted vitest suites
+(`espnOffset`, `espn`, `draftSync`, `useEspnBridge`, `DraftLauncher`, `ManualDraftSetup`), and the
+full `npm test` (1346 passed, 6 pre-existing skips) all pass, each new defect pinned by a test
+against the real `fixtures/espn-contract/league-2026-08-27.json` shape or a constructed repro. **Not
+yet empirically confirmed against a live ESPN mock draft**: whether root cause B or C (or both) was
+the specific mechanism behind the observed "pick 97 at ESPN's pick 14" — both are real, fixed, and
+covered by regression tests, but no live console capture was taken to attribute the exact
+arithmetic. Next live/mock draft test should reload the unpacked extension and confirm the board's
+on-the-clock pick matches ESPN's own reading.
+
+---
+
+## 2026-08-28 — ESPN draft-room capture: backgrounded tab hijacking the shared snapshot (third mechanism)
+
+**This resolves the prior entry's open question.** The user's own account pins the exact
+mechanism: they left an ESPN mock draft mid-way (~pick 14) without finishing it — the tab stayed
+open and ESPN kept autopicking it server-side in the background — then started a genuinely new
+mock draft (a different league) in another tab. The board stayed stuck on the **abandoned**
+draft's picks until that old draft's background autopicking reached its own final pick (~97), at
+which point the new draft's picks suddenly caught up, landing several at once. This is a third,
+independent mechanism from root causes A-D above, and the prior visibility-check work never
+touched it: that fix (`document.visibilityState === 'hidden'`, plus `pagehide`) only gated the
+30s `mDraftDetail` reconcile — never the socket-frame path that actually drives the board.
+
+**Root cause.** `normalize.js`'s `applyFrameToLive` league-change reset was unconditional
+last-write-wins: any socket frame naming a different league than currently stamped wiped the
+whole shared snapshot and started fresh, with no cooldown, no recency check, no concept of which
+tab the user was actually watching. With both tabs' sockets alive, each tab's frame that
+disagreed with the currently-stamped league immediately reset the snapshot to its own league — a
+ping-pong that the more frequently-emitting tab (the old one, autopicking continuously) won
+almost every time. `useEspnBridge.ts`'s "clean switch" check treated any epoch-bumped reset as
+legitimate and silently followed it, clearing `relayWarning` — the app had no way to tell this
+hijack apart from a real old-mock-finished/new-mock-started transition.
+
+**Fix.** `applyFrameToLive` gained an `isVisible` parameter (default `true`, so every existing
+caller/test is unaffected): the league-mismatch branch now refuses the write (mirrors
+`applyDomPicks`'s existing "refuse, don't reset" convention) instead of resetting when the calling
+tab is hidden. `espn-content.js`'s `applyLiveFrame` reads `document.visibilityState` at write
+time (inside the serialized `queue` callback, not at call time, since a backlog could otherwise
+apply a stale verdict) and passes it through. Establishing a league for the first time, and
+same-league accumulation while hidden, are both visibility-independent by construction (the guard
+only fires on an actual league mismatch) — the normal workflow of alternating focus between the
+draft tab and the app tab while tracking one draft is untouched; only a *different* league's reset
+is gated. `applyDomPicks`, `reconcileDetailPicks`, and `useEspnBridge.ts` needed no change (see
+`extension/src/normalize.js`'s updated doc comment on `applyFrameToLive` for the full reasoning).
+
+**Accepted limitation:** two draft tabs both foregrounded at once (e.g. two side-by-side windows)
+can still ping-pong — visibility alone can't distinguish them. Out of scope.
+
+---
+
+## 2026-08-29 — Dead-draft snapshot ownership: the visibility fix needed an expiry, and the launcher must not trust a stale snapshot
+
+**Reported:** the user started a NEW practice draft and the launcher showed the OLD finished
+draft — "Team 1 detected", draft position 8 "detected from the live draft order", the status line
+reading "ESPN draft tab disconnected" — and entering the draft room loaded the past completed
+draft's picks. No old tab was open anywhere.
+
+**Root cause (a chain, not a single bug):**
+
+1. The shared live key (`ffa.espn.live.snapshot.v1`) is never cleared when a draft completes or
+   its tab closes. The finished draft — leagueId, full stream, mySlot, dead heartbeat — sat in
+   `chrome.storage.local` indefinitely. This is why a draft nobody had open was "detected".
+2. The 2026-08-28 visibility fix refuses a hidden tab's foreign-league frames outright, judging
+   "foreign" against whatever league currently owns the key — the corpse draft. So the REAL new
+   draft's frames were refused whenever its tab was backgrounded: the corpse became
+   undisplaceable. The previous fix's own success created this deadlock.
+3. `EspnLiveDetectedCard` (DraftLauncher) computed `derivedPosition` and swapped its button to
+   "Enter draft room" with NO relay-status gate — `EspnLauncherCard`'s one-click card already
+   gated on `status === 'live'`, this card did not. It prefilled the seat from the corpse's
+   order while its own status line said the tab was disconnected.
+4. Entering the room seeded the session from the corpse's `streamPicks` — the past draft.
+
+**Fix.** Three layers, one per mechanism:
+
+- `normalize.js`: refusal is ownership, and ownership EXPIRES. The hidden foreign-league refusal
+  in `applyFrameToLive` now only applies while the snapshot's heartbeat is younger than
+  `LIVE_OWNERSHIP_EXPIRY_MS` (60s). An actively autopicking abandoned tab heartbeats ~1Hz, so it
+  keeps full protection (the 2026-08-28 hijack fix is intact); a heartbeat older than 60s is proof
+  the owner is dead, and a hidden tab's takeover is allowed (through the normal league-change
+  reset path — epoch bump, `resetReason: 'league-change'`, stream cleared).
+- `DraftLauncher.tsx`: `EspnLiveDetectedCard` gates seat detection AND the
+  `leagueTeams`/`leagueRounds` stamps on `status === 'live'`. A stale snapshot leaves the
+  card in typed-input mode.
+- `DraftSessionProvider.tsx`: the seat/teams/rounds auto-correction effects early-return on
+  `bridge.isStale` — a corpse's order must never rewrite a live session either.
+
+**Tests:** `extension/test/normalize.test.mjs` §15d (expired-heartbeat takeover works from a
+hidden tab via the normal reset path; a fresh-heartbeat snapshot still refuses); a
+`DraftLauncher.test.tsx` case (a disconnected snapshot with a full stream prefills no seat and
+offers no "Enter draft room"). Full suite green; frontend typecheck clean.
+
+**Still open, unchanged:** two draft tabs both foregrounded at once can still race (visibility
+alone can't distinguish them), and the key still survives a finished draft by design (it is what
+makes the room resilient to a tab refresh mid-draft) — the expiry makes that survivable instead
+of disqualifying.
+
+---
+
+## 2026-08-29 (2) — Same-league draft restart: practice drafts share a league id, so league-change could never fire
+
+**Reported:** starting a new ESPN practice draft kept showing the previous finished draft (repeated
+starts needed); once in the new draft, the log was garbage — picks missing, players unrecorded, a
+player duplicated at picks #1 and #10.
+
+**Root cause.** ESPN practice drafts run INSIDE the user's league, so every practice draft reuses
+the SAME league id and none of the league-change reset machinery ever fires. The finished draft's
+stream stayed in the shared key, and the new draft's frames fed into it: new picks appended at
+overall 161+, the (slot, playerId) resend dedupe silently dropped every pick the previous draft
+also made (a practice draft reuses the same player pool), and the offset derivation read the
+mixture as a mid-draft resume. The garbage log was the direct product of that dedupe + offset
+poisoning. Frames carry no draft id or pick number (parseFrameLine is recon-verified), so the
+socket alone cannot name "this is a different draft".
+
+**Fix — same-league draft-restart checkpoint** (normalize.js applyFrameToLive). JOINED and TOKEN
+are the authoritative "I entered a draft room" signals; when either arrives for the league ALREADY
+stamped on the snapshot while the snapshot still holds picks, the held draft is residue rather
+than a resume if it is either COMPLETE (leagueTeams x leagueRounds picks on record) or QUIET (no
+heartbeat for LIVE_RESTART_QUIET_MS = 30s — an active draft heartbeats ~1Hz, and the detail
+reconcile that stamps facts only runs while a draft-room tab is open). Either way the stream is
+reset through the normal epoch-bump path with resetReason 'draft-restart' (new union member in
+shared/types.d.ts; useEspnBridge's materialKey already keys on resetReason, and the epoch bump is
+the existing clean-switch signal). A mid-draft tab refresh has a fresh heartbeat and an
+incomplete stream, so the resume path keeps its picks untouched; any picks missed during a long
+disconnect are backfilled by the mDraftDetail reconcile regardless.
+
+**Tests:** extension normalize.test.mjs section 15e — complete-stream JOINED resets, complete-stream
+TOKEN resets, fresh mid-draft rejoin does NOT reset (resume), quiet incomplete draft resets.
+Full suite green; frontend typecheck clean.
+
+**On "why not read draft history":** the mDraftDetail reconcile already backfills authoritative
+picks (detailPicks) every 30s from the league API, but it merges INTO the poisoned stream — it
+fixes missing players, never a wrong set of overalls. The restart checkpoint fixes the stream
+itself; the reconcile then fills any early picks the socket missed.
+
+---
+
+## 2026-08-29 (3) — Connect-page simplification, landing hero CTA removal, `--accent-cool` brightened
+
+**Reported:** `/leagues/connect`'s ESPN panel buried its one real decision ("which team is yours?")
+under two collapsed disclosures, two competing save buttons, and long ledes; the page was boxed in
+`--border-1/2` outlines used decoratively (those tokens are reserved for focusable controls,
+`tokens.css:103-110`) plus a landing-page-style blurred-glass panel that read low-contrast against
+the near-black app surface. Separately, the landing hero's two CTAs duplicated TopNav (which
+already carries Draft Guide + Sign up), and `--accent-cool` read dark in the draft room, where it
+only ever appears as hairlines/a micro-label/one numeral — never a fill.
+
+**Connect page (`EspnSetupTabs.tsx`, `ConnectLeagueRoute.tsx`, `ConnectSleeper.tsx`):**
+- Removed the "N bonus rules not reflected in player projections" disclosure
+  (`UnmodeledBonusTags`, deleted) and the "Parsing details (N unmapped categories)" disclosure.
+  `snapshot.unmodeledScoringItems`/`diagnostics` stay on the type — still worth surfacing on
+  `/leagues/:id` later, just not on this confirm card.
+- Merged "Save league + import drafted roster" / "Save league only" into one `Save league` button;
+  it imports the drafted roster automatically when the capture shows the league already drafted
+  (`canImport`), and only saves the league pointer otherwise.
+- "Not my league — scan again" → "Scan again"; "Sleeper username or user ID" → "Sleeper username"
+  (the field still accepts a raw user id via `resolveUser`, it just isn't advertised).
+- Replaced the fixed-width `.team-tile` grid (with its `<select>` fallback above 16 teams) with a
+  wrapping `.team-pill` list sized to each name — no team-count ceiling needed.
+- Dropped the two provider-panel lede paragraphs in `ConnectLeagueRoute.tsx`; the selected provider
+  chip already labels the panel. `SetupRail` now hides once a league is found (three stacked status
+  layers said the same thing).
+- `.provider-panel` (App.css) dropped its blurred-glass background and `--border-2` box for the
+  Draft Room panel recipe (`border-divider` + `--surface-2` + `shadow-panel`); `.provider-subtabs`
+  and `.onboarding-step` moved off `--border-1/2` onto `--border-divider`; `.setup-diagnostic` and
+  the old `.team-tile`/`.unmodeled-bonus-tags` rules were deleted from App.css/leagues.css.
+  `.provider-chip`'s selected state and the new `.team-pill` selected state are now a solid
+  `--accent-cool` fill instead of a border/wash combination.
+
+**Landing hero (`LandingPage.tsx`):** removed "Browse the Draft Guide — no account needed" and
+"Create free account" — TopNav already carries both destinations. `.landing-hero-cta*` rules
+deleted from App.css; `landing-rise` keyframes kept (still used by the pill/title/sub-line).
+
+**`--accent-cool` brightened** (`tokens.css`): `#35a7ff` → `#5bb8ff`, `--accent-cool-bright`
+`#7cc8ff` → `#8ed0ff`, `--accent-cool-glow` re-derived. New ratios: 9.2:1 on `--surface-0` (was
+6.0:1), 8.5:1 on `--surface-2` (was 5.3:1), ink-on-accent 9.4:1 (was 15.9:1 — still clear of
+4.5:1). Added `--accent-cool-wash` (a named 14%-alpha wash) so `leagues.css` no longer carries raw
+`rgb(53 167 255 / …)` literals. `clerkAppearance.ts`'s raw-hex mirror of this token (its own file
+header explains why it can't reach the CSS variable) was updated to match.
+
+**Tests:** `ConnectSleeper.test.tsx` (label text), `LandingPage.test.tsx` (asserts no hero CTA
+links), `espnBonusCatalog.test.tsx` (dropped the `UnmodeledBonusTags` cases), `routes.test.tsx`
+(swapped the deleted lede text for a `Sleeper username` marker). Full suite green.
