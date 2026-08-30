@@ -7,6 +7,11 @@
   const EVENT = 'ffa-espn-recon-candidate';
   const SENSITIVE = /(?:authorization|cookie|token|password|secret|session|swid|espn_s2|s2|chat|message|conversation)/i;
   const FRAME_JSON_MAX = 250000; // chars: larger text frames are metadata-only observations
+  // League-API responses are bigger than socket frames and legitimately reach several hundred KB;
+  // dropping them at 250k would silently kill the whole league-capture feature, so the leagues
+  // tree gets its own (much larger) ceiling. Recon should confirm real sizes (Phase 1a).
+  const LEAGUE_JSON_MAX = 2000000;
+  const isLeagueApiUrl = (url) => typeof url === 'string' && /apis\/v3\/games\/ffl\/seasons\/[^/]+\/segments\/[^/]+\/leagues/i.test(url);
   const FRAME_BINARY_MAX = 200000; // bytes: larger binary frames are metadata-only observations
   const cleanUrl = (value) => { if (typeof value !== 'string' || !value) return null; try { const url = new URL(value, location.href); return `${url.origin}${url.pathname}`; } catch { return null; } };
   // Verified route from recon (2026-08-15): the draft app calls lm-api-reads.fantasy.espn.com at
@@ -17,14 +22,22 @@
   const rejectedUrls = []; const REJECTED_URL_MAX = 50;
   const recordRejected = (clean) => { if (!clean || !isEspnHost(clean) || rejectedUrls.includes(clean) || rejectedUrls.length >= REJECTED_URL_MAX) return; rejectedUrls.push(clean.slice(0, 160)); };
 
-  function redact(value, depth = 0) {
-    if (depth > 8) return '[truncated-depth]';
+  // Depth ceiling: roster data on the league-API branch sits at teams[]→team→roster→entries→
+  // entry→playerPoolEntry→player (depth 7) and player stats a couple levels deeper — past the
+  // frame-branch cut of 8, which silently turned whole rosters into '[truncated-depth]'. The
+  // ceiling is raised ONLY for league-API responses (isLeagueApiUrl); socket frames keep the
+  // tight cut. The 320-element array cap (scoringItems alone is ~180) and the 500-char string
+  // cap are unchanged, and SENSITIVE is not loosened.
+  const FRAME_REDACT_MAX_DEPTH = 8;
+  const LEAGUE_REDACT_MAX_DEPTH = 12;
+  function redact(value, depth = 0, maxDepth = FRAME_REDACT_MAX_DEPTH) {
+    if (depth > maxDepth) return '[truncated-depth]';
     if (typeof value === 'string') return value.slice(0, 500);
     if (typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
-    if (Array.isArray(value)) return value.slice(0, 320).map((item) => redact(item, depth + 1));
+    if (Array.isArray(value)) return value.slice(0, 320).map((item) => redact(item, depth + 1, maxDepth));
     if (!value || typeof value !== 'object') return undefined;
     return Object.fromEntries(Object.entries(value).flatMap(([key, item]) => {
-      const safe = SENSITIVE.test(key) ? undefined : redact(item, depth + 1);
+      const safe = SENSITIVE.test(key) ? undefined : redact(item, depth + 1, maxDepth);
       return safe === undefined ? [] : [[key, safe]];
     }));
   }
@@ -35,15 +48,20 @@
     // this draft page; fetch/XHR stay on the known draft-API path to keep unrelated bodies out.
     const allowed = transport === 'websocket' ? isEspnHost(clean) : isDraftUrl(clean);
     if (!allowed) { if (transport !== 'websocket') recordRejected(clean); return; }
+    // Discovery log (2026-08-28): every captured URL, so a page view (e.g. Draft Recap) whose
+    // rounds data lives on an endpoint we don't key on is visible in the page console immediately.
+    console.info(`[ffa] capture: ${transport} ${clean}${typeof raw === 'string' ? ` (${raw.length}b)` : ''}`);
     let payload = null;
     let frame = null;
-    if (typeof raw === 'string' && raw.length <= FRAME_JSON_MAX) {
+    const jsonMax = isLeagueApiUrl(clean) ? LEAGUE_JSON_MAX : FRAME_JSON_MAX;
+    if (typeof raw === 'string' && raw.length <= jsonMax) {
       // Recon must learn the real frame shape before any format is assumed, so websocket frames skip
       // the draft-keyword gate: JSON whose field names lack draft/pick/league must not be dropped.
       // fetch/XHR bodies stay keyword-gated because their URLs are already narrowed to draft-API paths.
       const wantsFrame = transport === 'websocket' || /(?:draft|pick|league|roster|scoring)/i.test(raw);
       if (wantsFrame) {
-        try { payload = redact(JSON.parse(raw)); }
+        const maxDepth = isLeagueApiUrl(clean) ? LEAGUE_REDACT_MAX_DEPTH : FRAME_REDACT_MAX_DEPTH;
+        try { payload = redact(JSON.parse(raw), 0, maxDepth); }
         catch { frame = redact(raw.slice(0, 1000)) || null; } // bounded, redacted preview of the frame shape only
       }
     }

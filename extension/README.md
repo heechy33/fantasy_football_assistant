@@ -64,5 +64,60 @@ Clearing the React app's localStorage (e.g. "Clear site data" / `localStorage.cl
 origin) only drops `ffa.draftSession.v2` — it never touches the ESPN live pick stream, which lives
 separately in the extension's `chrome.storage.local` under `ffa.espn.live.snapshot.v1` (a key that
 is per browser profile and shared across every ESPN draft tab). That key is reset automatically when
-a different league id starts writing (`applyFrameToLive`), and Recon's **Clear** button now removes
-both the recon snapshot and the live stream key.
+a different league id starts writing from a **foregrounded** draft tab (`applyFrameToLive`) — a
+backgrounded or abandoned tab (an unfinished mock ESPN keeps autopicking server-side) is refused the
+write instead of being allowed to reset the key, so it can't hijack the draft you're actually
+watching (2026-08-28; two tabs both foregrounded at once, e.g. side-by-side windows, can still
+race). Refusal is ownership, and ownership expires (2026-08-29): the refusal only holds while the
+snapshot's heartbeat is younger than 60s — an autopicking tab heartbeats about every second, so it
+keeps protection, while a finished/closed draft's stale snapshot (which the key never clears)
+loses the key to the next league that starts writing, even from a hidden tab.  Also: ESPN practice drafts run INSIDE the same league, so a new practice draft reuses the previous
+draft's league id and no league-change reset ever fires. A same-league JOINED or TOKEN (the
+"entered a draft room" signals) therefore resets the stream when the held draft is complete
+(teams x rounds picks) or its heartbeat has been silent for 30s (2026-08-29, resetReason
+'draft-restart') — without this, the new draft's picks appended onto the old stream and the
+(slot, playerId) dedupe dropped every reused player. A mid-draft tab refresh (fresh heartbeat,
+incomplete stream) still resumes instead of resetting. Recon's **Clear** button removes the recon snapshot, the live stream key, and the league
+snapshot key.
+
+Two more self-corrections, both 2026-08-29: (1) the app can now ask the extension to drop just the
+live stream key directly — `window.postMessage({ type: 'ffa.espn.reset.request', requestId }, ...)`,
+replied to with `ffa.espn.reset.response` — which the Draft Room's **End draft** action fires so
+abandoning a draft never leaves its picks behind for the next one to inherit; (2) a same-league DOM
+reconcile that reports the on-the-clock reading back at pick 1 with zero pick rows on the page is
+also treated as a restart (`resetReason: 'draft-restart'`), covering the case where a different tab
+(re)joins the room and this tab only ever sees the board, never a JOINED/TOKEN of its own.
+
+## Draft-page league settings (real scoring, not a guess)
+
+A third snapshot, separate from both the live pick stream and the league-page capture above: the
+draft page's own 30s `mDraftDetail`+`mSettings`+`mTeam` reconcile (the same fetch that backfills
+missed picks — see the next section) also stores its full response under
+`chrome.storage.local['ffa.espn.draftleague.snapshot.v1']`, keyed by league id, redacted the same
+way as every other capture. It is a SEPARATE key from the league-page capture's
+`ffa.espn.league.snapshot.v1` on purpose: a different league's draft-page capture (an ESPN mock has
+its own league id) REPLACES this key wholesale, and reusing the league-page key would let tracking
+a mock silently wipe a real saved league's connect-time settings.
+
+The app relay answers it with the same shape as the league-page pair:
+
+```js
+window.postMessage({ type: 'ffa.espn.draftleague.request', requestId: 'optional-id' }, location.origin);
+```
+
+replied to with `ffa.espn.draftleague.response`. This is what lets the Draft Room show a
+live-detected draft's REAL scoring and roster settings instead of a guessed PPR preset — before
+this existed, the draft page's reconcile fetched the exact same payload but discarded everything
+except four facts (rounds/teams/season/name), throwing away `settings.scoringSettings` and
+`settings.rosterSettings` on every tick.
+
+## Missed-pick self-correction runs regardless of tab visibility
+
+The 30s `mDraftDetail` reconcile above used to skip entirely whenever the ESPN draft tab was
+backgrounded (`document.visibilityState === 'hidden'`) — which is the NORMAL state of that tab any
+time the user is looking at the assistant app. A real mock draft lost ~19 picks and never
+self-corrected because of exactly this. The visibility gate is removed: the two hazards it was
+guarding against are already handled inside `normalize.js` itself (the merge functions never touch
+`lastHeartbeatAt`, and both refuse a league-id mismatch outright), and this specific reconcile
+always re-fetches ESPN's live truth over the network rather than replaying a cached value, so a
+backgrounded tab's fetch is exactly as trustworthy as a foregrounded one's.
