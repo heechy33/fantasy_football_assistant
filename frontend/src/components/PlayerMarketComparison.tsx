@@ -100,11 +100,16 @@ export function PlayerMarketComparison({
     [projectionsArtifact, player, scoring, fftoday],
   );
   // One tile per comparison lane; `undefined` (player has no row on that board) renders as an
-  // em dash — honest absence, not a dropped provider.
-  const laneValues = providerAdpLanes.map((lane) => ({
-    ...lane,
-    adp: lane.entries.find((entry) => entry.playerId === player.playerId)?.adp,
-  }));
+  // em dash — honest absence, not a dropped provider. A lane whose brand IS the active board
+  // (e.g. the Sleeper lane on a Sleeper session, or ESPN's on an ESPN session) is dropped —
+  // the engine tile above already shows that provider's number, and a second identical tile
+  // read as two different opinions.
+  const laneValues = providerAdpLanes
+    .filter((lane) => boardAdp == null || lane.brandKey !== boardAdp.brandKey)
+    .map((lane) => ({
+      ...lane,
+      adp: lane.entries.find((entry) => entry.playerId === player.playerId)?.adp,
+    }));
 
   const hasAdp = boardAdp != null;
   if (!hasAdp && projectionBuild.rows.length === 0 && projectionBuild.caption === '') return null;

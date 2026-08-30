@@ -12,6 +12,7 @@ import { PercentileBar } from './PercentileBar';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
 import { boardFaceValues, boardUsageStat, formatBoardStat } from './playerBoardFace';
+import { ReachBookmark } from './ReachBookmark';
 
 export interface PlayerCardProps {
   playerId: PlayerId;
@@ -41,6 +42,8 @@ export interface PlayerCardProps {
   projectedPoints?: number | null;
   /** Off-clock/market fallback when `recommendation` is null (see boardFaceValues). */
   availableNextPickProbability?: number | null;
+  /** Current overall pick — feeds the reach context chip (see playerBoardFace's REACH_WARNING_GAP). */
+  currentPick?: number | null;
   /** Whether the exact next-pick survival percentage may render. Shown ONLY while the user is
    * on the clock (the estimate targets the follow-up pick then). Defaults to true so isolated
    * card usage (landing demo, direct renders) keeps meter semantics. */
@@ -106,6 +109,11 @@ export function PlayerCard(props: PlayerCardProps) {
     >
       {logoUrl && (
         <img className="player-card-watermark" src={logoUrl} alt="" />
+      )}
+      {/* Reach bookmark: see ReachBookmark.tsx for the interactive-bubble redesign (2026-08-28,
+          take 2) — the face shows only "Reach", the pick gap lives in the revealed bubble. */}
+      {values.reachGap != null && (
+        <ReachBookmark reachGap={values.reachGap} adpText={formatStat(adpValue)} />
       )}
       <header className="player-card-head">
         {positionalRank && <span className="player-card-pos-rank">{positionalRank}</span>}

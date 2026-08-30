@@ -1,8 +1,9 @@
 import { useEffect, useState, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
-import type { AdpFormat } from '../data/loadPlayerPool';
 import { computeStaleness, type PollHealth } from '../hooks/useDraftPoll';
+import { providerBrand } from '../data/providerBrand';
 import { ProviderBadge } from './ProviderBadge';
+import fantasyBobMark from '../assets/brand/fantasy-bob-mark.png';
 
 export const APP_NAME = 'Fantasy Bob';
 
@@ -19,19 +20,19 @@ const PATH_BY_PAGE: Readonly<Record<AppPage, string>> = {
 
 export interface TopNavProps {
   active: AppPage;
-  /** Status subline: league name + active ADP format + a freshness dot. Rendered top-right; the
-   * round/pick clock and the session `⋯` menu live elsewhere now (the draft log's clock banner and
-   * next to the board's card/row toggle, respectively) so this row is status-only. */
-  leagueName?: string | null;
-  adpFormat?: AdpFormat | null;
+  /** Connection-status pill, rendered top-right (2026-09-01 redesign): a blinking status dot,
+   * THEN the provider logo, then "<Provider> connected" — the old league-name/ADP/pick-count text
+   * is gone (the draft room's own header owns that detail). The stale suffix ("· Ns stale")
+   * survives as an honesty marker. The round/pick clock and the session `⋯` menu live elsewhere
+   * now (the draft log's clock banner and next to the board's card/row toggle, respectively). */
   isStale?: boolean;
   dataAgeMs?: number | null;
   pollHealthRef?: RefObject<PollHealth> | null;
-  /** Brand key for the status pill's provider chip ('espn' | 'sleeper'); null/'manual' shows a
-   * plain text pill instead. */
+  /** Brand key for the status pill's provider chip ('espn' | 'sleeper'); null shows nothing. */
   statusProvider?: string | null;
-  /** Effective pick count, appended to the status pill (e.g. "· 29 picks"). */
-  pickCount?: number | null;
+  /** True while the caller is on the Draft Room with NO live provider — renders the red blinking
+   * "Disconnected" pill instead of a provider chip. */
+  showDisconnected?: boolean;
   /** Home renders the landing's cinematic scene; the bar dissolves into it (fading scrim)
    * instead of sitting as a solid slab above it. */
   immersive?: boolean;
@@ -88,30 +89,31 @@ function StaleStatus({ healthRef, fallbackIsStale, fallbackDataAgeMs }: {
  */
 export function TopNav({
   active,
-  leagueName = null,
-  adpFormat = null,
   isStale = false,
   dataAgeMs = null,
   pollHealthRef = null,
   statusProvider = null,
-  pickCount = null,
+  showDisconnected = false,
   immersive = false,
   authenticated = false,
   onSignOut,
 }: TopNavProps) {
-  const showStatus = leagueName != null || adpFormat != null;
   const providerBadgeKey = statusProvider === 'espn' || statusProvider === 'sleeper' ? statusProvider : null;
+  const showStatus = providerBadgeKey != null || showDisconnected;
 
   return (
     <header className={immersive ? 'top-nav top-nav-immersive' : 'top-nav'}>
       <div className="top-nav-identity">
         <h1 className="brand">
           <Link to={PATH_BY_PAGE.home} className="brand-button" aria-label={`${APP_NAME} — go to Home`}>
-            <svg className="brand-mark" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
-              <rect x="1" y="10" width="4" height="7" rx="1" fill="currentColor" />
-              <rect x="7" y="5" width="4" height="12" rx="1" fill="currentColor" />
-              <rect x="13" y="1" width="4" height="16" rx="1" fill="currentColor" />
-            </svg>
+            <img
+              className="brand-mark"
+              src={fantasyBobMark}
+              alt=""
+              width={28}
+              height={28}
+              aria-hidden="true"
+            />
             {APP_NAME}
           </Link>
         </h1>
@@ -129,33 +131,42 @@ export function TopNav({
             </Link>
           ))}
         </nav>
-        {/* Real auth CTAs (Phase 4) — Link, not button, so the Sign in/Sign up destinations get
-            normal link semantics (middle-click, open-in-new-tab) like the rest of this nav. */}
+        {/* Real auth CTA (Phase 4) — Link, not button, so the destination gets normal link
+            semantics (middle-click, open-in-new-tab) like the rest of this nav. One CTA only:
+            sign-up doubles as sign-in (2026-09-01 — the separate Sign in link was redundant). */}
         {!authenticated && (
           <div className="top-nav-auth">
-            <Link to="/sign-in" className="nav-auth-signin">Sign in</Link>
             <Link to="/sign-up" className="primary-button nav-auth-signup">Sign up</Link>
           </div>
         )}
-        {authenticated && onSignOut && (
+        {(showStatus || (authenticated && onSignOut)) && (
           <div className="top-nav-auth">
-            <button type="button" className="nav-auth-signin" onClick={onSignOut}>Sign out</button>
+            {showStatus && (
+              <p className="session-pill" data-state={providerBadgeKey ? 'connected' : 'disconnected'}>
+                {providerBadgeKey ? (
+                  <>
+                    {/* Blinker first, then the logo, then the label — the connection story reads
+                        left to right: live dot → whose connection → state. */}
+                    <StaleStatus healthRef={pollHealthRef} fallbackIsStale={isStale} fallbackDataAgeMs={dataAgeMs} />
+                    <ProviderBadge brandKey={providerBadgeKey} size="sm" />
+                    <span className="session-pill-text">
+                      {providerBrand(providerBadgeKey)?.label ?? providerBadgeKey} connected
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="top-nav-status-dot" data-disconnected="true" aria-hidden={true} />
+                    <span className="session-pill-text">Disconnected</span>
+                  </>
+                )}
+              </p>
+            )}
+            {authenticated && onSignOut && (
+              <button type="button" className="nav-auth-signin" onClick={onSignOut}>Sign out</button>
+            )}
           </div>
         )}
       </div>
-
-      {showStatus && (
-        <div className="top-nav-live">
-          <p className="session-pill">
-            {providerBadgeKey && <ProviderBadge brandKey={providerBadgeKey} size="sm" />}
-            <StaleStatus healthRef={pollHealthRef} fallbackIsStale={isStale} fallbackDataAgeMs={dataAgeMs} />
-            <span className="session-pill-text">
-              {leagueName ?? 'draft'} · ADP {adpFormat}
-              {pickCount != null ? ` · ${pickCount} pick${pickCount === 1 ? '' : 's'}` : ''}
-            </span>
-          </p>
-        </div>
-      )}
     </header>
   );
 }

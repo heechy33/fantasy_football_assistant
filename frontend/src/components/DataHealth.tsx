@@ -21,6 +21,26 @@ export interface DataHealthProps {
   activeProvider: ActiveProvider;
   /** Draft-day honesty: unmodeled custom-scoring categories, rendered as banner items. */
   scoringDiagnostics?: string[];
+  /** Bridge sessions only (2026-08-29): a raw view of the extension's captured live stream, so a
+   * board-numbering disagreement is diagnosable directly instead of by inference — the exact fields
+   * that would have named the "duplicate pick / stuck on an abandoned draft" bug in seconds. */
+  espnCapture?: EspnCaptureSummary | null;
+}
+
+export interface EspnCaptureSummary {
+  leagueId: string | null;
+  epoch: number;
+  resetReason: string | null;
+  streamPicks: number;
+  detailPicks: number;
+  detailIdentified: number;
+  domPicks: number;
+  currentPickNumber: number | null;
+  offsetSource: string | null;
+  offsetValue: number | null;
+  offsetConfirmed: boolean;
+  offsetReason: string | null;
+  onReset: () => void;
 }
 
 function findDuplicatePlayerIds(picks: Pick[]): string[] {
@@ -52,6 +72,7 @@ export function DataHealth({
   adpFormat,
   activeProvider,
   scoringDiagnostics,
+  espnCapture,
 }: DataHealthProps) {
   const [, tick] = useState(0);
   useEffect(() => {
@@ -81,33 +102,68 @@ export function DataHealth({
   const duplicates = findDuplicatePlayerIds(effectivePicks);
   const isHealthy = dataMode === 'full' && !freshness.isStale && liveFailures === 0 && duplicates.length === 0;
 
-  if (isHealthy) {
-    return <p className="data-health data-health-ok">Data healthy — static data full, live poll current.</p>;
-  }
-
   return (
-    <div className="data-health data-health-warning" role="status">
-      <strong>Data health warning</strong>
-      <ul>
-        {dataMode !== 'full' && (
-          <li>Static projection/ADP data is in &quot;{dataMode}&quot; mode.</li>
-        )}
-        {freshness.isStale && (
-          <li>Live draft data is stale{freshness.dataAgeMs != null ? ` (${Math.round(freshness.dataAgeMs / 1000)}s old)` : ''}.</li>
-        )}
-        {liveFailures > 0 && (
-          <li>
-            {liveFailures} consecutive poll failure{liveFailures === 1 ? '' : 's'}
-            {liveError instanceof Error ? `: ${liveError.message}` : ''}.
-          </li>
-        )}
-        {duplicates.length > 0 && (
-          <li>{duplicates.length} player(s) appear drafted more than once: {duplicates.join(', ')}.</li>
-        )}
-        {scoringDiagnostics?.map((diagnostic) => (
-          <li key={diagnostic}>{diagnostic}</li>
-        ))}
-      </ul>
-    </div>
+    <>
+      {isHealthy ? (
+        <p className="data-health data-health-ok">Data healthy — static data full, live poll current.</p>
+      ) : (
+        <div className="data-health data-health-warning" role="status">
+          <strong>Data health warning</strong>
+          <ul>
+            {dataMode !== 'full' && (
+              <li>Static projection/ADP data is in &quot;{dataMode}&quot; mode.</li>
+            )}
+            {freshness.isStale && (
+              <li>Live draft data is stale{freshness.dataAgeMs != null ? ` (${Math.round(freshness.dataAgeMs / 1000)}s old)` : ''}.</li>
+            )}
+            {liveFailures > 0 && (
+              <li>
+                {liveFailures} consecutive poll failure{liveFailures === 1 ? '' : 's'}
+                {liveError instanceof Error ? `: ${liveError.message}` : ''}.
+              </li>
+            )}
+            {duplicates.length > 0 && (
+              <li>{duplicates.length} player(s) appear drafted more than once: {duplicates.join(', ')}.</li>
+            )}
+            {scoringDiagnostics?.map((diagnostic) => (
+              <li key={diagnostic}>{diagnostic}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {espnCapture && <EspnCapturePanel capture={espnCapture} />}
+    </>
+  );
+}
+
+/** Collapsible raw view of the extension's captured live stream — see `DataHealthProps.espnCapture`'s
+ * doc. Closed by default so it never adds visual weight to the healthy path; the numbers it shows
+ * are read straight off the snapshot, not re-derived, so they can never disagree with the board. */
+function EspnCapturePanel({ capture }: { capture: EspnCaptureSummary }) {
+  return (
+    <details className="data-health-espn-capture">
+      <summary>ESPN capture</summary>
+      <dl>
+        <dt>League</dt>
+        <dd>{capture.leagueId ?? '—'}</dd>
+        <dt>Epoch / reset reason</dt>
+        <dd>{capture.epoch}{capture.resetReason ? ` (${capture.resetReason})` : ''}</dd>
+        <dt>Stream picks</dt>
+        <dd>{capture.streamPicks}</dd>
+        <dt>Detail picks</dt>
+        <dd>{capture.detailPicks} ({capture.detailIdentified} identified)</dd>
+        <dt>DOM picks</dt>
+        <dd>{capture.domPicks}</dd>
+        <dt>Current pick #</dt>
+        <dd>{capture.currentPickNumber ?? '—'}</dd>
+        <dt>Offset</dt>
+        <dd>
+          {capture.offsetConfirmed
+            ? `${capture.offsetValue} (${capture.offsetSource})`
+            : `unconfirmed${capture.offsetReason ? ` — ${capture.offsetReason}` : ''}`}
+        </dd>
+      </dl>
+      <button type="button" className="quiet-button" onClick={capture.onReset}>Reset ESPN capture</button>
+    </details>
   );
 }

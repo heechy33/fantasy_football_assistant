@@ -611,3 +611,58 @@ describe('PlayerCard card-bottom slot (survival meter vs. role stats)', () => {
     expect(screen.queryByText(/PPR\/g/)).not.toBeInTheDocument();
   });
 });
+
+describe('PlayerCard reach bookmark', () => {
+  it('shows only "Reach" on the face, reveals the pick-gap detail via an interactive bubble, and never opens details on its own', async () => {
+    const onViewDetails = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PlayerCard
+        playerId="rb2"
+        recommendation={baseRecommendation({ availabilityAdp: 95 })}
+        player={player}
+        currentPick={71}
+        onViewDetails={onViewDetails}
+      />,
+    );
+
+    // No bare number on the face (2026-08-28 redesign, take 2).
+    const trigger = screen.getByRole('button', { name: 'Reach' });
+    expect(trigger).toHaveTextContent('Reach');
+    expect(screen.queryByText('+24')).not.toBeInTheDocument();
+    expect(screen.queryByText('24')).not.toBeInTheDocument();
+
+    // The detail lives in an aria-describedby-linked tooltip, not lost. The card also renders the
+    // (unrelated) next-pick survival meter's own InfoTooltip bubble, so disambiguate by the
+    // trigger's own aria-describedby id rather than assuming there's only one role="tooltip".
+    const bubbleId = trigger.getAttribute('aria-describedby');
+    expect(bubbleId).not.toBeNull();
+    const bubble = document.getElementById(bubbleId!);
+    expect(bubble).not.toBeNull();
+    expect(bubble).toHaveAttribute('role', 'tooltip');
+    expect(bubble).toHaveTextContent('24 picks later');
+    expect(bubble).toHaveTextContent('ADP 95.0');
+
+    // Activating the bookmark itself must not also open the card's own detail view.
+    await user.click(trigger);
+    expect(onViewDetails).not.toHaveBeenCalled();
+
+    // But the rest of the card still does (stopPropagation is scoped to the trigger).
+    await user.click(screen.getByText('Two'));
+    expect(onViewDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the bookmark entirely below the reach threshold', () => {
+    render(
+      <PlayerCard
+        playerId="rb2"
+        recommendation={baseRecommendation({ availabilityAdp: 80 })}
+        player={player}
+        currentPick={71}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Reach' })).not.toBeInTheDocument();
+    expect(document.querySelector('.player-card-reach')).toBeNull();
+  });
+});

@@ -46,11 +46,10 @@ describe('LandingPage', () => {
     expect(screen.getAllByRole('img', { name: 'Yahoo' }).length).toBeGreaterThan(0);
   });
 
-  it('renders the public hero CTAs — Draft Guide needs no account', () => {
+  it('renders no hero CTAs — TopNav already carries Draft Guide and Sign up', () => {
     renderLanding();
-    const guide = screen.getByRole('link', { name: /Browse the Draft Guide/i });
-    expect(guide).toHaveAttribute('href', '/draft-guide');
-    expect(screen.getByRole('link', { name: 'Create free account' })).toHaveAttribute('href', '/sign-up');
+    expect(screen.queryByRole('link', { name: /Draft Guide/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Create free account|Sign up/i })).not.toBeInTheDocument();
   });
 
   it('renders NO connect rows at the bottom — no forms, no Resume, no provider CTAs', () => {

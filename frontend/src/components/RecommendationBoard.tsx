@@ -576,6 +576,7 @@ export function RecommendationBoard({
                             projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
                             availabilityVisible={isMyTurn}
+                            currentPick={currentOverall}
                             nextUp={nextUpAt(rankedRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             selected={selectedPlayerId === recommendation.playerId}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
@@ -596,6 +597,7 @@ export function RecommendationBoard({
                             projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
                             availabilityVisible={isMyTurn}
+                            currentPick={currentOverall}
                             nextUp={nextUpAt(marketRows, index, playersById)}
                             selected={selectedPlayerId === row.playerId}
                             onViewDetails={() => onViewDetails(row.playerId)}
@@ -630,6 +632,7 @@ export function RecommendationBoard({
                             projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
                             availabilityVisible={isMyTurn}
+                            currentPick={currentOverall}
                             nextUp={nextUpAt(cardRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
                           />
@@ -650,6 +653,7 @@ export function RecommendationBoard({
                             projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
                             availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
                             availabilityVisible={isMyTurn}
+                            currentPick={currentOverall}
                             nextUp={nextUpAt(visibleMarketRows, index, playersById)}
                             onViewDetails={() => onViewDetails(row.playerId)}
                           />

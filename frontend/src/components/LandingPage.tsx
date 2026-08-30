@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react';
 import type { CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
 import { useRevealOnScroll } from '../hooks/useRevealOnScroll';
 import type { ActiveProvider } from '../session/activeProvider';
 import { APP_NAME } from './TopNav';
@@ -34,7 +33,8 @@ export interface LandingPageProps {
  *
  *   Scene    one fixed full-viewport Three.js layer (LandingHeroCanvas) behind every section,
  *            with a CSS starfield carrying the first paint until the trophy GLB lands.
- *   Hero     kicker + "The Chip Is Yours" + italic sub-line + public CTAs over the trophy.
+ *   Hero     kicker + "The Chip Is Yours" + italic sub-line over the trophy. No CTAs here (2026-08-29)
+ *            — TopNav already carries Draft Guide + Sign up, and duplicating them read as noise.
  *   01       three short feature beats (live picks / ranked board / next-pick odds).
  *   02       a staged Draft-Room feed beside the REAL PlayerCard faces with static demo data.
  *   03       a data-sources map (IntegrationsMap): an animated hub-and-wires illustration showing
@@ -66,16 +66,6 @@ export function LandingPage({ active }: LandingPageProps) {
         </p>
         <h2 className="landing-hero-title">THE CHIP IS YOURS</h2>
         <p className="landing-hero-sub">with FANTASY BOB</p>
-        {active === 'none' && (
-          <div className="landing-hero-ctas">
-            <Link to="/draft-guide" className="primary-button landing-hero-cta">
-              Browse the Draft Guide — no account needed
-            </Link>
-            <Link to="/sign-up" className="landing-hero-cta-secondary">
-              Create free account
-            </Link>
-          </div>
-        )}
       </section>
 
       <section className="landing-section" aria-label={`How ${APP_NAME} works`}>
@@ -157,16 +147,19 @@ export function LandingPage({ active }: LandingPageProps) {
         id="connect"
         aria-label="Where the data comes from"
       >
-        <header data-reveal>
-          <p className="landing-kicker">03 · Data sources</p>
-          <h3>Every source. One board.</h3>
-          <p className="landing-section-lede">
-            {APP_NAME} pulls ADP, rankings, and projections from the platforms your league already
-            lives on, and reconciles them into one ranked board.
-          </p>
-        </header>
+        {/* STACKED pattern: copy on the left, live illustration on the right. */}
+        <div className="landing-integrations-grid">
+          <header data-reveal className="landing-integrations-copy">
+            <p className="landing-kicker">03 · Data sources</p>
+            <h3>Every source. One board.</h3>
+            <p className="landing-section-lede">
+              {APP_NAME} pulls ADP, rankings, and projections from the platforms your league already
+              lives on, and reconciles them into one ranked board.
+            </p>
+          </header>
 
-        <IntegrationsMap />
+          <IntegrationsMap />
+        </div>
 
         {/* The connect rows are gone — this map plus the hero CTAs carry the whole story; the
             real connect flow lives at /leagues/connect and /onboarding/league. */}

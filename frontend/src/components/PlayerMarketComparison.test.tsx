@@ -236,6 +236,27 @@ describe('PlayerMarketComparison', () => {
     expect(screen.getAllByText('24')).toHaveLength(1);
   });
 
+  it('drops the comparison lane whose brand IS the active board and keeps the others', () => {
+    // ESPN-session bug (2026-08-28): the board was ESPN AND an espn-ppr lane rendered — ESPN
+    // twice, Sleeper nowhere. The lane matching the board's brand is dropped; Sleeper stays.
+    render(
+      <PlayerMarketComparison
+        boardAdp={boardAdp({ adp: 18, source: 'ESPN (PPR)', brandKey: 'espn' })}
+        providerAdpLanes={[
+          { key: 'sleeper-ppr', label: 'Sleeper', brandKey: 'sleeper', entries: [{ playerId: 'rb1', name: 'Rush One', position: 'RB', team: 'BUF', adp: 24, stdev: 1, high: 1, low: 1, timesDrafted: 10, byeWeek: 7, adpSource: 'sleeper', stdevSource: 'observed' }] },
+          { key: 'espn-ppr', label: 'ESPN (PPR)', brandKey: 'espn', entries: [] },
+        ]}
+        projectionsArtifact={null}
+        player={player}
+        scoring={scoring}
+        fftoday={null}
+      />,
+    );
+    expect(screen.getAllByText('ESPN (PPR)')).toHaveLength(1); // engine tile only
+    expect(screen.getByText('Sleeper')).toBeInTheDocument();
+    expect(screen.getByText('24')).toBeInTheDocument();
+  });
+
   it('marks stale providers inline and skips error providers', () => {
     const withStale: ProviderProjectionsArtifact = {
       ...projectionsArtifact,

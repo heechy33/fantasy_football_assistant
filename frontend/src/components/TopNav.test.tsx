@@ -26,7 +26,7 @@ describe('TopNav', () => {
     expect(screen.getByRole('link', { name: 'My Leagues' })).toHaveAttribute('href', '/leagues');
   });
 
-  it('shows only the public tabs plus placeholder auth CTAs while signed out', () => {
+  it('shows only the public tabs plus a single Sign up CTA while signed out', () => {
     renderNav();
     // Public surface stays reachable signed out (DECISIONS.md, 2026-08-25).
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
@@ -34,7 +34,8 @@ describe('TopNav', () => {
     // Account features stay gated.
     expect(screen.queryByRole('link', { name: 'Draft Room' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'My Leagues' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
+    // One CTA only (2026-09-01): sign-up doubles as sign-in, so the separate Sign in link is gone.
+    expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/sign-up');
   });
 
@@ -53,18 +54,35 @@ describe('TopNav', () => {
 
   it('renders no status row when no draft is loaded', () => {
     renderNav();
-    expect(screen.queryByText(/ADP/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/connected/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
   });
 
-  it('renders the status pill with the league name, ADP format, and pick count', () => {
-    renderNav({
-      active: 'draft',
-      leagueName: 'Chip Life',
-      adpFormat: 'ppr',
-      statusProvider: 'espn',
-      pickCount: 29,
-    });
-    expect(screen.getByText(/Chip Life · ADP ppr · 29 picks/)).toBeInTheDocument();
+  it('renders the connected pill as blinker dot → provider logo → "ESPN connected"', () => {
+    renderNav({ active: 'draft', statusProvider: 'espn' });
+    expect(screen.getByText('ESPN connected')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'ESPN' })).toBeInTheDocument();
+    const pill = screen.getByText('ESPN connected').closest('.session-pill');
+    expect(pill).toHaveAttribute('data-state', 'connected');
+    // The logo renders AFTER the blinking status dot in DOM order (2026-09-01 redesign).
+    const dot = pill!.querySelector('.top-nav-status-dot');
+    expect(dot).not.toBeNull();
+    expect(dot!.nextElementSibling).toBe(screen.getByRole('img', { name: 'ESPN' }).closest('.provider-badge'));
+  });
+
+  it('labels the pill from the provider brand — "Sleeper connected", not the raw key', () => {
+    renderNav({ active: 'draft', statusProvider: 'sleeper' });
+    expect(screen.getByText('Sleeper connected')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Sleeper' })).toBeInTheDocument();
+  });
+
+  it('renders the red blinking Disconnected pill when the draft room has no live connection', () => {
+    renderNav({ active: 'draft', showDisconnected: true });
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    const pill = screen.getByText('Disconnected').closest('.session-pill');
+    expect(pill).toHaveAttribute('data-state', 'disconnected');
+    expect(pill!.querySelector('.top-nav-status-dot[data-disconnected="true"]')).not.toBeNull();
+    // No provider logo in the disconnected state — nothing is connected to brand.
+    expect(screen.queryByRole('img', { name: 'ESPN' })).toBeNull();
   });
 });

@@ -12,11 +12,14 @@ describe('ProviderBadge', () => {
     expect(badge).toHaveTextContent('RTS');
   });
 
-  it('inlines the committed SVG logo for a brand that has one', () => {
+  it('renders the committed raster ESPN logo via the image branch', () => {
+    // ESPN's committed asset is the official bitmap mark (espn-logo.png) rather than an
+    // inline-able SVG, so it must resolve through the raster branch, not the monogram.
     render(<ProviderBadge brandKey="espn" />);
-    const badge = screen.getByRole('img', { name: 'ESPN' });
-    expect(badge).toHaveClass('provider-badge-svg');
-    expect(badge.querySelector('svg')).not.toBeNull();
+    const img = screen.getByRole('img', { name: 'ESPN' });
+    expect(img.tagName).toBe('IMG');
+    expect(img.closest('.provider-badge-img')).not.toBeNull();
+    expect(img.getAttribute('src')).toMatch(/espn-logo\.png$/);
   });
 
   it('inlines the committed FFC football SVG instead of the monogram chip', () => {

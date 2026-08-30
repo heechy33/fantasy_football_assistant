@@ -1,31 +1,67 @@
-import { useState, type FormEvent } from 'react';
-import type { LeagueRef, SleeperCred } from '../../../shared/types';
-import { listSleeperDrafts, resolveUser, sleeperAdapter, type SleeperDraftRef } from '../adapters/sleeper';
+﻿import { useEffect, useState, type FormEvent } from 'react';
+import type { LeagueRef, SavedLeague, SleeperCred } from '../../../shared/types';
+import { resolveUser, sleeperAdapter } from '../adapters/sleeper';
+import { CURRENT_SEASON } from '../data/season';
+import { useSleeperAccount, type SleeperAccount } from '../data/useSleeperAccount';
 
 export interface ConnectSleeperProps {
-  onConnect: (cred: SleeperCred, draftId: string) => void;
-  /** Optional so the ESPN path and any test mount keep working without a repository behind
-   * them. Present on /leagues/connect and /onboarding/league — one connect surface. */
-  onSaveLeague?: (cred: SleeperCred, ref: LeagueRef) => Promise<void>;
+  /** Optional so any test mount keeps working without a repository behind it. Present on
+   * /leagues/connect (and the /onboarding/league alias) — the one connect surface. Since the
+   * 2026-08-27 connect/start split (DECISIONS.md) this component is SAVE-ONLY: it never starts a
+   * session and never navigates to /draft. Draft selection (tracked drafts, mock drafts, pasted
+   * draft ids) lives in the Draft Room launcher, which reads what's already connected. */
+  /** The `username` is what the account was resolved from (Sleeper's canonical username, kept so
+   * `providerUsername` lands on the SavedLeague and "connected as X" needs no numeric id). */
+  onSaveLeague?: (cred: SleeperCred, ref: LeagueRef, username: string | null) => Promise<void>;
+  /** Already-saved leagues (from the connect route's own `useSavedLeagues()`), so a returning
+   * user sees "Saved" instead of a duplicate Save button — this component has no fetch of its
+   * own for that; it's the caller's existing data, just passed down (2026-08-28). */
+  savedLeagues?: SavedLeague[];
 }
 
-const CURRENT_SEASON = '2026';
-
-/** Connection and draft-selection flow, hosted by `/onboarding/league` since Phase 3 (it used to
- * live in the Sleeper landing card). Sleeper lists mock drafts separately from leagues. The
- * manual/ESPN path lives on the ESPN card now — this component no longer offers a skip-connecting
- * escape hatch. */
-export function ConnectSleeper({ onConnect, onSaveLeague }: ConnectSleeperProps) {
+/** Connection flow, hosted by `/leagues/connect` (and the /onboarding/league alias). Sleeper
+ * leagues are saved to My Leagues; starting a draft is the Draft Room's job. When a Sleeper
+ * account is already remembered (Workstream 1b) the username form is skipped entirely — the
+ * "Use a different account" escape is local-only and never deletes the stored identity. Leagues
+ * for a known account auto-load on mount (2026-08-28) — the "Show my leagues" button was pointless
+ * friction once the account itself needs no re-entry. */
+export function ConnectSleeper({ onSaveLeague, savedLeagues }: ConnectSleeperProps) {
+  const { account } = useSleeperAccount();
+  const [dismissedAccount, setDismissedAccount] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
-  const [cred, setCred] = useState<SleeperCred | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [localAccount, setLocalAccount] = useState<SleeperAccount | null>(null);
   const [leagues, setLeagues] = useState<LeagueRef[] | null>(null);
-  const [drafts, setDrafts] = useState<SleeperDraftRef[] | null>(null);
-  const [draftsLoading, setDraftsLoading] = useState(false);
-  const [draftsError, setDraftsError] = useState<string | null>(null);
-  const [directDraftId, setDirectDraftId] = useState('');
+  const [leaguesLoading, setLeaguesLoading] = useState(false);
+  const [leaguesError, setLeaguesError] = useState<string | null>(null);
+  // Bumped by Retry so the load effect re-runs — a failed mount-time fetch must not dead-end the
+  // panel with no way forward (the same pattern as DraftLauncher's SleeperDraftList).
+  const [attempt, setAttempt] = useState(0);
+
+  // The stored account wins unless the user explicitly escaped it this visit.
+  const effectiveAccount = dismissedAccount ? localAccount : (localAccount ?? account);
+  const cred = effectiveAccount ? ({ provider: 'sleeper', userId: effectiveAccount.userId } as SleeperCred) : null;
+  const displayName = effectiveAccount ? (effectiveAccount.username ?? effectiveAccount.userId) : null;
+
+  useEffect(() => {
+    if (!cred) return;
+    let active = true;
+    setLeaguesLoading(true);
+    setLeaguesError(null);
+    sleeperAdapter.listLeagues(cred, CURRENT_SEASON)
+      .then((result) => { if (active) setLeagues(result); })
+      .catch((err: unknown) => {
+        // A failed fetch must never read as "you have no leagues" — that's a factual claim about
+        // the account's data, and a network/API failure knows nothing of the kind.
+        if (active) setLeaguesError(err instanceof Error ? err.message : 'Could not load your Sleeper leagues.');
+      })
+      .finally(() => { if (active) setLeaguesLoading(false); });
+    return () => { active = false; };
+    // cred's identity changes with effectiveAccount/dismissedAccount; re-keying on cred.userId
+    // (a primitive) avoids depending on the freshly-built object literal every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cred?.userId, attempt]);
 
   async function handleResolve(e: FormEvent) {
     e.preventDefault();
@@ -33,117 +69,97 @@ export function ConnectSleeper({ onConnect, onSaveLeague }: ConnectSleeperProps)
     setResolveError(null);
     try {
       const resolved = await resolveUser(usernameInput.trim());
-      setCred({ provider: 'sleeper', userId: resolved.userId });
-      setDisplayName(resolved.displayName);
+      setLocalAccount({ userId: resolved.userId, username: resolved.username });
     } catch (err) {
-      setCred(null);
+      setLocalAccount(null);
       setResolveError(err instanceof Error ? err.message : 'Could not find that Sleeper user.');
     } finally {
       setResolving(false);
     }
   }
 
-  async function handleLoadDrafts() {
-    if (!cred) return;
-    setDraftsLoading(true);
-    setDraftsError(null);
-    try {
-      const [loadedLeagues, loadedDrafts] = await Promise.all([
-        sleeperAdapter.listLeagues(cred, CURRENT_SEASON),
-        listSleeperDrafts(cred, CURRENT_SEASON),
-      ]);
-      setLeagues(loadedLeagues);
-      setDrafts(loadedDrafts);
-    } catch (err) {
-      setDraftsError(err instanceof Error ? err.message : 'Could not load your Sleeper drafts.');
-    } finally {
-      setDraftsLoading(false);
-    }
-  }
-
-  function handleDirectDraftSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!cred || !directDraftId.trim()) return;
-    onConnect(cred, directDraftId.trim());
-  }
-
   function handleUseDifferentAccount() {
-    setCred(null);
-    setDisplayName(null);
+    // Local-only escape: the stored SavedLeague identity stays untouched; this just re-shows the
+    // username form so a different account can be resolved this visit.
+    setDismissedAccount(true);
+    setLocalAccount(null);
     setLeagues(null);
-    setDrafts(null);
-    setDraftsError(null);
+    setLeaguesError(null);
+  }
+
+  function handleBackToStoredAccount() {
+    // Undo the dismiss without refetching: the stored account is still in `account`.
+    setDismissedAccount(false);
+    setLocalAccount(null);
   }
 
   return (
     <div className="connect-sleeper">
       {!cred ? (
-        <form onSubmit={handleResolve}>
-          <label>
-            Sleeper username or user ID
-            <input value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} required />
-          </label>
-          <button type="submit" disabled={resolving || !usernameInput.trim()}>{resolving ? 'Looking up…' : 'Continue'}</button>
-          {resolveError && <p role="alert">{resolveError}</p>}
-        </form>
+        <>
+          <form onSubmit={handleResolve}>
+            <label>
+              Sleeper username
+              <input value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} required />
+            </label>
+            <button type="submit" disabled={resolving || !usernameInput.trim()}>{resolving ? 'Looking up…' : 'Continue'}</button>
+            {resolveError && <p role="alert">{resolveError}</p>}
+          </form>
+          {account && (
+            <p className="muted">
+              Or go back to your remembered account:{' '}
+              <button className="quiet-button" type="button" onClick={handleBackToStoredAccount}>
+                {account.username ?? account.userId}
+              </button>
+            </p>
+          )}
+        </>
       ) : (
-        <div>
+        <div className="connect-sleeper-connected">
           <p>
-            Connected as <strong>{displayName}</strong> ({cred.userId}).{' '}
+            Connected as <strong>{displayName ?? cred.userId}</strong>.{' '}
             <button className="quiet-button" type="button" onClick={handleUseDifferentAccount}>Use a different account</button>
           </p>
-          <button type="button" onClick={handleLoadDrafts} disabled={draftsLoading}>
-            {draftsLoading ? 'Loading drafts…' : `Show my ${CURRENT_SEASON} leagues and drafts`}
-          </button>
-          {draftsError && <p role="alert">{draftsError}</p>}
-          {drafts && (
-            <div className="draft-selection">
-              <h3>Your drafts</h3>
-              {drafts.length === 0 ? <p>No {CURRENT_SEASON} drafts found. Create or join a Sleeper mock, then refresh this list.</p> : (
-                <ul className="draft-list">
-                  {drafts.map((draft) => (
-                    <li key={draft.draftId}>
-                      <div>
-                        <strong>{draft.name}</strong>
-                        <span>{draft.totalTeams ?? '?'} teams · {draft.type} · {draft.status}</span>
-                      </div>
-                      <button type="button" onClick={() => onConnect(cred, draft.draftId)}>Track draft</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {leaguesLoading && <p className="muted">Loading your {CURRENT_SEASON} leagues…</p>}
+          {leaguesError && (
+            <>
+              <p role="alert">{leaguesError}</p>
+              <button type="button" onClick={() => setAttempt((n) => n + 1)}>Retry</button>
+            </>
           )}
           {leagues && (
             <div className="draft-selection">
               <h3>Your leagues</h3>
               {leagues.length === 0 ? <p>No {CURRENT_SEASON} leagues found for this account.</p> : (
-                <ul className="draft-list">
-                  {leagues.map((league) => (
-                    <li key={league.leagueId}>
-                      <div>
-                        <strong>{league.name}</strong>
-                        <span>{league.totalTeams} teams · {league.season}{league.status ? ` · ${league.status}` : ''}</span>
-                      </div>
-                      <div>
-                        {onSaveLeague && <SaveLeagueButton cred={cred} league={league} onSaveLeague={onSaveLeague} />}
-                        {league.draftId && (
-                          <button type="button" onClick={() => onConnect(cred, league.draftId ?? '')}>Track draft</button>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                <ul className="league-grid">
+                  {leagues.map((league) => {
+                    const alreadySaved = savedLeagues?.some(
+                      (saved) => saved.provider === 'sleeper' && saved.providerLeagueId === league.leagueId,
+                    ) ?? false;
+                    return (
+                      <li key={league.leagueId} className="league-tile">
+                        <div className="league-tile-head">
+                          <p className="league-tile-name">{league.name}</p>
+                        </div>
+                        <ul className="meta-chips">
+                          <li className="meta-chip">{league.totalTeams} teams</li>
+                          <li className="meta-chip">{league.season}</li>
+                          {league.status && <li className="meta-chip">{league.status}</li>}
+                        </ul>
+                        <div className="league-tile-actions">
+                          {alreadySaved ? (
+                            <span className="muted">Saved</span>
+                          ) : (
+                            onSaveLeague && <SaveLeagueButton cred={cred} league={league} username={effectiveAccount?.username ?? null} onSaveLeague={onSaveLeague} />
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
           )}
-          <form className="direct-draft-form" onSubmit={handleDirectDraftSubmit}>
-            <label>
-              Have a draft ID from someone else?
-              <input value={directDraftId} onChange={(e) => setDirectDraftId(e.target.value)} placeholder="Paste draft ID" />
-            </label>
-            <button type="submit" disabled={!directDraftId.trim()}>Track this draft ID</button>
-          </form>
         </div>
       )}
     </div>
@@ -152,16 +168,17 @@ export function ConnectSleeper({ onConnect, onSaveLeague }: ConnectSleeperProps)
 
 /** Per-league save button with its own pending/done/error state — a save hits Sleeper's settings
  * endpoint plus the API, so it must not freeze the whole connect surface while in flight. */
-function SaveLeagueButton({ cred, league, onSaveLeague }: {
+function SaveLeagueButton({ cred, league, username, onSaveLeague }: {
   cred: SleeperCred;
   league: LeagueRef;
-  onSaveLeague: (cred: SleeperCred, ref: LeagueRef) => Promise<void>;
+  username: string | null;
+  onSaveLeague: (cred: SleeperCred, ref: LeagueRef, username: string | null) => Promise<void>;
 }) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   async function handleClick() {
     setState('saving');
     try {
-      await onSaveLeague(cred, league);
+      await onSaveLeague(cred, league, username);
       setState('saved');
     } catch {
       setState('error');

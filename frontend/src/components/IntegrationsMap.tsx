@@ -1,14 +1,18 @@
 import type { CSSProperties } from 'react';
+import fantasyBobLogo from '../assets/brand/fantasy-bob.png';
 import { ProviderBadge } from './ProviderBadge';
 
 /** Tiles left-to-right. Order is the user's; index drives both the grid column and the
  *  connector-branch x-coordinate below. */
 const INTEGRATION_TILES = ['sleeper', 'espn', 'cbs', 'underdog', 'yahoo'] as const;
 
-/** viewBox is 800×140: rail at y=70, hub bottom at y=0, tile tops at y=140. Column centers match
- * the 5-up `repeat(5, 1fr)` grid (10/30/50/70/90% of 800 = 80/240/400/560/720), and the hub sits
- * on the middle column (x=400) so the center branch is a straight vertical run. Every path is
- * authored tile → hub so the dash comet (CSS, in App.css) always travels upward into the hub. */
+/** viewBox is 800×140: rail at y=70, hub bottom at y=0, tile tops at y=140. Column centers are
+ * 10/30/50/70/90% of 800 = 80/240/400/560/720, and the hub sits on the middle column (x=400) so
+ * the center branch is a straight vertical run. This only lines up with the real tile row because
+ * both `.integrations-wires` and `.integrations-tiles` are sized to the same `--int-row` custom
+ * property in App.css — five equal tiles with equal gaps puts tile centers at those same
+ * percentages regardless of the row's actual pixel width. Every path is authored tile → hub so the
+ * dash comet (CSS, in App.css) always travels upward into the hub. */
 const BRANCH_PATHS = [
   'M 80 140 V 70 H 400 V 0', // sleeper
   'M 240 140 V 70 H 400 V 0', // espn
@@ -31,7 +35,7 @@ export function IntegrationsMap() {
       <div className="integrations-hub">
         <span className="integrations-hub-glow" aria-hidden="true" />
         <span className="integrations-hub-mark" aria-hidden="true">
-          <span className="integrations-hub-mark-inner">FB</span>
+          <img className="integrations-hub-logo" src={fantasyBobLogo} alt="" />
         </span>
       </div>
       <svg

@@ -4,6 +4,7 @@ import { teamLogoUrl } from '../data/playerPortrait';
 import { PlayerPortrait } from './PlayerPortrait';
 import { PositionBadge } from './PositionBadge';
 import { formatBoardStat, type PlayerBoardFaceProps, boardFaceValues } from './playerBoardFace';
+import { reachExplanation } from './ReachBookmark';
 import type { NextUpInfo } from './NextUpChip';
 
 export interface PlayerBoardRowProps extends PlayerBoardFaceProps {
@@ -24,12 +25,17 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: PlayerBoardRowProps) {
   const values = boardFaceValues(props);
   const logoUrl = teamLogoUrl(props.player?.team);
+  // The row is itself a <button> with an explicit aria-label, which swallows all descendant text
+  // — a nested interactive control isn't valid HTML here either — so the reach detail rides on
+  // the row's OWN accessible name instead of a bubble (which InfoTooltip-style hover reveal can't
+  // use here anyway: the row and its meta line are both `overflow: hidden`, see App.css).
+  const reachSuffix = values.reachGap != null ? `, reach: ${values.reachGap} picks past ADP` : '';
 
   return (
     <button
       type="button"
       className="player-board-row"
-      aria-label={`View details for ${values.name}`}
+      aria-label={`View details for ${values.name}${reachSuffix}`}
       aria-current={selected || undefined}
       data-position={props.player?.position ?? undefined}
       data-pick-action={props.recommendation?.pickAction}
@@ -48,6 +54,14 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
             {props.player?.byeWeek != null && <span>Bye {props.player.byeWeek}</span>}
             {values.statusTag && <span className={statusTagClassName(values.statusTag.kind)}>{values.statusTag.label}</span>}
             {values.positionalRank && <span>{values.positionalRank}</span>}
+            {values.reachGap != null && (
+              <span
+                className="player-board-row-reach"
+                title={reachExplanation(values.reachGap, formatBoardStat(values.adpValue))}
+              >
+                Reach
+              </span>
+            )}
           </span>
         </span>
       </span>

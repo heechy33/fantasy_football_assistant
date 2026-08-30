@@ -96,4 +96,50 @@ describe('PlayerBoardRow', () => {
     const row = screen.getByRole('button', { name: 'View details for p1' });
     expect(within(row).getByText('26%')).toBeInTheDocument();
   });
+
+  it('flags a reach with a context chip only at or past the 20-pick threshold', () => {
+    // Pick 71, ADP 95 → 24 picks past ADP: the "Reach" context chip (never a veto — the row is
+    // still ranked where the engine put it), with the actual gap folded into the row's own
+    // accessible name and its hover title (2026-08-28 redesign, take 2 — no bare number on the
+    // face). Below the threshold no chip at all.
+    const { rerender } = render(
+      <PlayerBoardRow
+        playerId="p1"
+        player={undefined}
+        recommendation={null}
+        adp={95}
+        currentPick={71}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    let row = screen.getByRole('button', { name: 'View details for p1, reach: 24 picks past ADP' });
+    expect(row.querySelector('.player-board-row-reach')?.textContent).toBe('Reach');
+    expect(row.querySelector('.player-board-row-reach')).toHaveAttribute('title', expect.stringContaining('24 picks later'));
+
+    rerender(
+      <PlayerBoardRow
+        playerId="p1"
+        player={undefined}
+        recommendation={null}
+        adp={80}
+        currentPick={71}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    row = screen.getByRole('button', { name: 'View details for p1' });
+    expect(row.querySelector('.player-board-row-reach')).toBeNull();
+
+    // No current pick (off-clock market rows) → no chip either.
+    rerender(
+      <PlayerBoardRow
+        playerId="p1"
+        player={undefined}
+        recommendation={null}
+        adp={95}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    row = screen.getByRole('button', { name: 'View details for p1' });
+    expect(row.querySelector('.player-board-row-reach')).toBeNull();
+  });
 });
