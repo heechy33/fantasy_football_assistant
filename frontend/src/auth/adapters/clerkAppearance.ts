@@ -20,7 +20,7 @@ interface ClerkAppearance {
  * committed token (source noted inline). If a value changes in tokens.css, update it here too.
  *
  * ORANGE STAYS OUT: `#f97316` (--accent) is urgency-only in this UI — nothing on an auth screen is
- * urgent, so the identity accent #35a7ff (--accent-cool) is the primary everywhere.
+ * urgent, so the identity accent #5bb8ff (--accent-cool) is the primary everywhere.
  *
  * VARIABLES — BOTH NAMING SCHEMES: @clerk/clerk-react 5.x migrated its theme API to `--clerk-*`
  * design tokens; we supply those AND the legacy camelCase aliases because which set actually
@@ -36,7 +36,7 @@ export const clerkAppearance: ClerkAppearance = {
     '--clerk-color-background': '#10141a',                              // --surface-2
     '--clerk-color-text': '#ececec',                                    // --text-1
     '--clerk-color-text-secondary': '#b4b4b4',                          // --text-3
-    '--clerk-color-primary': '#35a7ff',                                 // --accent-cool
+    '--clerk-color-primary': '#5bb8ff',                                 // --accent-cool
     '--clerk-color-input-background': '#151a21',                        // --surface-3
     '--clerk-color-input-text': '#ececec',                              // --text-1
 
@@ -46,7 +46,7 @@ export const clerkAppearance: ClerkAppearance = {
     colorBackground: '#10141a',
     colorText: '#ececec',
     colorTextSecondary: '#b4b4b4',
-    colorPrimary: '#35a7ff',
+    colorPrimary: '#5bb8ff',
     colorInputBackground: '#151a21',
     colorInputText: '#ececec',
   },
@@ -72,8 +72,8 @@ export const clerkAppearance: ClerkAppearance = {
       color: '#b4b4b4',
     },
     formButtonPrimary: {
-      // Solid neon-blue CTA, inked exactly like .primary-button.landing-hero-cta.
-      backgroundColor: '#35a7ff',
+      // Solid neon-blue CTA, inked exactly like .primary-button.nav-auth-signup.
+      backgroundColor: '#5bb8ff',
       color: '#04070a',
       border: 'none',
       fontWeight: 700,
@@ -92,7 +92,7 @@ export const clerkAppearance: ClerkAppearance = {
     },
     footerActionLink: {
       // Links carry the identity accent, matching nav active state / eyebrows.
-      color: '#35a7ff',
+      color: '#5bb8ff',
       fontWeight: 700,
     },
   },
