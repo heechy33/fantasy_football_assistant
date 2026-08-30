@@ -6,17 +6,17 @@ import { loadDisplayAdpBoard, type DisplayAdpLoadResult } from '../data/loadDisp
 export type ProviderAdpStatus = 'loading' | 'ready' | 'unavailable';
 
 export interface ProviderAdpLaneState {
-  /** Stable lane key (`espn-ppr`, `ffc-<format>`), also used as the React key. */
+  /** Stable lane key (`espn-ppr`, `ffc-<format>`, `sleeper-<format>`), also used as the React key. */
   key: string;
   label: string;
-  brandKey: 'espn' | 'ffc';
+  brandKey: 'espn' | 'ffc' | 'sleeper';
   entries: AdpEntry[];
   status: ProviderAdpStatus;
 }
 
 const IDLE_ENTRIES: AdpEntry[] = [];
 
-function toState(key: string, label: string, brandKey: 'espn' | 'ffc', result: DisplayAdpLoadResult): ProviderAdpLaneState {
+function toState(key: string, label: string, brandKey: 'espn' | 'ffc' | 'sleeper', result: DisplayAdpLoadResult): ProviderAdpLaneState {
   return result.status === 'ready'
     ? { key, label, brandKey, entries: result.entries, status: 'ready' }
     : { key, label, brandKey, entries: IDLE_ENTRIES, status: 'unavailable' };
@@ -26,6 +26,11 @@ function toState(key: string, label: string, brandKey: 'espn' | 'ffc', result: D
  * Display-only comparison ADP lanes for the player-detail drawer's Market ADP section — one
  * per provider board the repo actually has committed access to beyond the active board:
  *
+ * - Sleeper's draft-lobby board (`adp-<format>.json`, written by every pipeline run). This is the
+ *   ACTIVE board on Sleeper sessions — there the caller/`PlayerMarketComparison` drops the lane as
+ *   a duplicate of the engine tile — but on ESPN/FFC-fallback sessions it is the one way the
+ *   drawer can show Sleeper ADP at all (previously an ESPN session showed ESPN twice and no
+ *   Sleeper number).
  * - ESPN's default-league PPR board (`adp-espn-ppr.json`; PPR sessions only — it's the only
  *   format ESPN's board is built for).
  * - The FFC mock-draft board for the active redraft format (`adp-ffc-<format>.json`, written by
@@ -40,7 +45,8 @@ export function useProviderAdpBoards(adpFormat: AdpFormat): ProviderAdpLaneState
 
   useEffect(() => {
     let active = true;
-    const lanes: ReadonlyArray<{ fileName: string; key: string; label: string; brandKey: 'espn' | 'ffc' }> = [
+    const lanes: ReadonlyArray<{ fileName: string; key: string; label: string; brandKey: 'espn' | 'ffc' | 'sleeper' }> = [
+      { fileName: `adp-${adpFormat}.json`, key: `sleeper-${adpFormat}`, label: 'Sleeper', brandKey: 'sleeper' as const },
       ...(adpFormat === 'ppr'
         ? [{ fileName: 'adp-espn-ppr.json', key: 'espn-ppr', label: 'ESPN (PPR)', brandKey: 'espn' as const }]
         : []),

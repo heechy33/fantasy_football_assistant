@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DraftInit, DraftPicks, EspnDomPick, EspnLiveSnapshot } from '../../../shared/types';
-import { deriveEspnStreamOffsetSync, espnAdapter, espnSeatMismatch } from '../adapters/espn';
+import type { DraftInit, DraftPicks, EspnDomPick, EspnLeagueSnapshot, EspnLiveSnapshot } from '../../../shared/types';
+import { deriveEspnStreamOffsetSync, espnAdapter, espnSeatMismatch, loadEspnPlayerIndex } from '../adapters/espn';
 import { deriveEspnDraftOrder } from '../adapters/espnDraftOrder';
-import { requestEspnSnapshot } from '../adapters/espnBridge';
+import { deriveEspnStreamOffset, type EspnStreamOffset } from '../adapters/espnOffset';
+import { requestEspnDraftLeague, requestEspnSnapshot } from '../adapters/espnBridge';
 
 const POLL_MS = 1000;
 /** Heartbeat-age thresholds (ms), matching the ESPN plan's "stale vs disconnected" split. */
 const STALE_MS = 10000;
 const DISCONNECTED_MS = 15000;
+/** The draft-page league-settings capture (`requestEspnDraftLeague`) rides the draft page's own
+ * 30s mDraftDetail+mSettings+mTeam reconcile — polling it at the 1Hz live-snapshot cadence would
+ * just repeat the same answer 30 times over. 10s keeps the launcher's "settings just landed" gap
+ * short without adding meaningful relay traffic. */
+const DRAFT_LEAGUE_POLL_MS = 10000;
 /** Consecutive missed relay responses before flipping "extension present" off — absorbs several
  * dropped postMessage round-trips instead of flickering the connect UI. A content-script
  * `chrome.storage.local.get` round trip on a busy draft page can occasionally miss the per-request
@@ -72,6 +78,10 @@ function materialKeyFor(live: EspnLiveSnapshot | null): string {
     domPicksSignature(live.domPicks ?? []),
     live.domMaxAtStreamStart ?? '', live.domMaxSeen ?? 0, live.domSampledBeforeStream ?? false,
     live.currentPickNumber ?? '', live.resetReason ?? '',
+    // Missed-frame self-correction: a detail reconcile adds authoritative picks without touching
+    // the stream — the signature must see it or the reconciled board never renders.
+    live.detailPicks?.length ?? 0,
+    live.detailPicks?.length ? live.detailPicks[live.detailPicks.length - 1]!.overall : '',
   ].join('|');
 }
 
@@ -101,6 +111,22 @@ export interface UseEspnBridgeResult {
   /** Non-null when the ESPN team id's derived draft position disagrees with the typed slot — the
    * guard that would have caught the 2026-08-15 rehearsal bug live. */
   seatMismatch: string | null;
+  /** The draft position the CONFIRMED live order assigns to your ESPN team id, when derivable
+   * (`order.reliable` — needs a confirmed offset). Null before that. This is the number the
+   * session can auto-correct its seat TO (the team id itself must never be used as a position —
+   * recon 2026-08-15). */
+  derivedSeat: number | null;
+  /** The absolute-pick-offset diagnostic (real crosswalk, not the seat-mismatch memo's empty-index
+   * approximation) — DataHealth's capture inspector surfaces `source`/`offset`/`reason` directly.
+   * Null before the first player-pool load resolves. */
+  offset: EspnStreamOffset | null;
+  /** The draft page's OWN captured league settings (real scoring/roster, translated through the
+   * same `parseEspnLeagueJson` the league-page connect flow uses) — null until the draft page's
+   * 30s reconcile has produced a usable capture, or if it never does (an older ESPN payload shape,
+   * a fetch that never succeeded). The Draft Room launcher gates entry on this rather than falling
+   * back to a guessed PPR preset silently — see DraftLauncher.tsx. Polled independently of the 1s
+   * live-snapshot loop (`DRAFT_LEAGUE_POLL_MS`), since the underlying capture only changes every 30s. */
+  detectedLeague: EspnLeagueSnapshot | null;
 }
 
 /**
@@ -109,15 +135,26 @@ export interface UseEspnBridgeResult {
  * extension's chrome.storage live snapshot.
  *
  * Polling runs unconditionally (even with no ESPN session active) so a connect screen can show
- * extension/tab presence before the user commits to the bridge. `init`/`picks` resolution only
- * runs once `base` (the manual-form DraftInit) is supplied, i.e. once a bridge session is active.
+ * extension/tab presence before the user commits to the bridge — unless `enabled` is false, in
+ * which case no poller runs at all and `extensionPresent` stays false. Surfaces with no saved ESPN
+ * league pass `enabled: false` so a pure-Sleeper user never pays the 1s postMessage loop. `init`/
+ * `picks` resolution only runs once `base` (the manual-form DraftInit) is supplied, i.e. once a
+ * bridge session is active.
  */
-export function useEspnBridge(base: DraftInit | null): UseEspnBridgeResult {
+export function useEspnBridge(base: DraftInit | null, options?: { enabled?: boolean }): UseEspnBridgeResult {
+  const enabled = options?.enabled ?? true;
   const [live, setLive] = useState<EspnLiveSnapshot | null>(null);
   const [extensionPresent, setExtensionPresent] = useState(false);
   const [picks, setPicks] = useState<DraftPicks | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
   const [relayWarning, setRelayWarning] = useState<string | null>(null);
+  /** The absolute-pick-offset diagnostic, computed with the REAL player-pool crosswalk (unlike
+   * `seatMatch`'s `deriveEspnStreamOffsetSync`, which uses an empty index and so can only ever
+   * confirm the board-empty case) — surfaced in DataHealth's capture inspector so an offset stuck
+   * unconfirmed, or confirmed from an unexpected source, is visible instead of only inferable from
+   * the board. Recomputed alongside `picks` (below); null until the first player-pool load lands. */
+  const [offset, setOffset] = useState<EspnStreamOffset | null>(null);
+  const [detectedLeague, setDetectedLeague] = useState<EspnLeagueSnapshot | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const missStreakRef = useRef(0);
   const runningRef = useRef(false);
@@ -140,6 +177,7 @@ export function useEspnBridge(base: DraftInit | null): UseEspnBridgeResult {
   const lastStreamLenRef = useRef(0);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     async function tick() {
@@ -198,9 +236,27 @@ export function useEspnBridge(base: DraftInit | null): UseEspnBridgeResult {
     tick();
     const interval = setInterval(tick, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [enabled]);
 
-  // A new base means a fresh session context (handleEspnSetupSubmit / handleManualSetupEdit): drop
+  // Draft-page league settings, polled on its own slower cadence — a separate relay round trip
+  // from the 1Hz live-snapshot poll above, since the underlying capture only refreshes every 30s.
+  // Runs whenever `enabled`, independent of whether a live snapshot currently exists: the launcher
+  // needs to know a capture is READY the moment it lands, and gating this on `live` would add a
+  // full extra 10s of "no capture yet" after the live snapshot itself first appears.
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    async function tick() {
+      const response = await requestEspnDraftLeague();
+      if (cancelled || !response.responded) return;
+      setDetectedLeague(response.league);
+    }
+    tick();
+    const interval = setInterval(tick, DRAFT_LEAGUE_POLL_MS);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [enabled]);
+
+  // A new base means a fresh session context (handleEspnStart / handleManualSetupEdit): drop
   // the pinned league so the next poll re-pins to whatever league the extension is currently
   // serving, instead of inheriting a stale league from the previous session and warning on a
   // legitimate same-tab switch. Harmless on an edit — the same league simply re-pins, no warning.
@@ -224,12 +280,17 @@ export function useEspnBridge(base: DraftInit | null): UseEspnBridgeResult {
    * no-index (board-empty-only) offset derivation, same as `init`'s slotToTeamName enrichment —
    * this hook has no async player-pool index handy, and the common case this guards (before/at
    * pick 1) is exactly the case that offset derivation confirms. */
-  const seatMismatch = useMemo(() => {
-    if (!base || !material) return null;
+  const seatMatch = useMemo(() => {
+    if (!base || !material) return { seatMismatch: null, derivedSeat: null };
     const offset = deriveEspnStreamOffsetSync(material);
     const order = deriveEspnDraftOrder(material.streamPicks, base.teams, base.draftType, offset);
-    return espnSeatMismatch(material, order, base.mySlot);
+    const derivedSeat = material.mySlot != null && order.reliable
+      ? order.positionByTeam.get(material.mySlot) ?? null
+      : null;
+    return { seatMismatch: espnSeatMismatch(material, order, base.mySlot), derivedSeat };
   }, [base, material]);
+  const seatMismatch = seatMatch.seatMismatch;
+  const derivedSeat = seatMatch.derivedSeat;
 
   useEffect(() => {
     if (!base || !init) return;
@@ -239,6 +300,9 @@ export function useEspnBridge(base: DraftInit | null): UseEspnBridgeResult {
       .catch((err: unknown) => {
         if (active) setPickError(err instanceof Error ? err.message : 'Bridge pick resolution failed.');
       });
+    loadEspnPlayerIndex()
+      .then((index) => { if (active) setOffset(deriveEspnStreamOffset(material, index)); })
+      .catch(() => {});
     return () => { active = false; };
   }, [base, init, material]);
 
@@ -267,5 +331,8 @@ export function useEspnBridge(base: DraftInit | null): UseEspnBridgeResult {
     pickError,
     relayWarning,
     seatMismatch,
+    derivedSeat,
+    offset,
+    detectedLeague,
   };
 }

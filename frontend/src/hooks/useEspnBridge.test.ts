@@ -3,14 +3,57 @@ import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DraftInit, DraftPicks, EspnDomPick } from '../../../shared/types';
 import { __resetPlayerPoolCache } from '../data/loadPlayerPool';
-import { buildManualDraftInit } from '../components/ManualDraftSetup';
 import { espnAdapter } from '../adapters/espn';
 import { useEspnBridge, type UseEspnBridgeResult } from './useEspnBridge';
 
-const { requestEspnSnapshotMock } = vi.hoisted(() => ({ requestEspnSnapshotMock: vi.fn() }));
-vi.mock('../adapters/espnBridge', () => ({ requestEspnSnapshot: requestEspnSnapshotMock }));
+/** A minimal ESPN bridge DraftInit — replaces the removed `buildManualDraftInit` as the test
+ * base (the manual-create path is gone; bridge sessions only ever start from saved leagues). */
+function espnDraftInit(leagueName: string, mySlot: number): DraftInit {
+  const teams = 10;
+  const slotToTeam: Record<number, string> = {};
+  const slotToTeamName: Record<number, string> = {};
+  for (let slot = 1; slot <= teams; slot += 1) {
+    slotToTeam[slot] = String(slot);
+    slotToTeamName[slot] = `Team ${slot}`;
+  }
+  return {
+    provider: 'espn',
+    draftId: 'manual-session',
+    leagueId: 'espn-test',
+    draftType: 'snake',
+    teams,
+    rounds: 14,
+    slotToTeam,
+    slotToTeamName,
+    myTeamId: String(mySlot),
+    mySlot,
+    settings: {
+      provider: 'espn',
+      leagueId: 'espn-test',
+      name: leagueName,
+      season: '2026',
+      teams,
+      startingSlots: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'DEF', 'K'],
+      rosterSlots: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DEF: 1, K: 1, BN: 5, IR: 1 },
+      scoring: { rec: 1, pass_yd: 0.04, pass_td: 4, rush_yd: 0.1, rush_td: 6 },
+      format: { reception: 'ppr', qb: 'one-qb', draft: 'snake' },
+    },
+  };
+}
 
-const BASE: DraftInit = buildManualDraftInit({ leagueName: 'LeAgUe', teams: 10, rounds: 14, mySlot: 2 });
+const BASE: DraftInit = espnDraftInit('LeAgUe', 2);
+
+const { requestEspnSnapshotMock, requestEspnDraftLeagueMock } = vi.hoisted(() => ({
+  requestEspnSnapshotMock: vi.fn(),
+  // Draft-league settings poll (2026-08-29) — a separate relay round trip on its own cadence,
+  // orthogonal to every test in this file (none of them exercise `detectedLeague`). Defaults to
+  // "never responds" so it never flips `detectedLeague` away from null underneath an assertion.
+  requestEspnDraftLeagueMock: vi.fn().mockResolvedValue({ responded: false, league: null }),
+}));
+vi.mock('../adapters/espnBridge', () => ({
+  requestEspnSnapshot: requestEspnSnapshotMock,
+  requestEspnDraftLeague: requestEspnDraftLeagueMock,
+}));
 
 let probe: UseEspnBridgeResult | null = null;
 function BridgeProbe({ base }: { base: DraftInit | null }) {
@@ -21,6 +64,7 @@ function BridgeProbe({ base }: { base: DraftInit | null }) {
 beforeEach(() => {
   vi.useFakeTimers();
   requestEspnSnapshotMock.mockReset();
+  requestEspnDraftLeagueMock.mockReset().mockResolvedValue({ responded: false, league: null });
   // Every bridge session with a non-null base resolves `picks` via espnAdapter.picks() ->
   // loadPlayerPool() -> fetch('/data/players.json'); stub it to an empty pool so that resolution
   // settles deterministically instead of depending on jsdom's real-fetch behavior.
@@ -106,7 +150,7 @@ describe('useEspnBridge', () => {
       },
     });
     // base.mySlot = 7, but team 7 drafts 2nd in the stream's order -> the guard fires.
-    render(createElement(BridgeProbe, { base: buildManualDraftInit({ leagueName: 'LeAgUe', teams: 10, rounds: 14, mySlot: 7 }) }));
+    render(createElement(BridgeProbe, { base: espnDraftInit('LeAgUe', 7) }));
     await act(async () => {});
     expect(probe?.seatMismatch).toContain('position 2');
   });
@@ -379,7 +423,7 @@ describe('useEspnBridge', () => {
       live: { schemaVersion: 2, epoch: 1, streamPicks: [], mySlot: 2, leagueId: 'L2', lastHeartbeatAt: Date.now() + 1000 },
     });
     await act(async () => {
-      rerender(createElement(BridgeProbe, { base: buildManualDraftInit({ leagueName: 'LeAgUe2', teams: 10, rounds: 14, mySlot: 2 }) }));
+      rerender(createElement(BridgeProbe, { base: espnDraftInit('LeAgUe2', 2) }));
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(probe?.live?.leagueId).toBe('L2');

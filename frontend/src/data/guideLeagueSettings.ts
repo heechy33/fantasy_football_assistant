@@ -4,8 +4,8 @@ import { TARGET_ROSTER_SLOTS, TARGET_STARTING_SLOTS } from '../components/Manual
 
 /**
  * The Draft Guide's league-format selection — the anonymous public page's stand-in for a real
- * connected draft. Deliberately a sibling of `ManualDraftSetup`'s `buildManualDraftInit` (which
- * stays untouched): same slot/scoring vocabulary, no draft identity, no seat.
+ * connected draft. Deliberately a sibling of `buildEspnDraftInit` (ManualDraftSetup): same
+ * slot/scoring vocabulary, no draft identity, no seat.
  *
  * Note there is deliberately no 2qb key in `DEFAULT_MOCK_SCORING` — superflex is the format.qb
  * dimension plus a SUPER_FLEX starting slot, not a different scoring map.
@@ -69,7 +69,7 @@ export function guideAdpFormat(f: GuideFormat): AdpFormatForGuide {
 type AdpFormatForGuide = 'standard' | 'half-ppr' | 'ppr' | '2qb';
 
 /** A complete, valid LeagueSettings synthesized purely from the selector state — the engine never
- * knows it isn't a real connected league. Slot identity follows buildManualDraftInit's convention
+ * knows it isn't a real connected league. Slot identity follows buildEspnDraftInit's convention
  * (slot N → "N"), which the guide never uses anyway (picks: [], myTeamId: null). */
 export function buildGuideSettings(f: GuideFormat): LeagueSettings {
   // Superflex gains a SUPER_FLEX starting slot on top of the 1QB base (see module doc — this is
