@@ -41,6 +41,9 @@ export async function upsertDraft(request: HttpRequest, _context: InvocationCont
     mode: normalizeMode(body.mode),
     frozenInit: body.frozenInit ?? null,
     overrides: body.overrides ?? [],
+    // Written only for providers with no upstream record to re-read (espn/manual) — the client
+    // (draftSync) decides; Sleeper drafts rely on Sleeper's own API as the permanent record.
+    picks: Array.isArray(body.picks) ? body.picks : [],
     status: normalizeStatus(body.status),
     createdAt: body.createdAt ?? now,
     updatedAt: now,

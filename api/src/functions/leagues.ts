@@ -25,6 +25,14 @@ export async function listLeagues(request: HttpRequest, _context: InvocationCont
  * token, never from the request body — accepting a client-supplied `userId` here would let one
  * signed-in user write into another user's partition, since Cosmos itself enforces nothing beyond
  * the partition key matching the write. This check is the actual authorization boundary.
+ *
+ * MERGE RULE (2026-08-28): the endpoint no longer rebuilds the whole document from the body.
+ * For every optional identity/metadata field, `undefined` means "keep what is stored" and an
+ * explicit `null` means "clear it" — JSON serialization drops `undefined`, so a partial writer
+ * (e.g. the draft-sync tick, which sends only its own fields) cannot silently erase the stored
+ * Sleeper identity, season, or team metadata it did not send. An existing document is located
+ * either by the dedupe point query on (userId, provider, providerLeagueId) or, when the client
+ * supplies `id`, by a direct point read. `settings` remains required on the wire.
  */
 export async function upsertLeague(request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
   const auth = await requireUser(request);
@@ -42,35 +50,56 @@ export async function upsertLeague(request: HttpRequest, _context: InvocationCon
   // device/browser, or a league saved from the connect surface before any draft ran) would
   // otherwise upsert with no id and create a duplicate doc per browser — the exact hazard the
   // frontend's reconcile can only partially paper over. One point query on
-  // (userId, provider, providerLeagueId) makes the endpoint safe against any writer.
-  let id = body.id ?? randomUUID();
+  // (userId, provider, providerLeagueId) makes the endpoint safe against any writer; a client
+  // that DOES know the id gets the same existing-doc-in-hand treatment via a point read.
   const provider = normalizeProvider(body.provider);
-  if (!body.id && body.providerLeagueId && body.providerLeagueId.startsWith('mock:') === false) {
-    const { resources } = await leaguesContainer().items.query<string>({
-      query: 'SELECT VALUE c.id FROM c WHERE c.userId = @userId AND c.provider = @provider AND c.providerLeagueId = @providerLeagueId OFFSET 0 LIMIT 1',
+  let id = body.id ?? randomUUID();
+  let existing: SavedLeague | null = null;
+  if (body.id) {
+    try {
+      const { resource } = await leaguesContainer().item(id, auth.user.userId).read<SavedLeague>();
+      existing = resource ?? null;
+    } catch (error) {
+      // A supplied id that doesn't exist (yet) under this partition is just a first write.
+      if (!isCosmosNotFound(error)) throw error;
+    }
+  } else if (body.providerLeagueId && body.providerLeagueId.startsWith('mock:') === false) {
+    const { resources } = await leaguesContainer().items.query<SavedLeague>({
+      query: 'SELECT * FROM c WHERE c.userId = @userId AND c.provider = @provider AND c.providerLeagueId = @providerLeagueId OFFSET 0 LIMIT 1',
       parameters: [
         { name: '@userId', value: auth.user.userId },
         { name: '@provider', value: provider },
         { name: '@providerLeagueId', value: body.providerLeagueId },
       ],
     }).fetchAll();
-    const [existingId] = resources;
-    if (existingId) id = existingId;
+    existing = resources[0] ?? null;
+    if (existing) id = existing.id;
   }
+  /** `undefined` on the wire keeps the stored value; an explicit `null` clears it. */
+  const keep = <T>(stored: T | undefined, incoming: T | undefined): T | undefined =>
+    incoming === undefined ? stored : incoming;
   const league: SavedLeague = {
     id,
     userId: auth.user.userId,
-    provider,
-    providerLeagueId: body.providerLeagueId ?? null,
-    name: body.name ?? 'Untitled league',
-    season: body.season ?? '', // remains '' on the draft-sync path (DraftInit carries no season); the league-connect path supplies a real one (DECISIONS.md, 2026-08-26)
-    teams: body.teams ?? 0,
-    rounds: body.rounds ?? 0,
-    mySlot: body.mySlot ?? null,
+    // Provider is IMMUTABLE once stored. It is the dedupe key's second component, so letting a
+    // writer change it (including an explicit null, which normalizeProvider would silently coerce
+    // to 'manual') would desynchronize the document from the (userId, provider, providerLeagueId)
+    // lookup — the next save would miss the existing doc and duplicate it. Changing provider
+    // means deleting the league and reconnecting.
+    provider: existing ? existing.provider : provider,
+    providerLeagueId: keep(existing?.providerLeagueId, body.providerLeagueId) ?? null,
+    name: keep(existing?.name, body.name) ?? 'Untitled league', // the default applies only when nothing is stored
+    season: keep(existing?.season, body.season) ?? '', // '' only when nothing is stored (DraftInit carries no season — DECISIONS.md, 2026-08-26)
+    teams: keep(existing?.teams, body.teams) ?? 0,
+    rounds: keep(existing?.rounds, body.rounds) ?? 0,
+    mySlot: keep(existing?.mySlot, body.mySlot) ?? null,
     settings: body.settings,
-    providerUserId: body.providerUserId ?? null,
-    latestDraftId: body.latestDraftId ?? null,
-    createdAt: body.createdAt ?? now,
+    providerUserId: keep(existing?.providerUserId, body.providerUserId) ?? null,
+    providerUsername: keep(existing?.providerUsername, body.providerUsername) ?? null,
+    providerTeamId: keep(existing?.providerTeamId, body.providerTeamId) ?? null,
+    providerTeamName: keep(existing?.providerTeamName, body.providerTeamName) ?? null,
+    latestDraftId: keep(existing?.latestDraftId, body.latestDraftId) ?? null,
+    createdAt: keep(existing?.createdAt, body.createdAt) ?? now,
     updatedAt: now,
   };
   const { resource } = await leaguesContainer().items.upsert<SavedLeague>(league);
