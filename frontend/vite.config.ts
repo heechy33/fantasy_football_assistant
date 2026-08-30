@@ -31,6 +31,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    // Pin the auth vendor for the test run. Vitest loads `.env.local` like any Vite mode, so a
+    // developer's local `VITE_AUTH_PROVIDER=clerk` (fine for `npm run dev`) would otherwise leak
+    // into the suite: the Clerk adapter never resolves in jsdom and every RequireAuth-gated test
+    // hangs at "Loading your account…" forever. Tests use the mock adapter, always.
+    env: { VITE_AUTH_PROVIDER: 'mock' },
     // `*.bench.ts` files here use plain `describe`/`it` (gated opt-in, like
     // benchmarkAvailability.bench.ts), not Vitest's separate `bench()` benchmarking API — so they
     // must be picked up by `vitest run`, not routed to the distinct `vitest bench` command.

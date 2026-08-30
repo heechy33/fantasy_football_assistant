@@ -11,6 +11,7 @@ import { OnboardingLayout, OnboardingPlan, OnboardingReady } from './routes/onbo
 import { OnboardingLeague } from './routes/onboarding/OnboardingLeague';
 import { LeaguesRoute } from './routes/LeaguesRoute';
 import { ConnectLeagueRoute } from './routes/ConnectLeagueRoute';
+import { LeagueDetailRoute } from './routes/LeagueDetailRoute';
 import { DraftSessionProvider } from './session/DraftSessionProvider';
 import './App.css';
 
@@ -41,6 +42,10 @@ export function AppRoutes() {
                   and bookmarks keep working. */}
               <Route path="leagues" element={<LeaguesRoute />} />
               <Route path="leagues/connect" element={<ConnectLeagueRoute />} />
+              {/* League detail (summary + drafted team). Static `connect` outranks the dynamic
+                  `:leagueId` in React Router's ranking, so order isn't load-bearing here — kept
+                  after it anyway for readability. */}
+              <Route path="leagues/:leagueId" element={<LeagueDetailRoute />} />
               <Route path="teams" element={<Navigate to="/leagues" replace />} />
               <Route path="onboarding" element={<OnboardingLayout />}>
                 <Route index element={<OnboardingLeague />} />
