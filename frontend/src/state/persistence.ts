@@ -8,7 +8,12 @@ import type { PickOverride } from './draftBoardState';
 // only value that build could write for a bridge session) restores a disarmed manual session while
 // `activeProvider` still paints the ESPN pill, and its overrides can mask a live stream that no
 // longer produces them. Bumping the key drops the old record wholesale instead of half-restoring it.
-const STORAGE_KEY = 'ffa.draftSession.v2';
+//
+// Bumped again v2 -> v3 (2026-08-28): mode gained 'complete', plus completedAt/from/savedLeagueId.
+// This bump is doing double duty as the fix for the "stuck on local storage" bug — every v2 record
+// on a user's machine (some of them genuinely stale, resurrected by the write-side bug fixed
+// alongside this in DraftSessionProvider) is dropped in one move rather than needing a migration.
+const STORAGE_KEY = 'ffa.draftSession.v3';
 
 /**
  * Session mode as persisted. This is a superset of `DraftBoardState['mode']` ('live' | 'manual'):
@@ -17,7 +22,7 @@ const STORAGE_KEY = 'ffa.draftSession.v2';
  * ESPN `{ kind: 'bridge' }` session rather than a plain Sleeper 'connected' one. 'espn' captures
  * that distinction; the board-mode value derived from it is always 'live'.
  */
-export type PersistedSessionMode = 'live' | 'manual' | 'espn';
+export type PersistedSessionMode = 'live' | 'manual' | 'espn' | 'complete';
 
 /**
  * Sleeper has no auth, so a stored userId is not a secret — persisting it
@@ -25,6 +30,14 @@ export type PersistedSessionMode = 'live' | 'manual' | 'espn';
  * reconstruct the full board instead of losing corrections. `frozenInit`
  * carries the latest DraftInit captured by a manual takeover (or the ESPN bridge's manual-form
  * base), so a refresh restores the recommendation workspace and clock math, not just the picks.
+ *
+ * `completedAt`/`from`/`provider`/`savedLeagueId` (2026-08-28) only carry meaning when
+ * `mode === 'complete'`: `from` is the mode the session completed FROM (reusing this same
+ * vocabulary — 'live'/'espn' map back to the session kinds 'connected'/'bridge'), and `provider`
+ * is `ActiveProvider` as it stood the instant before completion — stored explicitly rather than
+ * re-derived from `from`, since a manual (takeover) session's kind alone can't distinguish a
+ * Sleeper takeover from an ESPN one (that's `reconnectCred`, which nothing here persists). Without
+ * this a rehydrated manual completion would have no honest way to recover which provider it was.
  */
 export interface PersistedSession {
   userId: string | null;
@@ -32,6 +45,10 @@ export interface PersistedSession {
   mode: PersistedSessionMode;
   overrides: PickOverride[];
   frozenInit: DraftInit | null;
+  completedAt: string | null;
+  from: PersistedSessionMode | null;
+  provider: 'sleeper' | 'espn' | null;
+  savedLeagueId: string | null;
 }
 
 /**
@@ -65,6 +82,10 @@ export function savePersistedSession(session: PersistedSession): void {
   }
 }
 
+function isPersistedModeLike(value: unknown): value is PersistedSessionMode {
+  return value === 'manual' || value === 'espn' || value === 'complete' || value === 'live';
+}
+
 export function loadPersistedSession(): PersistedSession | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -73,9 +94,13 @@ export function loadPersistedSession(): PersistedSession | null {
     return {
       userId: typeof parsed.userId === 'string' ? parsed.userId : null,
       draftId: typeof parsed.draftId === 'string' ? parsed.draftId : null,
-      mode: parsed.mode === 'manual' || parsed.mode === 'espn' ? parsed.mode : 'live',
+      mode: isPersistedModeLike(parsed.mode) ? parsed.mode : 'live',
       overrides: Array.isArray(parsed.overrides) ? parsed.overrides as PickOverride[] : [],
       frozenInit: isDraftInitLike(parsed.frozenInit) ? parsed.frozenInit : null,
+      completedAt: typeof parsed.completedAt === 'string' ? parsed.completedAt : null,
+      from: isPersistedModeLike(parsed.from) ? parsed.from : null,
+      provider: parsed.provider === 'sleeper' || parsed.provider === 'espn' ? parsed.provider : null,
+      savedLeagueId: typeof parsed.savedLeagueId === 'string' ? parsed.savedLeagueId : null,
     };
   } catch {
     return null;

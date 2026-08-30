@@ -37,6 +37,10 @@ afterEach(() => {
   localStorage.clear();
 });
 
+/** Every field a live (non-complete) record leaves at its null default — spread into a round-trip
+ * expectation so adding a future complete-only field doesn't require editing every other test. */
+const NULL_COMPLETION_FIELDS = { completedAt: null, from: null, provider: null, savedLeagueId: null };
+
 describe('persistence', () => {
   it('round-trips a session through localStorage', () => {
     savePersistedSession({
@@ -45,6 +49,7 @@ describe('persistence', () => {
       mode: 'live',
       overrides: [OVERRIDE],
       frozenInit: null,
+      ...NULL_COMPLETION_FIELDS,
     });
 
     expect(loadPersistedSession()).toEqual({
@@ -53,6 +58,7 @@ describe('persistence', () => {
       mode: 'live',
       overrides: [OVERRIDE],
       frozenInit: null,
+      ...NULL_COMPLETION_FIELDS,
     });
   });
 
@@ -63,6 +69,7 @@ describe('persistence', () => {
       mode: 'manual',
       overrides: [OVERRIDE],
       frozenInit: FROZEN_INIT,
+      ...NULL_COMPLETION_FIELDS,
     });
 
     expect(loadPersistedSession()).toEqual({
@@ -71,6 +78,7 @@ describe('persistence', () => {
       mode: 'manual',
       overrides: [OVERRIDE],
       frozenInit: FROZEN_INIT,
+      ...NULL_COMPLETION_FIELDS,
     });
   });
 
@@ -81,6 +89,7 @@ describe('persistence', () => {
       mode: 'espn',
       overrides: [OVERRIDE],
       frozenInit: FROZEN_INIT,
+      ...NULL_COMPLETION_FIELDS,
     });
 
     expect(loadPersistedSession()).toEqual({
@@ -89,6 +98,33 @@ describe('persistence', () => {
       mode: 'espn',
       overrides: [OVERRIDE],
       frozenInit: FROZEN_INIT,
+      ...NULL_COMPLETION_FIELDS,
+    });
+  });
+
+  it('round-trips a completed session (mode complete, plus completedAt/from/provider/savedLeagueId)', () => {
+    savePersistedSession({
+      userId: null,
+      draftId: null,
+      mode: 'complete',
+      overrides: [OVERRIDE],
+      frozenInit: FROZEN_INIT,
+      completedAt: '2026-08-28T12:00:00.000Z',
+      from: 'espn',
+      provider: 'espn',
+      savedLeagueId: 'league-42',
+    });
+
+    expect(loadPersistedSession()).toEqual({
+      userId: null,
+      draftId: null,
+      mode: 'complete',
+      overrides: [OVERRIDE],
+      frozenInit: FROZEN_INIT,
+      completedAt: '2026-08-28T12:00:00.000Z',
+      from: 'espn',
+      provider: 'espn',
+      savedLeagueId: 'league-42',
     });
   });
 
@@ -107,8 +143,22 @@ describe('persistence', () => {
     expect(loadPersistedSession()).toBeNull();
   });
 
-  it('coerces a malformed frozenInit to null instead of crashing on mount', () => {
+  // v2 -> v3 bump (2026-08-28, mode gained 'complete'): same reasoning as v1 -> v2 above, a v2
+  // record must be dropped wholesale rather than half-restored — it has no completedAt/from/
+  // provider/savedLeagueId fields at all, so there's nothing sensible to reconstruct.
+  it('ignores a legacy v2 record entirely, not just a v1 one', () => {
     localStorage.setItem('ffa.draftSession.v2', JSON.stringify({
+      userId: 'u-3',
+      draftId: 'd-1',
+      mode: 'manual',
+      overrides: [],
+      frozenInit: null,
+    }));
+    expect(loadPersistedSession()).toBeNull();
+  });
+
+  it('coerces a malformed frozenInit to null instead of crashing on mount', () => {
+    localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
       userId: null,
       draftId: null,
       mode: 'manual',
@@ -118,17 +168,35 @@ describe('persistence', () => {
     expect(loadPersistedSession()?.frozenInit).toBeNull();
   });
 
+  it('coerces an unrecognized mode to "live" rather than crashing or defaulting to "complete"', () => {
+    localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
+      userId: null,
+      draftId: null,
+      mode: 'not-a-real-mode',
+      overrides: [],
+      frozenInit: null,
+    }));
+    expect(loadPersistedSession()?.mode).toBe('live');
+  });
+
   it('returns null when nothing has been saved', () => {
     expect(loadPersistedSession()).toBeNull();
   });
 
   it('returns null for corrupted stored JSON rather than throwing', () => {
-    localStorage.setItem('ffa.draftSession.v2', '{not valid json');
+    localStorage.setItem('ffa.draftSession.v3', '{not valid json');
     expect(loadPersistedSession()).toBeNull();
   });
 
   it('clearPersistedSession removes the stored session', () => {
-    savePersistedSession({ userId: 'u-3', draftId: 'd-1', mode: 'manual', overrides: [], frozenInit: null });
+    savePersistedSession({
+      userId: 'u-3',
+      draftId: 'd-1',
+      mode: 'manual',
+      overrides: [],
+      frozenInit: null,
+      ...NULL_COMPLETION_FIELDS,
+    });
     clearPersistedSession();
     expect(loadPersistedSession()).toBeNull();
   });
