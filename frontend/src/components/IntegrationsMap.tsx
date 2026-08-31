@@ -21,8 +21,16 @@ const BRANCH_PATHS = [
   'M 720 140 V 70 H 400 V 0', // yahoo
 ];
 
-/** Non-uniform per-branch delays so the pulses never read as a metronome. */
-const BRANCH_DELAYS = ['0s', '1.4s', '2.6s', '3.5s', '5.1s'];
+/** Non-uniform per-branch delays, spaced across the full 20s loop (App.css's
+ * `.integrations-pulse-*` duration) so every consecutive gap exceeds the ~3s travel window each
+ * comet takes to cross its wire. All five branches' final approach shares the exact same trunk
+ * pixels into the hub (`BRANCH_PATHS`'s common ` H 400 V 0`/`V 0` tail) — the original tighter
+ * delays (0/1.4/2.6/3.5/5.1s on a 10s loop) had overlapping travel windows, so two or three comets
+ * were regularly mid-flight through that shared trunk at once, reading as cars queued nose-to-tail
+ * rather than one comet at a time (2026-08-30 fix). These gaps (3.8/4.4/3.9/4.3/3.6s, wrapping)
+ * stay irregular on purpose — evenly-spaced delays would read as a metronome — but none is smaller
+ * than the travel window, so at most one comet is ever in flight. */
+const BRANCH_DELAYS = ['0s', '3.8s', '8.2s', '12.1s', '16.4s'];
 
 /**
  * The "03 · Data sources" illustration: a hub plate wired to one tile per platform, with an

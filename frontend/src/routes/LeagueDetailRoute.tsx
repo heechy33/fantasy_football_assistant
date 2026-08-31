@@ -57,7 +57,7 @@ export function LeagueDetailRoute() {
     return (
       <section className="leagues-page" aria-label="League detail">
         <p role="alert">League not found — it may have been removed.</p>
-        <Link to="/leagues" className="primary-button">Back to My Leagues</Link>
+        <Link to="/leagues" className="primary-button">Back</Link>
       </section>
     );
   }

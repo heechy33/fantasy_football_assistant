@@ -118,7 +118,7 @@ export function DraftRoomRoute() {
               the user leaves via one of these two buttons, never automatically. */}
           <div className="draft-complete-banner" role="status">
             <p>
-              <strong>This draft is complete.</strong> The board below is a read-only record of how it went.
+              <strong>This draft is complete.</strong>
             </p>
             {saveError && <p role="alert">{saveError}</p>}
             <div className="draft-complete-banner-actions">

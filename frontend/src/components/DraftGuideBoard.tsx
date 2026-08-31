@@ -1,10 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import type { PlayerId } from '../../../shared/types';
 import { buildDraftGrid } from '../data/guideDraftGrid';
 import { positionRankLabel } from '../data/guideTableColumns';
 import type { GuideRow } from '../data/guideBoard';
-import { PositionBadge } from './PositionBadge';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerPortrait } from './PlayerPortrait';
+import { teamLogoUrl } from '../data/playerPortrait';
+
+// Same helper PlayerCard/PlayerBoardRow use for their team-logo watermark — a background-image
+// custom property rather than an <img>, so a renamed-franchise 404 just doesn't paint.
+function teamChromeStyle(team: string | null): CSSProperties {
+  const logo = teamLogoUrl(team);
+  return { '--team-logo': logo ? `url(${logo})` : 'none' } as CSSProperties;
+}
 
 export interface DraftGuideBoardProps {
   rows: readonly GuideRow[];
@@ -55,17 +63,38 @@ export function DraftGuideBoard({ rows, teams, rounds, sourceRankByPlayer, posit
                       <button
                         type="button"
                         className="guide-grid-cell"
+                        data-team={player?.team ?? undefined}
+                        style={teamChromeStyle(player?.team ?? null)}
                         onClick={() => onSelectPlayer(cell.row!.playerId)}
                         title={`${cell.row.player?.name ?? cell.row.playerId} \u2014 pick ${cell.overall} (round ${cell.round}, slot ${cell.slot})`}
                       >
-                        <PlayerAvatar name={cell.row.player?.name ?? cell.row.playerId} team={player?.team ?? null} />
+                        {player ? (
+                          <PlayerPortrait player={player} className="guide-grid-portrait" />
+                        ) : (
+                          <PlayerAvatar name={cell.row.player?.name ?? cell.row.playerId} team={null} />
+                        )}
                         <span className="guide-grid-main">
-                          <span className="guide-grid-overall">#{cell.overall}</span>
-                          <span className="guide-grid-name">{player?.name ?? cell.row.playerId}</span>
-                        </span>
-                        <span className="guide-grid-tags">
-                          {player?.position != null && <PositionBadge position={player.position} />}
-                          {posRank != null && <span className="guide-grid-posrank">{posRank}</span>}
+                          <span className="guide-grid-top">
+                            <span className="guide-grid-overall">#{cell.overall}</span>
+                            <span className="guide-grid-name">{player?.name ?? cell.row.playerId}</span>
+                          </span>
+                          <span className="guide-grid-team">
+                            {player?.team && (
+                              <img
+                                className="guide-grid-team-logo"
+                                src={`/team-logos/${player.team.toLowerCase()}.png`}
+                                alt=""
+                                aria-hidden="true"
+                                loading="lazy"
+                              />
+                            )}
+                            {player?.team ?? 'FA'}
+                            {posRank != null && (
+                              <span className="guide-pos-pill guide-pos-pill-inline" data-position={player?.position ?? undefined}>
+                                {posRank}
+                              </span>
+                            )}
+                          </span>
                         </span>
                       </button>
                     )}

@@ -85,11 +85,13 @@ describe('DraftGuideBoard', () => {
     expect(screen.getByText('Pick 4: unranked')).toBeInTheDocument(); // visually-hidden but queryable
   });
 
-  it('shows monogram avatars and positional-rank chips', () => {
+  it('shows real headshots, team logo, and positional-rank chips', () => {
     const { container } = renderBoard({ positionRankByPlayer: buildPositionRankByPlayer(ROWS) });
-    const avatar = container.querySelector('.player-avatar')!;
-    expect(avatar).toHaveTextContent('AS'); // Amon-Ra St. Brown → first letters of first two words
-    expect(avatar).toHaveAttribute('data-team', 'DET');
+    const cell = container.querySelector('button.guide-grid-cell')!;
+    expect(cell).toHaveAttribute('data-team', 'DET');
+    const portrait = cell.querySelector('img.guide-grid-portrait')!;
+    expect(portrait.getAttribute('src')).toContain('sleepercdn.com/content/nfl/players/a.jpg');
+    expect(cell.querySelector('img.guide-grid-team-logo')).toHaveAttribute('src', '/team-logos/det.png');
     // Pick 1 is the top-ranked row overall, but chips are PER-POSITION: pick 2 (Gibbs) is RB1.
     expect(screen.getByText('RB1')).toBeInTheDocument();
     expect(screen.getByText('WR1')).toBeInTheDocument();

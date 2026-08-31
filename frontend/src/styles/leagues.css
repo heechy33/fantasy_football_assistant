@@ -100,68 +100,37 @@
 .league-tile-link { color: inherit; }
 .league-tile-link::after { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
 
-/* Live-detected ESPN draft (DraftLauncher, 2026-08-28): the one-click "Enter draft room" card.
-   Accent edge + badge make it the obvious first thing on the page without shouting. */
-.espn-live-tile { border-color: var(--accent-cool); }
-.espn-live-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: .18rem .6rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent-cool-wash);
-  color: var(--chrome-ink);
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-/* Pending state (2026-09-01): the compact "still detecting the draft grid" strip — quieter than
-   the full card (neutral edge, muted name) so the accent-edge detailed card visibly "arrives"
-   when the grid resolves, and a small pulsing dot echoes the top-nav connection pill. */
-.espn-live-pending { border-color: var(--border-1); }
-.espn-live-pending .espn-live-badge { background: rgb(255 255 255 / .05); color: var(--text-2); }
-.espn-live-pending::before {
-  content: '';
-  position: absolute;
-  top: 1.35rem;
-  right: 1.2rem;
-  width: .5rem;
-  height: .5rem;
-  border-radius: 50%;
-  background: var(--accent-cool);
-  box-shadow: 0 0 8px var(--accent-cool);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .espn-live-pending::before { animation: landing-feed-pulse 1.6s ease-in-out infinite; }
-}
+/* Draft Room pick rows (DraftLauncher, 2026-08-30): flat list rows for the Sleeper draft list and
+ * the ESPN live-detected card — no bordered/shadowed tile, just a hairline divider between rows,
+ * matching the connect page's plainer information density. Renders ONLY once fully detected (see
+ * EspnLiveDetectedCard's doc) — a stale/disconnected snapshot shows nothing rather than a
+ * half-known card. */
+.draft-pick-list { display: flex; flex-direction: column; margin: .5rem 0 0; padding: 0; list-style: none; }
+.draft-pick-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.2rem; padding: .85rem 0; border-bottom: 1px solid var(--border-divider); }
+.draft-pick-row:last-child { border-bottom: 0; }
+.draft-pick-info { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.draft-pick-name { margin: 0; font-family: var(--font-display); font-size: 1rem; font-weight: 800; letter-spacing: -.01em; }
+.draft-pick-actions { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.draft-pick-seat { display: flex; flex-direction: column; gap: .2rem; font-size: .68rem; color: var(--text-3); }
+.draft-pick-seat input { width: 4.5rem; }
+.draft-pick-note { flex-basis: 100%; margin: 0; }
 
 /* ---------------------------------------------------------------------------------------------
- * Provider chooser — the connect page's provider picker (2026-09-01): a VERTICAL stack of
- * full-width rows, each a grid of logo / name / note in aligned columns, echoing the league-tile
- * treatment rather than a horizontal chip strip.
+ * Provider chooser — the connect page's provider picker, echoing IntegrationsMap's tile treatment
+ * (App.css ~536) for the same provider set the landing already renders. Also used at the top of
+ * the Draft Room launcher (DraftLauncher.tsx) so both surfaces read as the same chooser.
  * --------------------------------------------------------------------------------------------- */
-.provider-chooser {
-  display: grid;
-  gap: .55rem;
-  margin: 1.1rem 0 1.4rem;
-  padding: 0;
-  list-style: none;
-  max-width: 21rem;
-}
+.provider-chooser { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 1.1rem 0 1.4rem; padding: 0; list-style: none; }
 .provider-chip {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
-  gap: .7rem;
-  width: 100%;
-  padding: .65rem .95rem;
+  gap: .5rem;
+  padding: .55rem 1rem;
   border: 1px solid var(--border-divider);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-2);
   font-weight: 700;
-  text-align: left;
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
 /* :not([aria-selected="true"]) keeps this from outranking the selected-fill rule below on

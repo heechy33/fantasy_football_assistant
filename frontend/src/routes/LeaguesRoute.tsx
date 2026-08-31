@@ -69,7 +69,7 @@ function LeaguesHeading() {
         <p className="eyebrow">My Leagues</p>
         <h2>Your leagues</h2>
       </div>
-      <Link to="/leagues/connect" className="primary-button">Connect a league</Link>
+      <Link to="/leagues/connect" className="primary-button">Connect</Link>
     </div>
   );
 }

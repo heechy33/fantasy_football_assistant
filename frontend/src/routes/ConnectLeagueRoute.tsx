@@ -76,7 +76,7 @@ export function ConnectLeagueRoute() {
             <p className="eyebrow">My Leagues</p>
             <h2>Connect a league</h2>
           </div>
-          <Link to="/leagues" className="quiet-button">Back to My Leagues</Link>
+          <Link to="/leagues" className="quiet-button">Back</Link>
         </div>
       )}
 

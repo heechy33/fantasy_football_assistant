@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { EspnLeagueSnapshot, EspnLiveSnapshot, LeagueSettings, SavedDraft, SavedLeague } from '../../../shared/types';
 import { listSleeperDrafts, resolveUser, type SleeperDraftRef } from '../adapters/sleeper';
@@ -11,6 +11,9 @@ import { useActiveSavedDrafts } from '../data/useSavedDrafts';
 import { buildGuideSettings } from '../data/guideLeagueSettings';
 import { CURRENT_SEASON } from '../data/season';
 import { useDraftSession } from '../session/DraftSessionProvider';
+import { ProviderBadge } from './ProviderBadge';
+
+type LauncherProvider = 'sleeper' | 'espn';
 
 /** A live-detected ESPN draft with no confirmed round count yet still needs SOME number to seed
  * `DraftInit.rounds` with — this is a display/grid fallback only, never a scoring guess, and the
@@ -54,6 +57,16 @@ export function DraftLauncher() {
   // own captured real settings (2026-08-29) — see useEspnBridge's doc.
   const { status: espnStatus, live: espnLive, detectedLeague } = useEspnBridge(null);
 
+  // Same horizontal provider chooser as /leagues/connect (styles/leagues.css's .provider-chooser).
+  // Defaults to Sleeper; auto-switches to ESPN the first time a live draft is detected so a
+  // detected draft never hides behind an unclicked tab — but only until the user picks a tab
+  // themselves, so a deliberate switch back to Sleeper isn't fought on the next bridge poll.
+  const [activeProvider, setActiveProvider] = useState<LauncherProvider>('sleeper');
+  const userChoseProviderRef = useRef(false);
+  useEffect(() => {
+    if (espnLive != null && !userChoseProviderRef.current) setActiveProvider('espn');
+  }, [espnLive]);
+
   if (loading) {
     return (
       <section className="draft-room-empty">
@@ -96,40 +109,67 @@ export function DraftLauncher() {
 
       <ResumeSection drafts={activeDrafts} leagues={leagues} onResume={handleResumeDraft} onRemove={removeDraft} />
 
-      <div className="draft-selection">
-        <h3>Sleeper</h3>
-        {account ? (
-          <SleeperDraftList account={account} onConnect={handleConnect} />
-        ) : (
-          <p className="muted">No Sleeper account connected yet — paste a draft ID below, or connect your account from My Leagues.</p>
-        )}
-        <TrackByDraftId cred={account ? { provider: 'sleeper', userId: account.userId } : null} onConnect={handleConnect} />
+      <div className="provider-chooser" role="tablist" aria-label="Choose a provider">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeProvider === 'sleeper'}
+          className="provider-chip"
+          onClick={() => { userChoseProviderRef.current = true; setActiveProvider('sleeper'); }}
+        >
+          <ProviderBadge brandKey="sleeper" size="sm" />
+          Sleeper
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeProvider === 'espn'}
+          className="provider-chip"
+          onClick={() => { userChoseProviderRef.current = true; setActiveProvider('espn'); }}
+        >
+          <ProviderBadge brandKey="espn" size="sm" />
+          ESPN
+        </button>
+        <button type="button" role="tab" aria-selected={false} className="provider-chip" disabled>
+          <ProviderBadge brandKey="yahoo" size="sm" />
+          Yahoo <span className="provider-chip-note">coming soon</span>
+        </button>
       </div>
 
-      {espnLive != null && (
+      {activeProvider === 'sleeper' && (
         <div className="draft-selection">
-          <h3>ESPN</h3>
-          <ul className="league-grid">
-            <EspnLiveDetectedCard
-              live={espnLive}
-              status={espnStatus}
-              detectedLeague={detectedLeague}
-              resumable={espnLive.leagueId != null
-                ? activeDrafts.find(
-                    (d) => d.mode === 'espn' && d.frozenInit != null && d.frozenInit.leagueId === espnLive.leagueId,
-                  ) ?? null
-                : null}
-              onResume={handleResumeDraft}
-              onStart={(teams, rounds, seat, usesPresetSettings) =>
-                handleEspnStart(buildLiveDetectedLeague(espnLive, detectedLeague, teams, rounds), seat, usesPresetSettings)}
-            />
-          </ul>
+          {account && <SleeperDraftList account={account} onConnect={handleConnect} />}
+          <TrackByDraftId cred={account ? { provider: 'sleeper', userId: account.userId } : null} onConnect={handleConnect} />
+        </div>
+      )}
+
+      {activeProvider === 'espn' && (
+        <div className="draft-selection">
+          {espnLive != null ? (
+            <ul className="draft-pick-list">
+              <EspnLiveDetectedCard
+                live={espnLive}
+                status={espnStatus}
+                detectedLeague={detectedLeague}
+                resumable={espnLive.leagueId != null
+                  ? activeDrafts.find(
+                      (d) => d.mode === 'espn' && d.frozenInit != null && d.frozenInit.leagueId === espnLive.leagueId,
+                    ) ?? null
+                  : null}
+                onResume={handleResumeDraft}
+                onStart={(teams, rounds, seat, usesPresetSettings) =>
+                  handleEspnStart(buildLiveDetectedLeague(espnLive, detectedLeague, teams, rounds), seat, usesPresetSettings)}
+              />
+            </ul>
+          ) : (
+            <p className="muted">{ESPN_STATUS_COPY[espnStatus] ?? ''}</p>
+          )}
         </div>
       )}
 
       {leagues.length === 0 && (
         <p className="muted provider-card-note">
-          Nothing connected yet? <Link to="/leagues/connect" className="quiet-button">Connect a league</Link>
+          Nothing connected yet? <Link to="/leagues/connect" className="quiet-button">Connect</Link>
         </p>
       )}
     </section>
@@ -199,7 +239,7 @@ function SleeperDraftList({ account, onConnect }: {
     return () => { active = false; };
   }, [account.userId, attempt]);
 
-  if (loading) return <p className="muted">Loading your {CURRENT_SEASON} Sleeper drafts…</p>;
+  if (loading) return <p className="muted">Loading drafts…</p>;
   if (error) {
     return (
       <>
@@ -212,7 +252,7 @@ function SleeperDraftList({ account, onConnect }: {
     return <p className="muted">No {CURRENT_SEASON} Sleeper drafts on this account yet — paste a draft ID below.</p>;
   }
   return (
-    <ul className="league-grid">
+    <ul className="draft-pick-list">
       {drafts.map((draft) => (
         <SleeperDraftRow key={draft.draftId} draft={draft} account={account} onConnect={onConnect} />
       ))}
@@ -231,16 +271,16 @@ function SleeperDraftRow({ draft, account, onConnect }: {
 }) {
   const finished = FINISHED_DRAFT_STATUSES.has(draft.status);
   return (
-    <li className="league-tile">
-      <div className="league-tile-head">
-        <p className="league-tile-name">{draft.name}</p>
+    <li className="draft-pick-row">
+      <div className="draft-pick-info">
+        <p className="draft-pick-name">{draft.name}</p>
+        <ul className="meta-chips">
+          {draft.totalTeams != null && <li className="meta-chip">{draft.totalTeams} teams</li>}
+          <li className="meta-chip">{draft.type}</li>
+          {finished && <li className="meta-chip">finished</li>}
+        </ul>
       </div>
-      <ul className="meta-chips">
-        {draft.totalTeams != null && <li className="meta-chip">{draft.totalTeams} teams</li>}
-        <li className="meta-chip">{draft.type}</li>
-        {finished && <li className="meta-chip">finished</li>}
-      </ul>
-      <div className="league-tile-actions">
+      <div className="draft-pick-actions">
         <button
           type="button"
           disabled={finished}
@@ -302,16 +342,16 @@ function TrackByDraftId({ cred, onConnect }: {
     <form className="direct-draft-form" onSubmit={handleSubmit}>
       {!activeCred && !resolvedCred && (
         <label>
-          Track a Sleeper mock or a friend's draft — first, your username
+          Sleeper username
           <input value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} required />
         </label>
       )}
       <label>
-        Have a draft ID from someone else, or a mock?
-        <input value={draftId} onChange={(e) => setDraftId(e.target.value)} placeholder="Paste draft ID" />
+        Draft ID
+        <input value={draftId} onChange={(e) => setDraftId(e.target.value)} placeholder="Paste a draft ID" />
       </label>
       <button type="submit" disabled={!draftId.trim() || resolving}>
-        {activeCred || resolvedCred ? 'Track this draft ID' : 'Look up user, then track'}
+        {activeCred || resolvedCred ? 'Track' : 'Continue'}
       </button>
       {error && <p role="alert">{error}</p>}
     </form>
@@ -351,6 +391,13 @@ const ESPN_STATUS_COPY: Record<string, string> = {
  * ALL of `effTeams`/`effRounds`/`effSeason`/`derivedPosition`/`hasRealSettings` are gated on
  * `status === 'live'`: a stale/disconnected snapshot's numbers belong to whichever draft last
  * heartbeated, not necessarily this one (2026-08-29 "dead-draft snapshot" fix, DECISIONS.md).
+ *
+ * Renders NOTHING until `fullyDetected` (2026-08-30 simplification) — a dead/stale snapshot (the
+ * ESPN tab closed, an old mock's residue) used to render a "Live draft detected" card whose own
+ * status line said "disconnected", which read as broken rather than simply not-yet-connected.
+ * `ResumeSection` (in the module above) already covers getting back into a saved league's
+ * in-progress draft with no live detection required, so this card can afford to show nothing in
+ * between rather than a half-known placeholder.
  */
 function EspnLiveDetectedCard({ live, status, detectedLeague, resumable, onResume, onStart }: {
   live: EspnLiveSnapshot;
@@ -397,13 +444,10 @@ function EspnLiveDetectedCard({ live, status, detectedLeague, resumable, onResum
   const [overrideAccepted, setOverrideAccepted] = useState(false);
   const canEnter = (hasRealSettings || overrideAccepted) && seatValid;
 
-  // "Fully detected" (2026-09-01 redesign): the detailed card — real league name, season, teams,
-  // rounds, position input, Start tracking — renders ONLY once the live snapshot names the draft
-  // grid. Before that the card is a compact pending strip: no "season unknown" / "teams
-  // detecting…" placeholder chips and no Start button (it could not be pressed anyway —
-  // `seatValid` needs a team count) — just the bridge status and the settings-reading note. The
-  // one action that stays reachable in the pending state is Resume, which never needs the grid.
+  // Renders only once the live snapshot names the real draft grid — see the module doc above.
   const fullyDetected = isLive && effTeams != null && effRounds != null;
+  if (!fullyDetected) return null;
+
   const cardName = live.leagueName && live.leagueName !== ''
     ? live.leagueName
     : (live.leagueId ? `ESPN live draft (${live.leagueId})` : 'ESPN live draft');
@@ -417,54 +461,27 @@ function EspnLiveDetectedCard({ live, status, detectedLeague, resumable, onResum
     </button>
   );
 
-  if (!fullyDetected) {
-    return (
-      <li className="league-tile espn-live-tile espn-live-pending" data-testid="espn-live-detected-card" data-pending="true">
-        <div className="league-tile-head">
-          <p className="league-tile-name">{cardName}</p>
-          <span className="espn-live-badge">Live draft detected</span>
-        </div>
-        {live.mySlot != null && (
-          <p
-            className="muted"
-            title="Your ESPN team id from the live draft room — a team id, not your draft position."
-          >
-            Team {live.mySlot} detected
-          </p>
-        )}
-        <p className="muted" data-testid="espn-bridge-status">{ESPN_STATUS_COPY[status] ?? ''}</p>
-        {!hasRealSettings && (
-          <p className="muted" data-testid="espn-settings-status">
-            Reading your league&apos;s real scoring settings from ESPN…
-          </p>
-        )}
-        {resumeButton != null && <div className="league-tile-actions">{resumeButton}</div>}
-      </li>
-    );
-  }
-
   return (
-    <li className="league-tile espn-live-tile" data-testid="espn-live-detected-card">
-      <div className="league-tile-head">
-        <p className="league-tile-name">{cardName}</p>
-        <span className="espn-live-badge">Live draft detected</span>
+    <li className="draft-pick-row draft-pick-row-espn" data-testid="espn-live-detected-card">
+      <div className="draft-pick-info">
+        <p className="draft-pick-name">{cardName}</p>
+        <ul className="meta-chips">
+          <li className="meta-chip">{effSeason ?? String(CURRENT_SEASON)}</li>
+          <li className="meta-chip">{effTeams} teams</li>
+          <li className="meta-chip">{effRounds} rounds</li>
+          {live.mySlot != null && (
+            <li
+              className="meta-chip"
+              title="Your ESPN team id from the live draft room — a team id, not your draft position."
+            >
+              Team {live.mySlot}
+            </li>
+          )}
+        </ul>
       </div>
-      <ul className="meta-chips">
-        <li className="meta-chip">{effSeason ?? String(CURRENT_SEASON)}</li>
-        <li className="meta-chip">{effTeams} teams</li>
-        <li className="meta-chip">{effRounds} rounds</li>
-        {live.mySlot != null && (
-          <li
-            className="meta-chip"
-            title="Your ESPN team id from the live draft room — a team id, not your draft position."
-          >
-            Team {live.mySlot} detected
-          </li>
-        )}
-      </ul>
-      <div className="league-tile-actions">
-        <label>
-          Your draft position{seatDetected ? ' — detected from the live draft order ✓' : ''}
+      <div className="draft-pick-actions">
+        <label className="draft-pick-seat">
+          Position{seatDetected ? ' ✓' : ''}
           <input
             type="number"
             min={1}
@@ -474,16 +491,6 @@ function EspnLiveDetectedCard({ live, status, detectedLeague, resumable, onResum
             placeholder="e.g. 6"
           />
         </label>
-      </div>
-      <p className="muted" data-testid="espn-bridge-status">{ESPN_STATUS_COPY[status] ?? ''}</p>
-      {!hasRealSettings && (
-        <p className="muted" data-testid="espn-settings-status">
-          {overrideAccepted
-            ? "Tracking with a guessed PPR scoring preset — not this league's real settings."
-            : "Reading your league's real scoring settings from ESPN…"}
-        </p>
-      )}
-      <div className="league-tile-actions">
         {resumeButton}
         <button
           type="button"
@@ -495,10 +502,17 @@ function EspnLiveDetectedCard({ live, status, detectedLeague, resumable, onResum
         </button>
         {!hasRealSettings && !overrideAccepted && (
           <button type="button" className="quiet-button" onClick={() => setOverrideAccepted(true)}>
-            Start without ESPN&apos;s scoring (PPR preset)
+            Start without ESPN&apos;s scoring
           </button>
         )}
       </div>
+      {!hasRealSettings && (
+        <p className="muted draft-pick-note" data-testid="espn-settings-status">
+          {overrideAccepted
+            ? 'Tracking with a guessed PPR scoring preset.'
+            : "Reading your league's real scoring settings from ESPN…"}
+        </p>
+      )}
     </li>
   );
 }

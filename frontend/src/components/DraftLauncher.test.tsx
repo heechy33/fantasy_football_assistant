@@ -133,7 +133,7 @@ describe('DraftLauncher — Sleeper', () => {
     expect(await screen.findByText('League draft')).toBeTruthy();
     expect(listSleeperDraftsMock).toHaveBeenCalledWith({ provider: 'sleeper', userId: 'u-9' }, '2026');
     // Account known → the paste form never asks for a username.
-    expect(screen.queryByText(/first, your username/i)).toBeNull();
+    expect(screen.queryByText(/Sleeper username/i)).toBeNull();
     await userEvent.click(await screen.findByRole('button', { name: 'Track draft' }));
     expect(handleConnectMock).toHaveBeenCalledWith({ provider: 'sleeper', userId: 'u-9' }, 'd-1');
   });
@@ -165,7 +165,7 @@ describe('DraftLauncher — Sleeper', () => {
 
   it('with zero saved leagues it keeps the resolve-a-username escape hatch in the paste form', () => {
     harness();
-    expect(screen.getByText(/first, your username/i)).toBeTruthy();
+    expect(screen.getByText(/Sleeper username/i)).toBeTruthy();
     // The hoisted bridge poller is ALWAYS on — live detection without a saved league (mocks, a
     // friend's league) requires listening even when nothing is connected.
     expect(useEspnBridgeMock).toHaveBeenCalledWith(null);
@@ -177,7 +177,7 @@ describe('DraftLauncher — Sleeper', () => {
     // null into component state and demanded a username from a known user).
     listSleeperDraftsMock.mockResolvedValue([]);
     const view = harness();
-    expect(screen.getByText(/first, your username/i)).toBeTruthy();
+    expect(screen.getByText(/Sleeper username/i)).toBeTruthy();
     mockAccountHook({ userId: 'u-9', username: 'coach_x' });
     view.rerender(
       <MemoryRouter>
@@ -185,7 +185,7 @@ describe('DraftLauncher — Sleeper', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText(/No 2026 Sleeper drafts on this account yet/)).toBeTruthy();
-    expect(screen.queryByText(/first, your username/i)).toBeNull();
+    expect(screen.queryByText(/Sleeper username/i)).toBeNull();
   });
 });
 
@@ -202,7 +202,10 @@ describe('DraftLauncher — ESPN (live-only, 2026-08-29 redesign)', () => {
     useEspnBridgeMock.mockReturnValue({
       status: 'live',
       extensionPresent: true,
-      live: { schemaVersion: 2, leagueId: 'a-different-league', lastHeartbeatAt: 1, mySlot: 7, streamPicks: [] },
+      live: {
+        schemaVersion: 2, leagueId: 'a-different-league', lastHeartbeatAt: 1, mySlot: 7, streamPicks: [],
+        leagueTeams: 10, leagueRounds: 14,
+      },
       detectedLeague: null,
     });
     harness();
@@ -300,17 +303,17 @@ describe('DraftLauncher — ESPN (live-only, 2026-08-29 redesign)', () => {
     // No confirmed order yet (empty stream) — the seat is honestly not auto-detected, matching the
     // existing "never presents the team id as a draft position" behavior; the button is still
     // gated on a typed seat, not on scoring settings.
-    const seatInput = screen.getByLabelText(/Your draft position/);
+    const seatInput = screen.getByLabelText(/Position/);
     expect(seatInput).toHaveValue(null);
     await userEvent.type(seatInput, '3');
     const button = screen.getByRole('button', { name: 'Start tracking' }) as HTMLButtonElement;
     expect(button.disabled).toBe(false);
   });
 
-  it('renders a compact pending card while the draft grid is unknown — no placeholder chips, no start', async () => {
-    // 2026-09-01 redesign: the detailed card (season/teams/rounds chips + Start tracking) renders
-    // ONLY once fully connected; before that, an honest compact strip — no "season unknown" or
-    // "detecting…" chips, no seat input, and no Start button (it could never be pressed anyway).
+  it('renders nothing while the draft grid is unknown — no half-known card', () => {
+    // 2026-08-30: a snapshot with no confirmed teams/rounds yet used to render a compact "pending"
+    // card. That read as broken more than "not yet connected", so it now renders nothing at all
+    // until the real grid is known.
     useEspnBridgeMock.mockReturnValue({
       status: 'stale',
       extensionPresent: true,
@@ -319,23 +322,13 @@ describe('DraftLauncher — ESPN (live-only, 2026-08-29 redesign)', () => {
       detectedLeague: null,
     });
     harness();
-    const card = await screen.findByTestId('espn-live-detected-card');
-    expect(card).toHaveAttribute('data-pending', 'true');
-    // The team id is still named honestly (a team id, NOT a draft position) — but there is no
-    // seat input and no start surface of any kind until the grid resolves.
-    expect(screen.getByText(/Team 7 detected/)).toBeTruthy();
-    expect(screen.queryByLabelText(/Your draft position/)).toBeNull();
-    expect(screen.queryByText('teams detecting…')).toBeNull();
-    expect(screen.queryByText('rounds detecting…')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Enter draft room' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Start tracking' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Start without ESPN's scoring/ })).toBeNull();
+    expect(screen.queryByTestId('espn-live-detected-card')).toBeNull();
   });
 
-  it('does not detect a seat or offer real settings from a STALE live-detected snapshot (dead draft residue)', async () => {
+  it('renders nothing for a STALE live-detected snapshot (dead draft residue), even with a full stream', () => {
     // 2026-08-29: the shared extension key survives a finished/closed draft. A corpse snapshot
-    // (status disconnected — dead heartbeat) with a full stream must not derive a position from
-    // the OLD draft's order, nor trust a detectedLeague that no longer matches what's live.
+    // (status disconnected — dead heartbeat) must not surface a card at all, since `isLive` (and
+    // therefore `fullyDetected`) is false for any non-'live' status regardless of stream content.
     useEspnBridgeMock.mockReturnValue({
       status: 'disconnected',
       extensionPresent: true,
@@ -352,14 +345,7 @@ describe('DraftLauncher — ESPN (live-only, 2026-08-29 redesign)', () => {
       detectedLeague: espnLeagueSnapshot({ leagueId: 'L1', scoring: { rec: 1 } }),
     });
     harness();
-    expect(await screen.findByTestId('espn-live-detected-card')).toBeTruthy();
-    // Pending card (2026-09-01): a stale/corpse snapshot never shows the detailed card, the seat
-    // input, or any start surface — the old draft's grid belongs to a draft that's gone.
-    expect(screen.queryByLabelText(/Your draft position/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Enter draft room' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Start tracking' })).toBeNull();
-    expect(screen.queryByText('teams detecting…')).toBeNull();
-    expect(screen.getByTestId('espn-bridge-status')).toHaveTextContent('ESPN draft tab disconnected');
+    expect(screen.queryByTestId('espn-live-detected-card')).toBeNull();
   });
 });
 
