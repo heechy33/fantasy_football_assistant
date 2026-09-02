@@ -228,3 +228,130 @@ two-turn rollout, and opponent-model calibration (S6).
 > The deferral above was written when measured main-thread cost was the binding constraint; the
 > latency follow-up ended up needing the worker on the live clock path regardless. Two-turn rollouts
 > and opponent-model calibration (S6) remain deferred.
+
+---
+
+## S4 — Draft experience and explanations — complete (with named leftovers)
+
+Shipped: engine/ADP board modes with position tabs and cards/rows presentation (`BoardFilters.tsx`),
+roster/open-slot rail (`MyTeamRail`), the top-three recommendation panel, tier/availability/value/
+confidence fields (`NextPickSurvivalMeter.tsx`, `PlayerDetailDrawer.tsx`), the card's next-up tier
+chip (`NextUpChip`, 2026-08-23 — consumes `tierBoundaryGap`/`nearTierGap`), and data-health status
+(`DataHealth.tsx`). Exit criteria met: every recommendation explains immediate roster value and
+waiting risk; low-confidence/stale data cannot appear as high-confidence advice; a user can complete
+a full mock without opening developer tools (verified across the 2026-08-28/29/30 live mocks).
+
+Deferred to `PLAN.md`'s backlog (still unbuilt as of 2026-08-30): board player search, manual
+pin/avoid/custom-rank override, a fuller tier-cliff view (text-only today), a consolidated source/
+freshness panel, and a wired reconnect path.
+
+---
+
+## S5 — Reliability and clock testing — closed 2026-08-30 on operational evidence
+
+**Why closure is operational, not instrumented:** the original acceptance was the DEV clock test
+(`benchmarks/reports/2026-08-20-clock-test.md`, `frontend/src/lib/perf.ts` marks + `DraftTimingPanel`).
+That instrumentation was deliberately removed in `ec69271` (dev-only chrome on the live surface), so
+the report's "already shipped" instrumentation line is stale — the file now carries a superseded
+header. In its place, before S5 closed, five distinct live-draft bugs were found by the user's own
+mock drafts and fixed with regression tests — which is the substance S5 existed to produce. The
+five, all logged in `DECISIONS.md`'s 2026-08-28/29 entries (see those dated headers for the
+blow-by-blow).
+
+Production mechanics shipped and tested: poll backoff honoring `Retry-After`
+(`hooks/useDraftPoll.ts:244-247`), visibility/tab-suspension handling (`:283-294`, `:381-389`),
+staleness display (`:300-308`), duplicate-pick detection (`components/DataHealth.tsx:46-55`),
+unmatched players surfaced end-to-end (`adapters/sleeper.ts:315-317` →
+`RecommendationBoard.tsx:519-521`, forcing `confidence='low'` at `engine/recommend.ts:1076`), and
+draft-completion detection (`session/completion.ts` — a real `{ kind: 'complete' }` session state
+with an explicit-exit banner instead of polling a finished draft forever).
+
+Latency: the leg the project controls is CI-gated — `engine/recommendPerformance.test.ts:250-292`
+pins median Stage C latency < 3000 ms against real committed `data/`. Live end-to-end: the ESPN
+bridge reflects picks in under 1s; Sleeper adds 5-15s of upstream publish lag that no poll interval
+can fix. Per the owner's call, S5 closed flat without recording the Sleeper figure (upstream lag is
+not the product's clock). The reconnect handler in `useDraftPoll.ts:327-329` is implemented but has
+no call sites yet — carried in the backlog, not a defect.
+
+---
+
+## S6 — Edge Validation Gate — closed and authorized 2026-08-30
+
+### Phase 2 (survival curve) — closed 2026-08-21; the current model ships unchanged
+
+Phase 2a diagnosed the survival-curve assumptions with `pipeline/survival_diagnose.py` against the
+pinned FFC fixture `fixtures/ffc/adp-ppr-observed.json` (2026-08-13→20, 6,978 mocks, 264 players);
+per the 2026-08-21 correction in
+`benchmarks/reports/2026-08-20-ffc-survival-diagnosis-interpretation.md`, the original deep-tail
+"left-skewed" reading was a right-censoring artifact (58% of deep-tail rows sit within 10 picks of
+the 180-pick mock ceiling), and the corrected skew is right-tail-dominant across all bands — a
+single right-skew kernel, not the band-flipping one originally guided.
+
+Phase 2b transcribed the two all-human ESPN drafts (`espn_draft1.txt` 10-team/14-round,
+`espn_draft2.txt` 10-team/16-round) into `fixtures/real-drafts/` and extended
+`benchmarkAvailability.bench.ts` to the 11-draft registry (9 recorded Sleeper mocks + 2 human) with
+cohort labels (`humanSeats`/`autodraftShare`/`marketShare`), all-seat seat-independent availability
+scoring (section A.5), and cohort stratification throughout (2d).
+
+Phase 2c implemented the H2 per-player CV transfer (`build_ffc_cv_index`/
+`fitted_stdev_for_player`), gate-checked it
+(`benchmarks/reports/2026-08-18-availability-calibration-baseline-phase2c.md`), and **it did not
+ship**: it improved the bot cohort but regressed the held-out human Brier on both metrics
+(`DECISIONS.md`, 2026-08-21), so the `build_data.py` wiring was reverted and the flat-band
+`fitted_stdev` remains production. H1 is unattempted and deferred — no kernel work until more real
+human drafts make the strict-improvement gate meaningful. Availability stays labeled experimental
+per the Phase 2c decision rule.
+
+### Priority change (2026-08-25) — public surface ahead of the gate
+
+The user explicitly changed priority (`DECISIONS.md`, 2026-08-25): the product restructured into a
+public/gated split — 0 docs → 1 react-router migration with the session provider lifted above the
+routes → 2 the public `/draft-guide` page → 3 landing becomes illustration-only with the real
+connect flow moving to post-signup `/onboarding` → 4 Clerk auth seam (`RequireAuth`, mock adapter
+default) → 5 saved leagues/drafts on Cosmos via authenticated Functions. **Phases 0-5 all shipped**
+(2026-08-26), plus the follow-up league-first connect split and `/leagues` hub replacing `/teams`.
+This was an explicit priority call under the expansion rule, not a gate pass, and it authorized no
+in-season ESPN/Yahoo work.
+
+### Evaluation layer A — historical out-of-sample draft strategy: PASS
+
+The 2025 backtest freezes preseason inputs through `pipeline/backtest_snapshot.py` into committed
+`fixtures/backtest/2025/` (FFC 2025 PPR ADP + FFToday 2025 projections; leakage/identity/outcome
+gates passed) and runs six arms over a paired (slot × seed) grid sharing one opponent field
+(`npm run backtest`, `frontend/src/engine/backtest.ts`): mean optimized weekly starter points
+(weeks 1-17, exact lineup DP over real 2025 `pts`), replacement-adjusted points, simulated H2H
+wins / playoff rate, downside/fragility — against the pre-declared gates in
+`fixtures/backtest/2025/gates.md`. The 20-seed pilot was directional/non-gating; the N = 1,008
+gating run completed 2026-08-23 with **all three pre-declared gates PASS** vs baseline 3 (static
+VOR) (`benchmarks/reports/2026-08-23-historical-backtest-2025.md`, `DECISIONS.md`, 2026-08-24).
+
+**Sim-sort probe and C1 spinoff (closed, reported-only):** the probe (`npm run probe:simsort`) found
+37.8% top-1 disagreement between sorting on Stage C's `lookaheadValue` vs `planValue`, so the `c1`
+arm was built and run. In the gating run C1 beat the engine (+0.768 [0.231, 1.305]) but the
+2026-08-24 instrumented attribution run (`pipeline/analyze_c1_positions.py`) settled the mechanism:
+the entire edge lives in cap-1 slots (TE +3.92 of a +4.11 K+TE+DEF total) while WR starter points
+are −5.42 — not promotable per the pre-declared shippability rule, so **C1 is closed for 2025
+data**. The engine-vs-B1 question closed out the same day: the deficit is a diffuse
+skill-position construction shift specific to the default simulated field — at any other tested
+opponent-noise level the engine beats naive ADP (+1.8 to +8.2 pts/wk). Mechanical sweep verdict:
+**AMBIGUOUS** per pre-declared rules; no further 2025 simulation work.
+
+### Evaluation layer B — availability calibration: measured; labeled experimental
+
+Measured on recorded drafts/mocks (Brier, calibration buckets, error by round/position; latest run
+`benchmarks/reports/2026-08-25-availability-calibration.md`). Finding: the model under-predicts
+survival in the decision-relevant 0-0.5 buckets; the pooled Brier (0.0217) is flattered by ~90% of
+rows sitting in the 0.9-1.0 bucket. The gate's passing criterion is "demonstrably calibrated **or
+explicitly labeled experimental**" — the disposition is the label, which ships in the UI
+(`components/PlayerContextBody.tsx:118`). Replacement/correction remains backlog-class work, not a
+blocker.
+
+### Closure
+
+Layers C/D became standing in-season tracking (see `PLAN.md`); S5 closed as recorded above; the
+owner reviewed the evidence and authorized roadmap expansion on 2026-08-30
+(`DECISIONS.md`, 2026-08-30 (6)).
+
+
+
+

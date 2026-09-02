@@ -10,16 +10,13 @@ regardless of which coding agent you are. Update this file whenever a structural
 not on a schedule, and not for anything that's just "what's being worked on right now" (that
 belongs in `PLAN.md`).
 
-## Active scope: Sleeper-first
+## Active scope: post-gate — expansion unlocked, no track chosen
 
-The project is currently in a **Sleeper-only edge-validation phase** (see `PLAN.md`, "Status and
-decision"). The active goal is a single narrow product: track a Sleeper PPR one-QB redraft snake
-draft live and recommend the best pick with an explanation and honest uncertainty.
-
-ESPN, Yahoo, Cosmos DB, and SWA auth are **preserved roadmap, not active work**. Work on those
-starts only when `PLAN.md`'s Edge Validation Gate passes or the user explicitly changes priority.
-Provider research and scaffolding (`infra/main.bicep`, the `ProviderAdapter` contract) are kept
-deliberately — future work, not dead code to delete.
+The Sleeper edge track is **complete** and the Edge Validation Gate **closed and authorized on
+2026-08-30** (`DECISIONS.md`, 2026-08-30 (6)). Roadmap expansion is unlocked by evidence — it no
+longer needs an exception or priority change — but **no next track is chosen**: opening any specific
+track (Yahoo, ESPN in-season, new formats, in-season features) is its own dated decision recorded in
+`DECISIONS.md`, with a `PLAN.md` status update. `PLAN.md`'s roadmap is a menu, not a plan.
 
 > **Closed exception — August 14-15, 2026.** A narrow ESPN draft-day project (manual takeover, an
 > ESPN reconnaissance Chrome extension under `extension/`, a draft-only `DraftProviderAdapter`
@@ -119,7 +116,9 @@ deliberately — future work, not dead code to delete.
   `data/adp-*.json`'s redraft-engine boards (`DECISIONS.md`, 2026-08-24). The FantasyPros stars/SOS
   decoration pipeline was cut entirely (`DECISIONS.md`, 2026-08-23/24) — do not re-add it without a
   new decision.
-- `fixtures/sleeper/` — **hand-authored** fixtures (not yet a real recorded draft; open item).
+- `fixtures/sleeper/` — recorded contract fixtures: **nine real recorded Sleeper mocks** committed
+  since `ad2802b` (2026-08-13), ~90-92% autodrafted, so machinery-grade rather than human-shape; the
+  remaining 14 flat files (scoring, players, partial drafts, …) are hand-authored.
   `fixtures/underdog/` — a committed contract fixture (recorded Sharp Football Analysis HTML,
   read by `pipeline/test_underdog_adp.py`), not recon scratch. `fixtures/espn-contract/` — same
   idea: two recorded-and-scrubbed ESPN live-stream slices read by `espnOffset.test.ts` — committed
@@ -128,6 +127,9 @@ deliberately — future work, not dead code to delete.
   dependency on anything under it. `infra/main.bicep` — roadmap. `archive/` — completed-phase
   history (`PLAN-history.md`), the condensed-away decision detail (`DECISIONS-history.md`), and
   gitignored cursor-plan scratch.
+- `benchmarks/reports/` — dated harness output. The human-readable `.md` reports are **tracked**
+  since 2026-08-30 (they carry the Edge Validation Gate evidence); `.json`/`.log` machine output
+  stays gitignored.
 - Not yet built: `workers/draftEngine.worker.ts` and `api/_shared/providers/` — don't create
   either until in-season work actually starts.
 
@@ -225,6 +227,11 @@ routing/client-state/rendered-data changes. Docs-only diffs: run nothing.
 - Data-layer helpers (`frontend/src/data/`): tested against real `data/*.json` invariants (unique
   player IDs, finite/non-negative stats, valid ADP ranges) and `fixtures/sleeper/` for the
   degraded-data-mode resolver.
+- Color tokens (`frontend/src/styles/`): `teamColors.test.ts` and `tokens.contrast.test.ts` are
+  real WCAG gates, not smoke tests — both parse `tokens.css`'s live values (never hardcode a
+  surface/text hex) and assert real contrast ratios, including a 15:1 halation ceiling on
+  `--text-1`/`--surface-0` alongside the usual 4.5:1/3:1 floors. Any token value change should run
+  `npm run test:frontend -- src/styles`.
 - Adapters: each adapter is tested against its own recorded fixtures (`sleeper.test.ts`,
   `espn*.test.ts`, `draftOrder.test.ts`); a single shared contract suite run against every
   provider's fixtures — monotonic `overall`, `slotToTeam` covering all teams, no duplicate

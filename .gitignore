@@ -83,8 +83,11 @@ pipeline/.cache/
 frontend/public/data/
 
 # Opt-in benchmark harness output (npm run benchmark:availability) — generated
-# JSON/MD reports under benchmarks/reports/, not source fixtures.
-benchmarks/reports/
+# JSON/MD reports under benchmarks/reports/. The human-readable .md reports ARE
+# tracked since 2026-08-30 (they carry the Edge Validation Gate evidence and must
+# survive a clone); only the bulk .json/.log machine output stays ignored.
+benchmarks/reports/*.json
+benchmarks/reports/*.log
 
 # Local planning scratch — PLAN.md is the committed source of truth. These Cursor
 # plan-mode outputs live under archive/cursor-plans/ once a session ends (see

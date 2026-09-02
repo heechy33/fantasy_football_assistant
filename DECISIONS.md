@@ -1012,3 +1012,153 @@ delay period on load. Root cause: neither pulse layer declared a static `stroke-
 before an animation's delay elapses the property fell back to CSS-initial `0` — which happens to
 coincide with the "just departing" pose rather than the parked one. Fixed by giving both layers a
 static `stroke-dashoffset` matching their own parked keyframe value, confirmed live.
+
+---
+
+## 2026-08-30 (4) — Type ramp enforced (three tiers) + halation fix + accent-cool role split
+
+**Reported:** user likes the app's display face ("Fantasy Bob" font — actually Archivo, the app's
+brand name is Fantasy Bob) and wanted it used more, but wasn't sure whether to go all-in on it or
+what the right mix is; also asked whether neon-blue-on-black had a better alternative.
+
+**Finding:** Archivo was already applied in ~20 places, not just the landing page — the actual gap
+was that no global rule put page-level headings on it, so every page's `<h2>` (Leagues, Draft
+Guide, Connect, Onboarding, 404, workspace column titles) rendered in Inter, and the one broad rule
+that did exist (`.top-nav .brand, .recommendation-panel h2`) set `font-weight: 400`, which reads as
+a plain grotesque rather than the brand voice. `tokens.css` already documented the intended ramp in
+prose; it had just never been enforced in CSS.
+
+**Decision — three-tier type ramp, enforced by a global rule, not just documented:**
+- **Tier 1 (brand, rare):** Archivo at `font-stretch: var(--display-stretch-wide)` (125%,
+  "Expanded"), wght 800 — app name, landing hero, auth title, the draft-room clock numeral. Capped
+  at 6 sites; going "all Archivo" was rejected — the Expanded cut loses aperture/x-height at this
+  app's micro sizes (.55–.74rem in `PlayerBoardRow`/badges), and this is a live-clock product where
+  misreading `2.04` as `2.07` is a real failure, not cosmetic; Inter's `tabular-nums` also has no
+  Archivo equivalent for keeping stat columns aligned.
+- **Tier 2 (structure, the missing tier):** Archivo, normal width, wght 700–800 — added via a new
+  global `h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; }` rule
+  (`App.css`), plus explicit promotion of `.eyebrow`, `.landing-kicker`, `.landing-hero-pill`,
+  `.auth-screen-pill`, `.primary-button`, `.quiet-button` (none of these are heading elements).
+  This is the tier that brands every page at once — `.eyebrow` alone appears on 8+ surfaces.
+- **Tier 3 (content, unchanged):** Inter for body/prose/dense rows/all numerals — untouched.
+- Fixed a latent bug found while tracing this: `.workspace-column-log h2` / `.workspace-column-team
+  h2` carried `font-stretch: 125%` while resolving to Inter (no `wdth` axis) — the stretch was
+  ignored/synthesized despite the adjacent comment claiming Archivo Expanded. Removed (Tier 2
+  headings don't need the Expanded stretch; the new global rule gives them real Archivo anyway).
+- `scripts/fetch-fonts.mjs` requested Archivo wght-only, while the shipped `archivo.woff2` is a
+  hand-subsetted two-axis (wght+wdth) build — re-running the script would have silently regressed
+  every Tier-1 style to a synthesized stretch. Fixed to request both axes and added a guard: the
+  script now throws before downloading if the css2 response has no `font-stretch` range descriptor
+  (the signal Google's API returns only when the wdth axis was actually granted).
+
+**Decision — color, halation fix + accent-cool role split, palette kept:** independently
+re-measured every ratio `tokens.css`'s header already claimed and all held. Kept neon-blue-on-black
+as the identity; fixed three measured issues instead:
+- `--surface-0` moved `#07090b` → `#0d1014` (still reads black) and `--text-1` moved `#ececec`
+  (16.9:1 on the old surface-0) → `#dcdcdc` (13.9:1 on the new one) — WCAG 2's ratio has no upper
+  bound, but a saturated accent on near-near-black text this bright is the textbook halation/
+  ghosting setup (worse for the ~1-in-3 people with astigmatism). Re-verified against the 33-team
+  tint gate before landing: worst case is ~8.7:1, far above its 4.5:1 floor — plenty of margin.
+- `--accent-cool` had 24 call sites doing unrelated jobs (nav active state, eyebrows, live dot,
+  section titles, solid fills, the clock numeral, focus outlines, hairlines) — the same problem
+  `--accent` (orange) was already disciplined out of via urgency-only scoping. Split into
+  `--accent-cool` (identity moments only), a new `--accent-cool-quiet` (#7fb6e1, desaturated —
+  not just alpha-reduced — for hairlines/1px rules/micro-labels), and `--accent-cool-bright`
+  (rare peaks only). Moved `.eyebrow` (full-saturation neon, uppercase, on every page) and
+  `.draft-log-clock-banner`'s 3px left rule to the quiet step.
+- Considered wiring the long-dead `--accent-cool-wash` token into `.provider-chip[aria-
+  selected="true"]` / `.team-pill[aria-checked="true"]` (both currently a solid `--accent-cool`
+  fill) — reverted that idea on re-reading `leagues.css`'s own header comment: the 2026-08-29 pass
+  deliberately moved those off a wash and onto a solid fill for a more obvious selected state.
+  Left the wash token defined-but-unused, with a comment explaining why, rather than re-opening a
+  decision that was already made on purpose.
+- Also fixed in the same pass: `.landing-feed-dot`'s glow used full-opacity `--accent-cool` where
+  every other glow in the app uses the 30%-alpha `--accent-cool-glow`; two stale hex fallbacks in
+  `var(--surface-3, #1c1f26)` / `var(--text-1, #fff)` that matched neither the pre- nor
+  post-2026-08-26 token values; `clerkAppearance.ts`'s five hand-mirrored `--text-1` literals
+  (`#ececec` → `#dcdcdc`, Clerk can't read CSS custom properties).
+
+**Blocking prerequisite, fixed first:** `teamColors.test.ts` hardcoded `SURFACE_2`/`SURFACE_3`/
+`TEXT_1`/`TEXT_3` to literal hex values instead of parsing them from `tokens.css`. The 2026-08-26
+Broadcast Neon pass moved `--surface-2`/`-3` from `#17191c`/`#1b1d21` to `#10141a`/`#151a21`, and
+the test kept passing anyway (real surfaces are darker, so light ink contrasts even more) — a
+false-negative, not a false alarm, but it meant the gate had silently stopped testing the shipped
+palette. `tokens.css`'s own header comment and `teamColors.css`'s doc comment cited the same stale
+pair. Fixed to parse `tokens.css` directly before touching any color value, and added a new
+`tokens.contrast.test.ts` asserting what the header comment had only ever claimed in prose: the
+text ramp's floor AND a new 15:1 ceiling on `--surface-0` (the halation guard — nothing in the
+WCAG 2 toolchain checks an upper bound, which is exactly how 16.9:1 shipped and stayed), the
+`--accent-cool` family's floors, and the `--border-1/2/3` 3:1 floor (documented since 2026-08-26,
+never actually gated).
+
+---
+
+## 2026-08-30 (5) — Connect-panel box-sizing fix, ESPN setup in the Draft Room, "Data healthy" line removed
+
+**Reported:** the "Connect league / Extension setup" pill on `/leagues/connect` stretched into a
+long, mostly-empty outlined box; the extension install steps were only reachable from that connect
+page, not from the Draft Room's own ESPN column; a follow-up question asked why status tags had
+stopped showing in the Draft Guide's player detail drawer; and a request to remove the Draft
+Room's "Data healthy — static data full, live poll current." line.
+
+**Box-sizing bug:** `.provider-subtabs` had no explicit width, so as a block/grid item it stretched
+to its parent's full width — the border wrapped that whole width, not just the two tab buttons.
+Fixed with `width: fit-content; max-width: 100%`.
+
+**Extension setup in the Draft Room:** extracted the download-button + install-steps JSX out of
+`routes/onboarding/EspnSetupTabs.tsx` into a new `components/EspnExtensionSetup.tsx` (no props,
+purely static), consumed by both the connect page and a new "Start draft" / "Extension setup"
+sub-tab pair added to `DraftLauncher`'s ESPN column — previously that column's disconnected state
+was just a bare status line ("Extension not detected") with nothing actionable under it.
+
+**Drawer tags — not a regression, verified live:** re-tested `/draft-guide` against a running dev
+build with real committed data (A.J. Brown → "New team"; Jeremiyah Love → "Q" + "Rookie" together)
+and both rendered correctly — `playerStatusTags` (added earlier the same day) was already working
+identically in both `PlayerDetailDrawer` call sites (`DraftRoomRoute` and `DraftGuideRoute` pass
+the same `player`/`usage` props to the same component). Most likely explanation for what was seen:
+a stale page from before that day's change, not yet hard-refreshed.
+
+**"Data healthy" line removed:** `DataHealth`'s healthy path rendered a permanent muted
+`<p className="data-health-ok">` line at the bottom of the Draft Room. Now renders nothing at all
+when healthy — the component only speaks up when there's something to report (a data-mode
+downgrade, a stale poll, poll failures, duplicate picks). Matches the existing "less copy" direction
+for this surface (see the 2026-08-30 (2) entry above). The dead `.data-health-ok` CSS rule was
+removed with it.
+
+---
+
+## 2026-08-30 (6) — Edge Validation Gate closed; roadmap expansion authorized
+
+**Decision:** the Sleeper edge track is complete and the Edge Validation Gate is **closed**, per the
+owner's review of the evidence on this date. Roadmap expansion (the `PLAN.md` menu: Yahoo, ESPN
+in-season, new formats, in-season features) is unlocked by evidence. No next track is chosen; opening
+one remains its own dated decision.
+
+**Evidence reviewed:**
+
+- **Layer A (historical backtest): PASS.** N = 1,008, all three pre-declared gates vs static VOR
+  (2026-08-24 entry; `benchmarks/reports/2026-08-23-historical-backtest-2025.md`).
+- **Layer B (availability calibration): measured; disposition = the experimental label.** The model
+  under-predicts survival in the decision-relevant 0-0.5 buckets, and the pooled Brier of 0.0217 is
+  flattered by ~90% of rows sitting in the 0.9-1.0 bucket — so the gate criterion ("demonstrably
+  calibrated **or** explicitly labeled experimental") is met via the label, which ships in the UI.
+  Correction remains backlog-class work.
+- **S5 (reliability/clock): closed on mock-draft operation, not the instrumented clock test.** The
+  DEV clock instrumentation (`frontend/src/lib/perf.ts`, `DraftTimingPanel`) was deliberately removed
+  in `ec69271`, and before closure five distinct live-draft bugs were found by the user's own mocks
+  and fixed with regression tests (the 2026-08-28/29 entries above) — the substance S5 existed to
+  produce. Latency is CI-gated where the project controls it (`recommendPerformance.test.ts`, median
+  < 3000 ms against real `data/`); the ESPN bridge reflects picks in under 1s live, while Sleeper
+  adds 5-15s of upstream publish lag that no poll interval can fix — per the owner's call, that
+  figure is not recorded against the product's clock.
+
+**Explicitly not proven:** engine-vs-B1 remains **AMBIGUOUS** at the default opponent-noise level
+(the deficit is a localized skill-position construction shift specific to the default simulated
+field, resolved at every other tested noise level — 2026-08-24 entries). No edge claim beyond the
+backtest result is authorized. Layers C (2026 live mocks) and D (projection accuracy vs in-season
+actuals, calendar-bound) became **standing tracking obligations**, not blockers — the retention
+machinery for D already ships (`refresh-data.yml` vintage tags, `npm run snapshot:vintage`).
+
+**Record-keeping:** completed-phase detail moved to `archive/PLAN-history.md` (S4/S5/S6 entries);
+`PLAN.md` re-baselined to forward-looking only; `benchmarks/reports/*.md` reports are now tracked in
+git so the gate evidence survives a clone (`.json`/`.log` machine output stays ignored).

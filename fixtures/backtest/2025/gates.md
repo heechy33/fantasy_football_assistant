@@ -2,7 +2,9 @@
 
 Pre-declared before any harness run, for PLAN.md's Edge Validation Gate,
 evaluation layer A (historical out-of-sample draft strategy). This file is
-**committed** (unlike `benchmarks/reports/`, which is gitignored) so the
+**committed** (unlike the bulk of `benchmarks/reports/` — since 2026-08-30 the
+human-readable `.md` reports there are tracked too; only `.json`/`.log` machine
+output stays gitignored) so the
 pre-declaration is timestamped and reproducible; the matching dated entry in
 `DECISIONS.md` (2026-08-21) carries the gate numbers and points here.
 
