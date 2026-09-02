@@ -116,6 +116,7 @@ data/history/
 .cache/
 tmp/
 temp/
+/append_yahoo.py
 api/.tools/
 func.pid
 func-*.log
