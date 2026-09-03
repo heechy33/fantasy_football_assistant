@@ -97,10 +97,14 @@ export function ConnectSleeper({ onSaveLeague, savedLeagues }: ConnectSleeperPro
     <div className="connect-sleeper">
       {!cred ? (
         <>
-          <form onSubmit={handleResolve}>
-            <label>
-              Sleeper username
-              <input value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} required />
+          <div className='sleeper-lookup-intro'>
+            <p className='eyebrow'>Sleeper account</p>
+            <h3>Find your leagues</h3>
+          </div>
+          <form className='sleeper-lookup-form' onSubmit={handleResolve} aria-busy={resolving}>
+            <label htmlFor='sleeper-username'>
+              <span className='sleeper-field-label'>Sleeper username</span>
+              <input id='sleeper-username' value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} required />
             </label>
             <button type="submit" disabled={resolving || !usernameInput.trim()}>{resolving ? 'Looking up…' : 'Continue'}</button>
             {resolveError && <p role="alert">{resolveError}</p>}

@@ -222,6 +222,26 @@
 .espn-confirm-card { display: grid; gap: .9rem; }
 .espn-connect > button, .espn-confirm-card > button { justify-self: start; }
 
+/* Sleeper account lookup — keep the form as one deliberate interaction instead of letting the
+ * global label/input/button rules create a loose vertical stack. */
+.connect-sleeper { display: grid; gap: 1.35rem; max-width: 36rem; }
+.sleeper-lookup-intro { display: grid; gap: .4rem; }
+.sleeper-lookup-intro .eyebrow { margin: 0; color: var(--accent-cool); }
+.sleeper-lookup-intro h3 { margin: 0; font-family: var(--font-display); font-size: 1.35rem; font-weight: 800; letter-spacing: -.015em; }
+.sleeper-lookup-intro .muted { max-width: 32rem; margin: 0; line-height: 1.5; }
+.sleeper-lookup-form { display: grid; gap: .8rem; }
+.sleeper-lookup-form label { position: relative; gap: .35rem; }
+.sleeper-lookup-form label { grid-template-columns: 1fr; }
+.sleeper-field-label { font-size: .84rem; font-weight: 800; }
+.sleeper-lookup-form input { min-height: 3.1rem; padding: .7rem .85rem; border-color: var(--border-1); border-radius: var(--radius-md); background: var(--surface-3); font-size: 1rem; transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease; }
+.sleeper-lookup-form input::placeholder { color: var(--text-4); }
+.sleeper-lookup-form input:hover { border-color: var(--border-2); }
+.sleeper-lookup-form input:focus { border-color: var(--accent-cool); background: var(--surface-2); box-shadow: 0 0 0 3px var(--accent-cool-glow); outline: none; }
+.sleeper-lookup-form > button { justify-self: start; min-width: 8.4rem; padding: .7rem 1rem; border-radius: var(--radius-md); color: var(--accent-cool-ink); background: var(--accent-cool); transition: background 160ms ease, transform 160ms ease; }
+.sleeper-lookup-form > button:hover:not(:disabled), .sleeper-lookup-form > button:focus-visible { background: var(--accent-cool-bright); transform: translateY(-1px); }
+.sleeper-lookup-form > button:focus-visible { outline: 2px solid var(--accent-cool); outline-offset: 3px; }
+.sleeper-lookup-form > p[role='alert'] { margin: 0; padding: .65rem .8rem; border-radius: var(--radius-md); color: var(--danger-text); background: var(--danger-bg); font-size: .84rem; }
+
 /* A global <select> rule, matching `input`'s (App.css:40) — its absence is why the "which team is
  * yours" dropdown used to render as a raw OS widget with none of this design system applied. */
 select {
