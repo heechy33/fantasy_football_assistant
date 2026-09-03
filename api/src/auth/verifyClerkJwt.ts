@@ -1,4 +1,5 @@
 import { verifyToken } from '@clerk/backend';
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 
 /**
  * Verifies the Bearer token on an authenticated `/api/*` request. SWA's role system stays
@@ -13,6 +14,28 @@ function requireSecretKey(): string {
   const secretKey = process.env.CLERK_SECRET_KEY?.trim();
   if (!secretKey) throw new Error('CLERK_SECRET_KEY app setting is not configured.');
   return secretKey;
+}
+
+function requireIssuer(): string {
+  const issuer = process.env.CLERK_ISSUER?.trim();
+  if (!issuer) throw new Error('CLERK_ISSUER app setting is not configured.');
+  try {
+    const parsed = new URL(issuer);
+    if (parsed.protocol !== 'https:') throw new Error('issuer must use HTTPS');
+    return parsed.toString().endsWith('/') ? parsed.toString().slice(0, -1) : parsed.toString();
+  } catch {
+    throw new Error('CLERK_ISSUER app setting is not a valid HTTPS URL.');
+  }
+}
+
+let cachedIssuer = '';
+let cachedJwks: JWTVerifyGetKey | null = null;
+
+function remoteJwksFor(issuer: string): JWTVerifyGetKey {
+  if (cachedJwks && cachedIssuer === issuer) return cachedJwks;
+  cachedIssuer = issuer;
+  cachedJwks = createRemoteJWKSet(new URL(issuer + '/.well-known/jwks.json'));
+  return cachedJwks;
 }
 
 export interface VerifiedUser {
@@ -78,9 +101,12 @@ export async function verifyClerkJwtDetailed(
   const token = authorizationHeader.slice('Bearer '.length).trim();
   if (!token) return { user: null, failure: 'header_missing' };
 
-  const secretKey = requireSecretKey();
+  const configuredIssuer = process.env.CLERK_ISSUER?.trim() ? requireIssuer() : null;
+  const secretKey = configuredIssuer ? undefined : requireSecretKey();
   try {
-    const payload = await verifyToken(token, { secretKey });
+    const payload = configuredIssuer
+      ? (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: ['RS256'] })).payload
+      : await verifyToken(token, { secretKey });
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
       return { user: null, failure: 'claims_invalid' };
     }
@@ -108,4 +134,6 @@ export async function verifyClerkJwt(
 
 /** Test-only compatibility hook; Clerk's backend SDK owns its JWKS cache. */
 export function __resetJwksCache(): void {
+  cachedIssuer = '';
+  cachedJwks = null;
 }
