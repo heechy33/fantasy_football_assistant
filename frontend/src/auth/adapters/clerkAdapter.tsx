@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { APP_NAME } from '../../components/TopNav';
@@ -27,7 +27,7 @@ function ClerkStateBridge() {
   const { isLoaded, isSignedIn, userId, getToken, signOut } = useClerkAuth();
   const { user } = useUser();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     liveGetToken = getToken;
     liveSignOut = async () => { await signOut(); };
   }, [getToken, signOut]);
