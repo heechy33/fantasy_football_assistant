@@ -1100,6 +1100,8 @@ export interface ApiError {
     | 'bad_request'
     | 'internal';
   provider?: Provider;
+  /** Non-sensitive auth diagnostic used to distinguish a stripped header from a rejected JWT. */
+  authStage?: 'header_missing' | 'token_rejected';
 }
 
 export type ApiResult<T> = T | ApiError;

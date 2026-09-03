@@ -22,9 +22,14 @@ export type AuthResult =
  * ```
  */
 export async function requireUser(request: HttpRequest): Promise<AuthResult> {
-  const user = await verifyClerkJwt(request.headers.get('authorization'));
+  const authorization = request.headers.get('authorization');
+  const user = await verifyClerkJwt(authorization);
   if (!user) {
-    const body: ApiError = { error: 'Missing or invalid bearer token.', code: 'unauthenticated' };
+    const body: ApiError = {
+      error: 'Missing or invalid bearer token.',
+      code: 'unauthenticated',
+      authStage: authorization?.startsWith('Bearer ') ? 'token_rejected' : 'header_missing',
+    };
     return { ok: false, response: { status: 401, jsonBody: body } };
   }
   return { ok: true, user };

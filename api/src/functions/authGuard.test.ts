@@ -24,6 +24,19 @@ describe('requireUser', () => {
     if (!result.ok) {
       expect(result.response.status).toBe(401);
       expect(result.response.jsonBody).toMatchObject({ code: 'unauthenticated' });
+      expect(result.response.jsonBody).toMatchObject({ authStage: 'header_missing' });
+    }
+  });
+
+  it('identifies a bearer header whose JWT was rejected', async () => {
+    verifyClerkJwtMock.mockResolvedValue(null);
+    const result = await requireUser(requestWithAuth('Bearer rejected'));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.response.jsonBody).toMatchObject({
+        code: 'unauthenticated',
+        authStage: 'token_rejected',
+      });
     }
   });
 });
