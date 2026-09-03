@@ -52,14 +52,19 @@ function mix(a: [number, number, number], b: [number, number, number], pctA: num
   ];
 }
 
-const SURFACE_2 = hexToRgb('#17191c');
-const SURFACE_3 = hexToRgb('#1b1d21');
-const TEXT_1 = hexToRgb('#ececec');
-const TEXT_3 = hexToRgb('#b4b4b4');
 const TEAM_TINT = 0.18;
 
 const tokensPath = join(dirname(fileURLToPath(import.meta.url)), 'tokens.css');
 const tokensCss = readFileSync(tokensPath, 'utf-8');
+
+// Parsed from tokens.css rather than hardcoded: a prior hardcoded pair (#17191c/#1b1d21) went
+// stale when the 2026-08-26 Broadcast Neon pass moved --surface-2/-3 to #10141a/#151a21 — the
+// gate kept passing (the real surfaces are darker, so light ink contrasts more), so it silently
+// stopped testing what actually ships. Parsing means this can't drift out of date again.
+const SURFACE_2 = hexToRgb(readHexVar(tokensCss, '--surface-2'));
+const SURFACE_3 = hexToRgb(readHexVar(tokensCss, '--surface-3'));
+const TEXT_1 = hexToRgb(readHexVar(tokensCss, '--text-1'));
+const TEXT_3 = hexToRgb(readHexVar(tokensCss, '--text-3'));
 
 function readPercentVar(source: string, name: string): number {
   const match = new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*([0-9.]+)%`).exec(source);
@@ -69,10 +74,15 @@ function readPercentVar(source: string, name: string): number {
 
 const PLAYER_CARD_CONTENT_TINT = readPercentVar(tokensCss, '--player-card-content-tint');
 
-function readVar(name: string): string {
-  const match = new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*(#[0-9a-fA-F]{6})`).exec(css);
-  if (!match) throw new Error(`teamColors.css is missing custom property ${name}`);
+/** Reads a literal `#rrggbb` custom-property value out of a stylesheet source string. */
+function readHexVar(source: string, name: string): string {
+  const match = new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*(#[0-9a-fA-F]{6})`).exec(source);
+  if (!match) throw new Error(`missing hex custom property ${name}`);
   return match[1]!;
+}
+
+function readVar(name: string): string {
+  return readHexVar(css, name);
 }
 
 describe('teamColors.css', () => {

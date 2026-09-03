@@ -3,26 +3,42 @@ import type { AdpFormat } from './loadPlayerPool';
 
 /**
  * Which ADP artifact the session's board should read. Every base `AdpFormat`
- * maps to its own file; `'espn-ppr'` is the only additive board — ESPN's
- * public default-league (PPR) average draft position, selected only for ESPN
- * sessions (see {@link adpBoardKeyFor}). The **key** is what travels through
- * the data layer, not the provider string, so no data module ever imports a
- * component type.
+ * maps to its own file; `'espn-ppr'` and `'yahoo-half-ppr'` are the additive
+ * provider-specific boards — ESPN's public default-league (PPR) average draft
+ * position, selected only for ESPN sessions; Yahoo's draft-analysis half-PPR
+ * board, selected only for Yahoo half-PPR sessions. See {@link adpBoardKeyFor}.
+ * The **key** is what travels through the data layer, not the provider string,
+ * so no data module ever imports a component type.
  */
-export type AdpBoardKey = AdpFormat | 'espn-ppr';
+export type AdpBoardKey = AdpFormat | 'espn-ppr' | 'yahoo-half-ppr' | 'yahoo-ppr' | 'yahoo-standard';
 
 /**
  * Collapses the ADP URL selection that used to be hardcoded in three places
  * (`usePlayerBoardData`, the recommendation worker, `loadRankedPlayers`) into
- * one function. Returns `'espn-ppr'` only for `provider === 'espn'` and
- * `format === 'ppr'`; every other combination stays on the plain format key
- * (Sleeper connected and Sleeper-manual sessions are unchanged).
+ * one function. Returns:
+ * - `'espn-ppr'` for `provider === 'espn'` and `format === 'ppr'`
+ * - `'yahoo-half-ppr'` for `provider === 'yahoo'` and `format === 'half-ppr'`
+ *   (the only Yahoo lane wired today; the chip stays on the half-PPR preset
+ *   so this single selector covers the from-scratch Yahoo draft case in full)
+ * Every other combination stays on the plain format key (Sleeper connected and
+ * Sleeper-manual sessions are unchanged). When the requested additive board's
+ * file is missing, `fetchAdpBoard`'s fail-open already falls back to the plain
+ * `/data/adp-${format}.json` board, so a Phase 2 pipeline gap never errors
+ * the whole session.
  *
  * `provider` is deliberately a plain string — the data layer must not import
  * `LandingActiveProvider` from a component.
  */
 export function adpBoardKeyFor(provider: string, format: AdpFormat): AdpBoardKey {
   if (provider === 'espn' && format === 'ppr') return 'espn-ppr';
+  if (provider === 'yahoo' && format === 'half-ppr') return 'yahoo-half-ppr';
+  // 2026-09-XX (Phase 2): close the PPR/Standard gap so a Yahoo user on a non-half-ppr
+  // format doesn't silently fall back to Sleeper's adp-ppr.json. Until the Yahoo PPR
+  // and Yahoo standard artifacts are committed, the fail-open in fetchAdpBoard below
+  // keeps the draft-day session working -- the user just sees a Sleeper board labeled
+  // correctly via the manifest's adp_active_yahoo_<fmt> key, not a silent wrong label.
+  if (provider === 'yahoo' && format === 'ppr') return 'yahoo-ppr';
+  if (provider === 'yahoo' && format === 'standard') return 'yahoo-standard';
   return format;
 }
 

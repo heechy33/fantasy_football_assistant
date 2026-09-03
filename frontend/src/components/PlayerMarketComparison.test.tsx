@@ -103,6 +103,35 @@ describe('PlayerMarketComparison', () => {
     expect(screen.queryByText(/Range/)).not.toBeInTheDocument();
   });
 
+  it('labels the FFC-fallback board with its pooled averaging window', () => {
+    render(
+      <PlayerMarketComparison
+        boardAdp={boardAdp({
+          adp: 12, source: 'FFC fallback', brandKey: 'ffc',
+          freshnessWindow: { startDate: '2026-08-24', endDate: '2026-08-31', mockDrafts: 8161 },
+        })}
+        projectionsArtifact={null}
+        player={player}
+        scoring={scoring}
+        fftoday={null}
+      />,
+    );
+    expect(screen.getByText(/Pooled average, 2026-08-24 to 2026-08-31 \(8,161 drafts\)/)).toBeInTheDocument();
+  });
+
+  it('shows no window caption on the Sleeper board, which publishes none', () => {
+    render(
+      <PlayerMarketComparison
+        boardAdp={boardAdp({ adp: 24, source: 'Sleeper' })}
+        projectionsArtifact={null}
+        player={player}
+        scoring={scoring}
+        fftoday={null}
+      />,
+    );
+    expect(screen.queryByText(/Pooled average/)).not.toBeInTheDocument();
+  });
+
   it('shows an Underdog tile with the attribution in its accessible title when that board has the player', () => {
     render(
       <PlayerMarketComparison
@@ -150,7 +179,8 @@ describe('PlayerMarketComparison', () => {
       <PlayerMarketComparison
         boardAdp={boardAdp({ adp: 24, source: 'Sleeper' })}
         providerAdpLanes={[
-          { key: 'espn-ppr', label: 'ESPN (PPR)', brandKey: 'espn', entries: espnEntries },
+          { key: 'espn-ppr', label: 'ESPN', brandKey: 'espn', entries: espnEntries },
+          { key: 'yahoo-ppr', label: 'Yahoo', brandKey: 'yahoo', entries: [{ ...espnEntries[0]!, adp: 21.2, adpSource: 'yahoo' as const }] },
           { key: 'ffc-ppr', label: 'FFC', brandKey: 'ffc', entries: ffcEntries },
         ]}
         projectionsArtifact={null}
@@ -159,8 +189,10 @@ describe('PlayerMarketComparison', () => {
         fftoday={null}
       />,
     );
-    expect(screen.getByText('ESPN (PPR)')).toBeInTheDocument();
+    expect(screen.getByText('ESPN')).toBeInTheDocument();
     expect(screen.getByText('19.5')).toBeInTheDocument();
+    expect(screen.getByText('Yahoo')).toBeInTheDocument();
+    expect(screen.getByText('21.2')).toBeInTheDocument();
     // Sparse coverage (FFC is ~267 rows vs Sleeper's ~1500) shows an honest em dash tile
     // instead of dropping the provider. ("FFC" also renders inside the badge monogram, so
     // match the tile-name span specifically.)
@@ -241,10 +273,10 @@ describe('PlayerMarketComparison', () => {
     // twice, Sleeper nowhere. The lane matching the board's brand is dropped; Sleeper stays.
     render(
       <PlayerMarketComparison
-        boardAdp={boardAdp({ adp: 18, source: 'ESPN (PPR)', brandKey: 'espn' })}
+        boardAdp={boardAdp({ adp: 18, source: 'ESPN', brandKey: 'espn' })}
         providerAdpLanes={[
           { key: 'sleeper-ppr', label: 'Sleeper', brandKey: 'sleeper', entries: [{ playerId: 'rb1', name: 'Rush One', position: 'RB', team: 'BUF', adp: 24, stdev: 1, high: 1, low: 1, timesDrafted: 10, byeWeek: 7, adpSource: 'sleeper', stdevSource: 'observed' }] },
-          { key: 'espn-ppr', label: 'ESPN (PPR)', brandKey: 'espn', entries: [] },
+          { key: 'espn-ppr', label: 'ESPN', brandKey: 'espn', entries: [] },
         ]}
         projectionsArtifact={null}
         player={player}
@@ -252,7 +284,7 @@ describe('PlayerMarketComparison', () => {
         fftoday={null}
       />,
     );
-    expect(screen.getAllByText('ESPN (PPR)')).toHaveLength(1); // engine tile only
+    expect(screen.getAllByText('ESPN')).toHaveLength(1); // engine tile only
     expect(screen.getByText('Sleeper')).toBeInTheDocument();
     expect(screen.getByText('24')).toBeInTheDocument();
   });

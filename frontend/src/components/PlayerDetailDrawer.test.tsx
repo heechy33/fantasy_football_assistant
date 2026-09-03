@@ -203,7 +203,7 @@ describe('PlayerDetailDrawer content', () => {
     expect(screen.getByText('Rush One', { selector: 'td' })).toBeInTheDocument();
   });
 
-  it('renders a single compact status tag next to team and slot without mojibake', () => {
+  it('renders every applicable status tag (unlike the card, which caps at one) next to team and slot without mojibake', () => {
     render(
       <PlayerDetailDrawer
         player={{
@@ -229,8 +229,8 @@ describe('PlayerDetailDrawer content', () => {
     expect(meta.textContent).toContain('#2');
     expect(meta.textContent).not.toContain('\u00c2');
     expect(within(meta as HTMLElement).getByText('Q')).toBeInTheDocument();
-    expect(within(meta as HTMLElement).queryByText('Rookie')).not.toBeInTheDocument();
-    expect(within(meta as HTMLElement).queryByText('New team')).not.toBeInTheDocument();
+    expect(within(meta as HTMLElement).getByText('Rookie')).toBeInTheDocument();
+    expect(within(meta as HTMLElement).getByText('New team')).toBeInTheDocument();
   });
 
 
@@ -385,6 +385,25 @@ describe('PlayerDetailDrawer content', () => {
     );
     expect(screen.getByText('Sleeper (ESPN board tail)')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
+  });
+
+  it('labels an FFC-fallback board with its pooled averaging window', () => {
+    render(
+      <PlayerDetailDrawer
+        player={player}
+        usage={undefined}
+        feedStatus="ready"
+        recommendation={baseRecommendation()}
+        adpDisclosure={{
+          source: 'ffc-fallback', mockDrafts: 8161, teams: 12, format: 'ppr',
+          startDate: '2026-08-24', endDate: '2026-08-31',
+        }}
+        adpBoard={[{ ...baseAdpEntry(), adpSource: 'ffc' }]}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('FFC fallback')).toBeInTheDocument();
+    expect(screen.getByText(/Pooled average, 2026-08-24 to 2026-08-31 \(8,161 drafts\)/)).toBeInTheDocument();
   });
 
   it('keeps the engine ADP anchor visible in market mode from the board entry', () => {

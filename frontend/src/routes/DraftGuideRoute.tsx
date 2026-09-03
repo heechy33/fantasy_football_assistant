@@ -27,13 +27,14 @@ const SOURCE_LABELS: Readonly<Record<GuideRankSource, string>> = {
   sleeper: 'Sleeper',
   espn: 'ESPN',
   ffc: 'FFC',
+  yahoo: 'Yahoo',
   underdog: 'Underdog',
 };
 
 /** The board's anchor ADP lane ("Rank" column). No UI selector anymore — Sleeper is the board
  * order and the other providers are reference columns; a `source=` deep link still honors an
  * explicit lane, degrading to Sleeper for unknown values. */
-const ADP_SOURCE_KEYS = ['sleeper', 'espn', 'ffc', 'underdog'] as const;
+const ADP_SOURCE_KEYS = ['sleeper', 'espn', 'yahoo', 'underdog'] as const;
 type AdpSourceKey = (typeof ADP_SOURCE_KEYS)[number];
 
 /** Both views cap the displayed pool at 1000 players (STACKED showed until 1000) — deep best-ball
@@ -91,15 +92,16 @@ export function DraftGuideRoute() {
   // Provider lanes are display-only: they re-sort rows the engine already produced and never
   // re-run the engine on their own artifacts (guideProviderColumns.ts's module doc).
   const espnEntries = providerLanes.find((lane) => lane.key === 'espn-ppr' && lane.status === 'ready')?.entries;
-  const ffcEntries = providerLanes.find((lane) => lane.key === `ffc-${adpFormat}` && lane.status === 'ready')?.entries;
+  const yahooEntries = providerLanes.find((lane) => lane.key === `yahoo-${adpFormat}` && lane.status === 'ready')?.entries;
   const columns = useMemo(() => ({
     sleeper: buildProviderColumn('sleeper', SOURCE_LABELS.sleeper, board.adp),
     espn: espnEntries ? buildProviderColumn('espn', SOURCE_LABELS.espn, espnEntries) : unavailableProviderColumn('espn', SOURCE_LABELS.espn),
-    ffc: ffcEntries ? buildProviderColumn('ffc', SOURCE_LABELS.ffc, ffcEntries) : unavailableProviderColumn('ffc', SOURCE_LABELS.ffc),
+    ffc: unavailableProviderColumn('ffc', SOURCE_LABELS.ffc),
+    yahoo: yahooEntries ? buildProviderColumn('yahoo', SOURCE_LABELS.yahoo, yahooEntries) : unavailableProviderColumn('yahoo', SOURCE_LABELS.yahoo),
     underdog: underdog.status === 'ready'
       ? buildProviderColumn('underdog', SOURCE_LABELS.underdog, underdog.entries)
       : unavailableProviderColumn('underdog', SOURCE_LABELS.underdog),
-  }), [board.adp, espnEntries, ffcEntries, underdog]);
+  }), [board.adp, espnEntries, yahooEntries, underdog]);
 
   const visibleRows = useMemo(() => {
     // Fresh position filter — no live-draft rules (All includes K/DEF; QB never auto-drops).
@@ -118,7 +120,7 @@ export function DraftGuideRoute() {
   const lanes: GuideLane[] = useMemo(() => ([
     { key: 'espn', label: SOURCE_LABELS.espn, brandKey: 'espn', status: columns.espn.status, rankByPlayer: columns.espn.rankByPlayer, adpByPlayer: columns.espn.adpByPlayer },
     { key: 'sleeper', label: SOURCE_LABELS.sleeper, brandKey: 'sleeper', status: columns.sleeper.status, rankByPlayer: columns.sleeper.rankByPlayer, adpByPlayer: columns.sleeper.adpByPlayer },
-    { key: 'ffc', label: SOURCE_LABELS.ffc, brandKey: 'ffc', status: columns.ffc.status, rankByPlayer: columns.ffc.rankByPlayer, adpByPlayer: columns.ffc.adpByPlayer },
+    { key: 'yahoo', label: SOURCE_LABELS.yahoo, brandKey: 'yahoo', status: columns.yahoo.status, rankByPlayer: columns.yahoo.rankByPlayer, adpByPlayer: columns.yahoo.adpByPlayer },
     { key: 'underdog', label: SOURCE_LABELS.underdog, brandKey: 'underdog', status: columns.underdog.status, rankByPlayer: columns.underdog.rankByPlayer, adpByPlayer: columns.underdog.adpByPlayer },
   ]), [columns]);
 
@@ -162,6 +164,8 @@ export function DraftGuideRoute() {
           mockDrafts: ffcAdpSource?.population?.mockDrafts ?? null,
           teams: ffcAdpSource?.population?.teams ?? 12,
           format: ffcAdpSource?.population?.format ?? adpFormat,
+          startDate: ffcAdpSource?.population?.startDate ?? null,
+          endDate: ffcAdpSource?.population?.endDate ?? null,
         }
       : activeAdpSource.activeAdpSource === 'espn'
         ? { source: 'espn', format: adpFormat }
@@ -203,7 +207,7 @@ export function DraftGuideRoute() {
               disabled={!gridAvailable}
               onClick={() => updateParams({ view: 'draft' })}
             >
-              Draft grid
+              Draft
             </button>
           </div>
         )}

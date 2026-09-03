@@ -94,6 +94,26 @@ describe('committed data/*.json invariants', () => {
     ]);
   });
 
+  it('validateAdpProvenance accepts yahoo under the Sleeper contract (fitted stdev, null population)', () => {
+    const yahooGood: AdpEntry = {
+      playerId: '1', name: 'Good', position: 'RB', team: 'BUF', adp: 1, stdev: 1,
+      high: null, low: null, timesDrafted: null, byeWeek: 7, adpSource: 'yahoo', stdevSource: 'fitted',
+    };
+    const yahooObserved: AdpEntry = {
+      playerId: '2', name: 'Bad', position: 'WR', team: 'SF', adp: 2, stdev: 1,
+      high: null, low: null, timesDrafted: null, byeWeek: null, adpSource: 'yahoo', stdevSource: 'observed',
+    };
+    const yahooWithPopulation: AdpEntry = {
+      playerId: '3', name: 'Populated', position: 'TE', team: 'LV', adp: 3, stdev: 1,
+      high: 1, low: 5, timesDrafted: 10, byeWeek: null, adpSource: 'yahoo', stdevSource: 'fitted',
+    };
+    expect(validateAdpProvenance([yahooGood])).toEqual([]);
+    expect(validateAdpProvenance([yahooObserved, yahooWithPopulation]).map((issue) => issue.check).sort()).toEqual([
+      'adp-yahoo-population-absent',
+      'adp-yahoo-stdev-fitted',
+    ]);
+  });
+
   it('adp-ppr.json is currently the live Sleeper lobby board (canonical path)', () => {
     // Not a hard invariant forever (a real Sleeper outage would legitimately
     // push every format to 'ffc-fallback' for a day), but the committed

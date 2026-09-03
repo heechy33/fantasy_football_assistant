@@ -10,8 +10,8 @@
  *                    (unopinionated) logo watermark background. Never placed under
  *                    text and never used as a text color.
  *   --team-ink       a lightened variant of the same hue, computed to guarantee
- *                    >=4.5:1 contrast against BOTH --surface-2 (#17191c) and
- *                    --surface-3 (#1b1d21). Use this for the 3px identity rail and
+ *                    >=4.5:1 contrast against BOTH --surface-2 (#10141a) and
+ *                    --surface-3 (#151a21). Use this for the 3px identity rail and
  *                    any team-colored glyph/label — most raw team brand colors are
  *                    designed for daylight/white backgrounds and do NOT clear 3:1
  *                    against this dark theme's surfaces (measured: worst raw

@@ -18,6 +18,10 @@ export interface BoardAdpAnchor {
   /** Brand key for the logo badge on this tile — always resolvable to one of the real upstreams
    * ('sleeper' | 'espn' | 'ffc'), never a synthetic key. */
   brandKey: ProviderBrandKey;
+  /** Set only when `source` is the FFC-fallback board: FFC's ADP is a rolling pooled average over
+   * this window, which under-reacts to same-day news by construction — labeled so the number isn't
+   * read as live. `null`/absent for Sleeper/ESPN, which publish no such window. */
+  freshnessWindow?: { startDate: string | null; endDate: string | null; mockDrafts: number | null } | null;
 }
 
 /** Underdog's best-ball ADP for this player — a separate best-ball, half-PPR, TE-premium lane,
@@ -119,6 +123,13 @@ export function PlayerMarketComparison({
       {hasAdp && (
         <div className="adp-summary">
           <h3>Market ADP</h3>
+          {boardAdp!.freshnessWindow && (
+            <p className="adp-summary-window">
+              Pooled average, {boardAdp!.freshnessWindow.startDate ?? '?'} to {boardAdp!.freshnessWindow.endDate ?? '?'}
+              {boardAdp!.freshnessWindow.mockDrafts != null ? ` (${boardAdp!.freshnessWindow.mockDrafts.toLocaleString()} drafts)` : ''}
+              {' — under-reacts to same-day news.'}
+            </p>
+          )}
           <dl className="market-tile-grid">
             <div className="market-tile" data-role="engine">
               <dt className="market-tile-label">

@@ -51,6 +51,7 @@ export function adpSourceLabel(source: AdpEntry['adpSource'] | null | undefined)
   if (source === 'sleeper') return 'Sleeper';
   if (source === 'ffc') return 'FFC';
   if (source === 'underdog') return 'Underdog';
+  if (source === 'yahoo') return 'Yahoo';
   return null;
 }
 

@@ -6,17 +6,17 @@ import type { AdpEntry, PlayerId } from '../../../shared/types';
  * file referencing these artifacts, and selecting a provider lane re-sorts rows that the engine
  * already produced; it never re-runs buildRecommendationBoard on a display-only lane.
  *
- * Lane inventory (what the repo actually ships — no Yahoo artifact exists and FantasyPros was
- * deleted; omitted means omitted, never stubbed):
+ * Lane inventory (what the repo actually ships — omitted means omitted, never stubbed):
  * - 'sleeper' — the active per-format board (`adp-<format>.json`), the lane real drafts happen against.
  * - 'espn' — `adp-espn-ppr.json`, PPR only. MIXED SOURCE: ~171 native ESPN entries at the top plus a
  *   Sleeper-sourced tail below ESPN's censor cutoff (~165). The column label must carry the splice
  *   disclosure — presenting the tail as "ESPN ranks" would misattribute ~88% of the board.
  * - 'ffc' — `adp-ffc-<format>.json` per format (~221-270 rows — sparse by design).
+ * - 'yahoo' — `adp-yahoo-<format>.json` for standard/half-ppr/ppr.
  * - 'underdog' — `adp-underdog-bestball.json` (best-ball half-PPR only, ~250 rows). Its ranks
  *   describe a different format and say so.
  */
-export type GuideRankSource = 'engine' | 'sleeper' | 'espn' | 'ffc' | 'underdog';
+export type GuideRankSource = 'engine' | 'sleeper' | 'espn' | 'ffc' | 'yahoo' | 'underdog';
 
 export interface ProviderColumn {
   key: GuideRankSource;
@@ -36,6 +36,7 @@ export const LANE_NOTES: Readonly<Record<Exclude<GuideRankSource, 'engine'>, str
   sleeper: 'Sleeper draft-lobby ADP — the population real drafts happen against.',
   espn: 'ESPN default-league PPR ADP: native ESPN ranks at the top, Sleeper-sourced tail below ESPN\u2019s cutoff — not a pure ESPN ordering end to end.',
   ffc: 'Fantasy Football Calculator mock-draft ADP (self-selected lobby). Sparse — many players legitimately have no row.',
+  yahoo: 'Yahoo draft-analysis ADP for the selected scoring format.',
   underdog: 'Underdog best-ball half-PPR ADP. A different format than redraft — treat as context only.',
 };
 

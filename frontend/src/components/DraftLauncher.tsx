@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { EspnLeagueSnapshot, EspnLiveSnapshot, LeagueSettings, SavedDraft, SavedLeague } from '../../../shared/types';
-import { listSleeperDrafts, resolveUser, type SleeperDraftRef } from '../adapters/sleeper';
+import { listSleeperDrafts, parseSleeperDraftId, resolveUser, type SleeperDraftRef } from '../adapters/sleeper';
 import { deriveEspnStreamOffsetSync } from '../adapters/espn';
 import { deriveEspnDraftOrder } from '../adapters/espnDraftOrder';
 import { espnLeagueToSettings } from '../adapters/espnLeague';
@@ -12,8 +12,11 @@ import { buildGuideSettings } from '../data/guideLeagueSettings';
 import { CURRENT_SEASON } from '../data/season';
 import { useDraftSession } from '../session/DraftSessionProvider';
 import { ProviderBadge } from './ProviderBadge';
+import { EspnExtensionSetup } from './EspnExtensionSetup';
+import { SleeperDraftIdGuide } from './SleeperDraftIdGuide';
+import { YahooDraftSetup } from './YahooDraftSetup';
 
-type LauncherProvider = 'sleeper' | 'espn';
+type LauncherProvider = 'sleeper' | 'espn' | 'yahoo';
 
 /** A live-detected ESPN draft with no confirmed round count yet still needs SOME number to seed
  * `DraftInit.rounds` with — this is a display/grid fallback only, never a scoring guess, and the
@@ -48,7 +51,7 @@ const ROUNDS_FALLBACK = 15;
  */
 export function DraftLauncher() {
   const { leagues, loading, error, refresh, account } = useSleeperAccount();
-  const { handleConnect, handleEspnStart, handleResumeDraft } = useDraftSession();
+  const { handleConnect, handleEspnStart, handleYahooStart, handleResumeDraft } = useDraftSession();
   const { drafts: activeDrafts, removeDraft } = useActiveSavedDrafts();
 
   // ONE bridge poller for the whole launcher. ALWAYS on: live detection without a saved league
@@ -63,13 +66,21 @@ export function DraftLauncher() {
   // themselves, so a deliberate switch back to Sleeper isn't fought on the next bridge poll.
   const [activeProvider, setActiveProvider] = useState<LauncherProvider>('sleeper');
   const userChoseProviderRef = useRef(false);
+  // Yahoo's create flow opens a dialog (2026-09-01) — the chip on the chooser just toggles state.
+  const [yahooDialogOpen, setYahooDialogOpen] = useState(false);
+  // "Start draft" / "Extension setup" sub-tabs (2026-08-30) — mirrors /leagues/connect's
+  // EspnSetupTabs so the same install steps are reachable without leaving the Draft Room; there
+  // was previously no way to see them from here, just a one-line status like "Extension not
+  // detected" with nothing actionable under it.
+  const [espnLauncherTab, setEspnLauncherTab] = useState<'start' | 'extension'>('start');
+  const [sleeperLauncherTab, setSleeperLauncherTab] = useState<'start' | 'draft-id'>('start');
   useEffect(() => {
     if (espnLive != null && !userChoseProviderRef.current) setActiveProvider('espn');
   }, [espnLive]);
 
   if (loading) {
     return (
-      <section className="draft-room-empty">
+      <section className="draft-room-empty draft-room-launcher">
         <div className="section-heading">
           <div>
             <p className="eyebrow">Draft Room</p>
@@ -99,11 +110,11 @@ export function DraftLauncher() {
   }
 
   return (
-    <section className="draft-room-empty">
+    <section className="draft-room-empty draft-room-launcher">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Draft Room</p>
-          <h2>Start tracking a draft</h2>
+          <p className="eyebrow draft-room-launcher-label">Draft Room</p>
+          <h2 className="draft-room-launcher-title">Start tracking a draft</h2>
         </div>
       </div>
 
@@ -130,41 +141,100 @@ export function DraftLauncher() {
           <ProviderBadge brandKey="espn" size="sm" />
           ESPN
         </button>
-        <button type="button" role="tab" aria-selected={false} className="provider-chip" disabled>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeProvider === 'yahoo'}
+          className="provider-chip"
+          onClick={() => { userChoseProviderRef.current = true; setActiveProvider('yahoo'); }}
+        >
           <ProviderBadge brandKey="yahoo" size="sm" />
-          Yahoo <span className="provider-chip-note">coming soon</span>
+          Yahoo
         </button>
       </div>
 
       {activeProvider === 'sleeper' && (
         <div className="draft-selection">
-          {account && <SleeperDraftList account={account} onConnect={handleConnect} />}
-          <TrackByDraftId cred={account ? { provider: 'sleeper', userId: account.userId } : null} onConnect={handleConnect} />
+          <div className='provider-subtabs' role='tablist' aria-label='Sleeper draft setup'>
+            <button type='button' role='tab' aria-selected={sleeperLauncherTab === 'start'} className={sleeperLauncherTab === 'start' ? 'active' : undefined} onClick={() => setSleeperLauncherTab('start')}>
+              Start draft
+            </button>
+            <button type='button' role='tab' aria-selected={sleeperLauncherTab === 'draft-id'} className={sleeperLauncherTab === 'draft-id' ? 'active' : undefined} onClick={() => setSleeperLauncherTab('draft-id')}>
+              Find draft ID
+            </button>
+          </div>
+          <div className='provider-subtab-panel'>
+            {sleeperLauncherTab === 'start' ? (
+              <>
+                {account && <SleeperDraftList account={account} onConnect={handleConnect} />}
+                <TrackByDraftId cred={account ? { provider: 'sleeper', userId: account.userId } : null} onConnect={handleConnect} />
+              </>
+            ) : (
+              <SleeperDraftIdGuide />
+            )}
+          </div>
         </div>
       )}
 
       {activeProvider === 'espn' && (
         <div className="draft-selection">
-          {espnLive != null ? (
-            <ul className="draft-pick-list">
-              <EspnLiveDetectedCard
-                live={espnLive}
-                status={espnStatus}
-                detectedLeague={detectedLeague}
-                resumable={espnLive.leagueId != null
-                  ? activeDrafts.find(
-                      (d) => d.mode === 'espn' && d.frozenInit != null && d.frozenInit.leagueId === espnLive.leagueId,
-                    ) ?? null
-                  : null}
-                onResume={handleResumeDraft}
-                onStart={(teams, rounds, seat, usesPresetSettings) =>
-                  handleEspnStart(buildLiveDetectedLeague(espnLive, detectedLeague, teams, rounds), seat, usesPresetSettings)}
-              />
-            </ul>
-          ) : (
-            <p className="muted">{ESPN_STATUS_COPY[espnStatus] ?? ''}</p>
-          )}
+          <div className="provider-subtabs" role="tablist" aria-label="ESPN draft setup">
+            <button type="button" role="tab" aria-selected={espnLauncherTab === 'start'} className={espnLauncherTab === 'start' ? 'active' : undefined} onClick={() => setEspnLauncherTab('start')}>
+              Start draft
+            </button>
+            <button type="button" role="tab" aria-selected={espnLauncherTab === 'extension'} className={espnLauncherTab === 'extension' ? 'active' : undefined} onClick={() => setEspnLauncherTab('extension')}>
+              Extension setup
+            </button>
+          </div>
+          <div className="provider-subtab-panel">
+            {espnLauncherTab === 'start' ? (
+              espnLive != null ? (
+                <ul className="draft-pick-list">
+                  <EspnLiveDetectedCard
+                    live={espnLive}
+                    status={espnStatus}
+                    detectedLeague={detectedLeague}
+                    resumable={espnLive.leagueId != null
+                      ? activeDrafts.find(
+                          (d) => d.mode === 'espn' && d.frozenInit != null && d.frozenInit.leagueId === espnLive.leagueId,
+                        ) ?? null
+                      : null}
+                    onResume={handleResumeDraft}
+                    onStart={(teams, rounds, seat, usesPresetSettings) =>
+                      handleEspnStart(buildLiveDetectedLeague(espnLive, detectedLeague, teams, rounds), seat, usesPresetSettings)}
+                  />
+                </ul>
+              ) : (
+                <p className="muted">{ESPN_STATUS_COPY[espnStatus] ?? ''}</p>
+              )
+            ) : (
+              <EspnExtensionSetup />
+            )}
+          </div>
         </div>
+      )}
+
+      {activeProvider === 'yahoo' && (
+        <div className="draft-selection">
+          <p className="muted">
+            No Yahoo login is needed. Sit in the Yahoo draft room and click a player for every
+            pick — the app runs on the half-PPR preset that matches Yahoo&apos;s default scoring.
+          </p>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => setYahooDialogOpen(true)}
+          >
+            Set up a Yahoo draft
+          </button>
+        </div>
+      )}
+
+      {yahooDialogOpen && (
+        <YahooDraftSetup
+          onSubmit={(init) => { handleYahooStart(init); setYahooDialogOpen(false); }}
+          onCancel={() => setYahooDialogOpen(false)}
+        />
       )}
 
       {leagues.length === 0 && (
@@ -330,12 +400,18 @@ function TrackByDraftId({ cred, onConnect }: {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    const parsedDraftId = parseSleeperDraftId(draftId);
+    if (!parsedDraftId) {
+      setError('Paste a Sleeper draft ID or a Share Draftboard link.');
+      return;
+    }
+    setError(null);
     if (!activeCred && !resolvedCred) {
       if (usernameInput.trim()) await handleResolve();
       return;
     }
     const credToUse = resolvedCred ?? activeCred;
-    if (credToUse && draftId.trim()) onConnect(credToUse, draftId.trim());
+    if (credToUse) onConnect(credToUse, parsedDraftId);
   }
 
   return (
@@ -347,7 +423,7 @@ function TrackByDraftId({ cred, onConnect }: {
         </label>
       )}
       <label>
-        Draft ID
+        Draft ID or Share Draftboard link
         <input value={draftId} onChange={(e) => setDraftId(e.target.value)} placeholder="Paste a draft ID" />
       </label>
       <button type="submit" disabled={!draftId.trim() || resolving}>

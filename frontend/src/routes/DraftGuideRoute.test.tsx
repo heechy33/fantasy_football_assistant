@@ -129,7 +129,7 @@ describe('DraftGuideRoute URL state', () => {
   // reference columns. An unknown `source=` deep link must degrade to Sleeper silently (no crash,
   // no selector to reflect it in).
   it('an unknown source param degrades to Sleeper without a Ranked-by selector', async () => {
-    renderAt('/draft-guide?source=yahoo');
+    renderAt('/draft-guide?source=ffc');
     await screen.findByText(/The board, before draft day/);
 
     expect(screen.queryByRole('group', { name: 'Ranked by' })).not.toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('DraftGuideRoute URL state', () => {
     await screen.findByText(/The board, before draft day/);
     await screen.findByRole('table'); // table view is the default
 
-    await user.click(screen.getByRole('button', { name: 'Draft grid' }));
+    await user.click(screen.getByRole('button', { name: 'Draft' }));
     expect(params()).toEqual({
       scoring: 'ppr', qb: 'superflex', teams: '10', rounds: '13', source: 'sleeper', view: 'draft',
     });
@@ -244,7 +244,7 @@ describe('DraftGuideRoute URL state', () => {
     await screen.findByRole('table'); // degraded to the table despite view=draft
 
     expect(screen.queryByRole('columnheader', { name: 'Round' })).not.toBeInTheDocument();
-    const gridButton = screen.getByRole('button', { name: 'Draft grid' });
+    const gridButton = screen.getByRole('button', { name: 'Draft' });
     expect(gridButton).toBeDisabled();
     // The explanatory note was removed (2026-08-26) — the disabled button is the only signal.
     expect(screen.queryByText(/set the position filter back to All/i)).not.toBeInTheDocument();
@@ -252,7 +252,7 @@ describe('DraftGuideRoute URL state', () => {
 
     // Clearing the filter re-enables the toggle, and the preserved view param brings the grid back.
     await clickChip(user, 'Position', 'All');
-    expect(screen.getByRole('button', { name: 'Draft grid' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Draft' })).toBeEnabled();
     expect(await screen.findByRole('columnheader', { name: 'Round' })).toBeInTheDocument();
     expect(params()).toEqual({ view: 'draft' });
   });

@@ -1,7 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import type { AdpEntry, LeagueSettings, PlayerMeta, PlayerUsage, PlayerUsageArtifact, ProviderProjectionsArtifact } from '../../../shared/types';
 import { playerBioItems } from '../data/playerBio';
-import { playerStatusTag, statusTagClassName } from '../data/playerStatusTag';
+import { playerStatusTags, statusTagClassName } from '../data/playerStatusTag';
 import { resolvePointsPerGame } from '../data/pprProduction';
 import { buildGameLogRows, buildSparklinePoints } from '../data/weeklyGameLog';
 import type { TeamDepthRole } from '../data/teamDepthRole';
@@ -25,8 +25,18 @@ export type PlayerContextFeedStatus = 'loading' | 'ready' | 'unavailable';
  * variant appears only on ESPN PPR sessions whose `adp-espn-ppr.json` board actually loaded. */
 export type AdpDisclosure =
   | { source: 'sleeper'; format: string }
-  | { source: 'ffc-fallback'; mockDrafts: number | null; teams: number; format: string }
-  | { source: 'espn'; format: string };
+  | {
+      source: 'ffc-fallback';
+      mockDrafts: number | null;
+      teams: number;
+      format: string;
+      /** FFC's pooled ADP window (e.g. start "2026-08-24" / end "2026-08-31") — under-reacts to
+       * same-day news by construction, so the UI labels it rather than implying a live number. */
+      startDate: string | null;
+      endDate: string | null;
+    }
+  | { source: 'espn'; format: string }
+  | { source: 'yahoo'; format: string };
 
 const IDLE_WEEKLY_STATS: WeeklyStatsState = { artifact: null, status: 'idle' };
 
@@ -118,7 +128,9 @@ export function PlayerDetailDrawer({
     usage?.production,
   );
   const bioItems = playerBioItems(player);
-  const statusTag = playerStatusTag(player, usage);
+  // The drawer has room to show every applicable tag, unlike the card/row (playerStatusTag,
+  // capped at one) — a player can be a rookie AND hurt, say, and both are worth surfacing here.
+  const statusTags = playerStatusTags(player, usage);
   // The anchor marker for the ADP-by-provider section: which number the engine
   // actually used (recommendation.availabilityAdp, or the board entry's adp in
   // off-clock market mode when no recommendation exists) and which upstream
@@ -127,26 +139,40 @@ export function PlayerDetailDrawer({
   // the board-wide adpDisclosure). Null only when the player has no board entry
   // and no recommendation.
   const adpEntry = adpBoard?.find((entry) => entry.playerId === player.playerId) ?? null;
+  // FFC's ADP is a rolling pooled average over this window (e.g. "Aug 24-31"), which under-reacts
+  // to same-day news by construction — labeled on the tile whenever the board actually fell back
+  // to it, board-wide (adpDisclosure), not per-row (a single row's adpEntry.adpSource can't carry
+  // the window itself).
+  const ffcWindow = adpDisclosure?.source === 'ffc-fallback'
+    ? { startDate: adpDisclosure.startDate, endDate: adpDisclosure.endDate, mockDrafts: adpDisclosure.mockDrafts }
+    : null;
   const boardAdp: BoardAdpAnchor | null = adpEntry != null
     ? {
         adp: recommendation?.availabilityAdp ?? adpEntry.adp,
         source: adpEntry.adpSource === 'espn' ? 'ESPN'
           : adpEntry.adpSource === 'sleeper' && adpDisclosure?.source === 'espn' ? 'Sleeper (ESPN board tail)'
+          : adpEntry.adpSource === 'sleeper' && adpDisclosure?.source === 'yahoo' ? 'Sleeper (Yahoo board tail)'
           : adpEntry.adpSource === 'sleeper' ? 'Sleeper'
+          : adpEntry.adpSource === 'yahoo' ? 'Yahoo'
           : 'FFC fallback',
         brandKey: adpEntry.adpSource === 'espn' ? 'espn'
           : adpEntry.adpSource === 'sleeper' ? 'sleeper'
+          : adpEntry.adpSource === 'yahoo' ? 'yahoo'
           : 'ffc',
+        freshnessWindow: adpEntry.adpSource === 'espn' || adpEntry.adpSource === 'sleeper' || adpEntry.adpSource === 'yahoo' ? null : ffcWindow,
       }
     : recommendation != null && recommendation.availabilityAdp != null
       ? {
           adp: recommendation.availabilityAdp,
           source: adpDisclosure?.source === 'ffc-fallback' ? 'FFC fallback'
             : adpDisclosure?.source === 'espn' ? 'ESPN'
+            : adpDisclosure?.source === 'yahoo' ? 'Yahoo'
             : 'Sleeper',
           brandKey: adpDisclosure?.source === 'ffc-fallback' ? 'ffc'
             : adpDisclosure?.source === 'espn' ? 'espn'
+            : adpDisclosure?.source === 'yahoo' ? 'yahoo'
             : 'sleeper',
+          freshnessWindow: ffcWindow,
         }
       : null;
   // Underdog is a wholly separate lane (see UnderdogAdpAnchor's doc) — looked up by playerId only,
@@ -206,10 +232,13 @@ export function PlayerDetailDrawer({
                 {' \u00b7 '}{player.team ?? 'Free agent'}
                 {player.depthChartPosition ? ` \u00b7 ${player.depthChartPosition}` : ''}
                 {player.depthChartOrder != null ? ` #${player.depthChartOrder}` : ''}
-                {statusTag ? (
-                  <span className={statusTagClassName(statusTag.kind)}>{statusTag.label}</span>
-                ) : null}
+                {statusTags.map((tag) => (
+                  <span key={tag.kind} className={statusTagClassName(tag.kind)}>{tag.label}</span>
+                ))}
               </p>
+              {(player.availability ?? 1) <= 0 && player.availabilityReason && (
+                <p className="player-detail-unavailable-reason">{player.availabilityReason}</p>
+              )}
               {bioItems.length > 0 && (
                 <dl className="player-detail-bio">
                   {bioItems.map((item) => (

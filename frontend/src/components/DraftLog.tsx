@@ -38,6 +38,9 @@ interface DraftLogRowProps {
   isScrollTarget: boolean;
   currentRowRef: RefObject<HTMLLIElement | null>;
   onViewPlayer: ((playerId: PlayerId) => void) | undefined;
+  /** Row-level "Edit pick" handler (2026-09-01). Only renders the "Edit" button when the row
+   * corresponds to a logged pick AND a handler was passed — undrafted rows have nothing to edit. */
+  onCorrect: ((overall: number) => void) | undefined;
 }
 
 function youUpLabel(picksUntilUserTurn: number | null): string | null {
@@ -68,6 +71,7 @@ const DraftLogRow = memo(function DraftLogRow({
   isScrollTarget,
   currentRowRef,
   onViewPlayer,
+  onCorrect,
 }: DraftLogRowProps) {
   const isUnmatched = pick != null && pick.playerId === null;
   const hasPlayerToView = playerId != null;
@@ -108,6 +112,16 @@ const DraftLogRow = memo(function DraftLogRow({
           <div className={`draft-log-card ${pick ? 'draft-log-card-unmatched' : 'draft-log-card-future'}`}>
             {cardBody}
           </div>
+        )}
+        {pick != null && onCorrect && (
+          <button
+            type="button"
+            className="draft-log-edit-button"
+            aria-label={`Edit pick ${pickNo}`}
+            onClick={() => onCorrect(overall)}
+          >
+            Edit
+          </button>
         )}
       </div>
     </li>
@@ -160,6 +174,7 @@ export const DraftLog = memo(function DraftLog({
   playersById,
   onTheClock,
   onViewPlayer,
+  onCorrect,
   userNextOverall,
   picksUntilUserTurn,
   roundPick,
@@ -261,32 +276,8 @@ export const DraftLog = memo(function DraftLog({
 
   const showCountdown = picksUntilUserTurn != null && picksUntilUserTurn > 0;
   const onClockNow = picksUntilUserTurn === 0;
-
   return (
     <>
-      {/* Clock hero banner — rendered OUTSIDE the log panel, above the box, so the current
-         round.pick is the very first thing read, DraftSharks-style. The whole banner is a
-         "go to current pick" trigger, as is the ↓ arrow beside the heading (the banner carries
-         no aria-label so the arrow is the single accessible "Go to current pick" control). */}
-      {roundPick != null && (
-        <button
-          type="button"
-          className="draft-log-clock-banner"
-          data-onclock={onClockNow || undefined}
-          onClick={scrollToCurrent}
-        >
-          <span className="draft-log-clock-banner-round">
-            <span className="draft-log-clock-banner-label">Round</span>
-            <strong className="draft-log-clock-banner-pick">{roundPick}</strong>
-          </span>
-          {onClockNow && (
-            <span className="draft-log-clock-banner-status" data-onclock="true">On the clock</span>
-          )}
-          {showCountdown && (
-            <span className="draft-log-clock-banner-status">{picksUntilUserTurn} until your turn</span>
-          )}
-        </button>
-      )}
       <section className="draft-log" aria-label="Draft log">
         <div className="section-heading">
           <h2 className="section-title-accent">Draft log</h2>
@@ -300,6 +291,25 @@ export const DraftLog = memo(function DraftLog({
             <span aria-hidden="true">↓</span>
           </button>
         </div>
+        {roundPick != null && (
+          <button
+            type="button"
+            className="draft-log-clock-banner"
+            data-onclock={onClockNow || undefined}
+            onClick={scrollToCurrent}
+          >
+            <span className="draft-log-clock-banner-round">
+              <span className="draft-log-clock-banner-label">Round</span>
+              <strong className="draft-log-clock-banner-pick">{roundPick}</strong>
+            </span>
+            {onClockNow && (
+              <span className="draft-log-clock-banner-status" data-onclock="true">On the clock</span>
+            )}
+            {showCountdown && (
+              <span className="draft-log-clock-banner-status">{picksUntilUserTurn} until your turn</span>
+            )}
+          </button>
+        )}
         <ol ref={logListRef} className="draft-log-list">
           {entries.map((entry) => {
             if (entry.kind === 'round') {
@@ -328,6 +338,7 @@ export const DraftLog = memo(function DraftLog({
                 isScrollTarget={isScrollTarget}
                 currentRowRef={currentRowRef}
                 onViewPlayer={stableViewPlayer}
+                onCorrect={onCorrect}
               />
             );
           })}

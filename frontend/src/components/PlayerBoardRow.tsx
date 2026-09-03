@@ -1,4 +1,4 @@
-﻿import type { CSSProperties } from 'react';
+﻿import { type CSSProperties, type KeyboardEvent } from 'react';
 import { statusTagClassName } from '../data/playerStatusTag';
 import { teamLogoUrl } from '../data/playerPortrait';
 import { PlayerPortrait } from './PlayerPortrait';
@@ -14,6 +14,9 @@ export interface PlayerBoardRowProps extends PlayerBoardFaceProps {
   /** Whether the exact next-pick survival percentage may render — see PlayerCard's doc. */
   availabilityVisible?: boolean;
   onViewDetails: () => void;
+  /** Click-to-log: see PlayerCard's doc. The row is a div+role=button (not a <button>) precisely
+   * so this affordance can be a real nested <button> — a nested button-in-button is invalid HTML. */
+  onDraftPlayer?: () => void;
 }
 
 function teamChromeStyle(team: string | null | undefined): CSSProperties {
@@ -22,18 +25,29 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 }
 
 /** Keyboard-operable horizontal card representation of the same player information as PlayerCard. */
-export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: PlayerBoardRowProps) {
+export function PlayerBoardRow({ selected = false, onViewDetails, onDraftPlayer, ...props }: PlayerBoardRowProps) {
   const values = boardFaceValues(props);
   const logoUrl = teamLogoUrl(props.player?.team);
-  // The row is itself a <button> with an explicit aria-label, which swallows all descendant text
-  // — a nested interactive control isn't valid HTML here either — so the reach detail rides on
-  // the row's OWN accessible name instead of a bubble (which InfoTooltip-style hover reveal can't
-  // use here anyway: the row and its meta line are both `overflow: hidden`, see App.css).
+  // The row is a `div role="button"` (not a real <button>) so the click-to-draft affordance
+  // can be a real nested <button> — a nested button-in-button is invalid HTML. The reach detail
+  // rides on the row's own accessible name (the row and its meta line are both `overflow:
+  // hidden`, so an InfoTooltip-style hover reveal can't work here).
   const reachSuffix = values.reachGap != null ? `, reach: ${values.reachGap} picks past ADP` : '';
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    // Mirror the real <button> Enter/Space behavior now that the row is a div. Tab focus and the
+    // explicit "Draft" button both work without extra wiring; only the row-as-a-whole activation
+    // needs this shim.
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onViewDetails();
+    }
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className="player-board-row"
       aria-label={`View details for ${values.name}${reachSuffix}`}
       aria-current={selected || undefined}
@@ -42,6 +56,7 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
       data-team={props.player?.team ?? undefined}
       style={teamChromeStyle(props.player?.team)}
       onClick={onViewDetails}
+      onKeyDown={handleKeyDown}
     >
       {logoUrl && <img className="player-board-row-watermark" src={logoUrl} alt="" />}
       <span className="player-board-row-identity">
@@ -50,10 +65,7 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
           <strong>{values.name}</strong>
           <span className="player-board-row-meta">
             <PositionBadge position={props.player?.position ?? null} />
-            <span>{props.player?.team ?? 'FA'}</span>
-            {props.player?.byeWeek != null && <span>Bye {props.player.byeWeek}</span>}
             {values.statusTag && <span className={statusTagClassName(values.statusTag.kind)}>{values.statusTag.label}</span>}
-            {values.positionalRank && <span>{values.positionalRank}</span>}
             {values.reachGap != null && (
               <span
                 className="player-board-row-reach"
@@ -76,12 +88,21 @@ export function PlayerBoardRow({ selected = false, onViewDetails, ...props }: Pl
           : 'Average Draft Position'}
       >
         {formatBoardStat(values.adpValue)}
-        {values.adpSourceLabel && <small className="player-board-row-adp-source">{values.adpSourceLabel}</small>}
       </span>
       <span className="player-board-row-cell">{values.usageStat ? values.usageStat.value : '\u2014'}</span>
-      <span className="player-board-row-cell">
-        {props.availabilityVisible === false || values.availabilityValue == null ? '\u2014' : `${Math.round(values.availabilityValue * 100)}%`}
-      </span>
-    </button>
+      {onDraftPlayer && (
+        <button
+          type="button"
+          className="player-board-row-draft-button"
+          aria-label={`Draft ${values.name}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDraftPlayer();
+          }}
+        >
+          Draft
+        </button>
+      )}
+    </div>
   );
 }

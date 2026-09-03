@@ -128,6 +128,28 @@ describe('persistence', () => {
     });
   });
 
+  it('round-trips a Yahoo from-scratch session (mode manual, provider yahoo) so a refresh rehydrates the chip-driven disclosure', () => {
+    savePersistedSession({
+      userId: null,
+      draftId: null,
+      mode: 'manual',
+      overrides: [OVERRIDE],
+      frozenInit: FROZEN_INIT,
+      ...NULL_COMPLETION_FIELDS,
+      provider: 'yahoo',
+    });
+
+    expect(loadPersistedSession()).toEqual({
+      userId: null,
+      draftId: null,
+      mode: 'manual',
+      overrides: [OVERRIDE],
+      frozenInit: FROZEN_INIT,
+      ...NULL_COMPLETION_FIELDS,
+      provider: 'yahoo',
+    });
+  });
+
   // The persisted shape changed under v2 (mode gained 'espn'; ESPN bridge picks no longer arrive
   // as overrides — see the ESPN sync-restoration plan, 2026-08-15). A v1 record must be ignored
   // wholesale, not half-restored: replaying its `mode: 'manual'` (the only value the old build could
@@ -157,8 +179,27 @@ describe('persistence', () => {
     expect(loadPersistedSession()).toBeNull();
   });
 
-  it('coerces a malformed frozenInit to null instead of crashing on mount', () => {
+  // v3 -> v4 bump (2026-09-01, provider gained 'yahoo'): a v3 record's `provider` field is
+  // accepted as 'sleeper' or 'espn' or null, but is never 'yahoo' — a half-restored v3 record
+  // would lose the disclosure-banner signal that distinguishes a Yahoo from-scratch session from
+  // a generic manual one. Drop v3 wholesale rather than masquerading as v4.
+  it('ignores a legacy v3 record entirely, not just v1/v2', () => {
     localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
+      userId: null,
+      draftId: null,
+      mode: 'manual',
+      overrides: [],
+      frozenInit: null,
+      completedAt: null,
+      from: null,
+      provider: 'espn',
+      savedLeagueId: null,
+    }));
+    expect(loadPersistedSession()).toBeNull();
+  });
+
+  it('coerces a malformed frozenInit to null instead of crashing on mount', () => {
+    localStorage.setItem('ffa.draftSession.v4', JSON.stringify({
       userId: null,
       draftId: null,
       mode: 'manual',
@@ -169,7 +210,7 @@ describe('persistence', () => {
   });
 
   it('coerces an unrecognized mode to "live" rather than crashing or defaulting to "complete"', () => {
-    localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
+    localStorage.setItem('ffa.draftSession.v4', JSON.stringify({
       userId: null,
       draftId: null,
       mode: 'not-a-real-mode',
@@ -179,12 +220,27 @@ describe('persistence', () => {
     expect(loadPersistedSession()?.mode).toBe('live');
   });
 
+  it('coerces an unrecognized provider to null rather than crashing', () => {
+    localStorage.setItem('ffa.draftSession.v4', JSON.stringify({
+      userId: null,
+      draftId: null,
+      mode: 'manual',
+      overrides: [],
+      frozenInit: null,
+      completedAt: null,
+      from: null,
+      provider: 'not-a-real-provider',
+      savedLeagueId: null,
+    }));
+    expect(loadPersistedSession()?.provider).toBeNull();
+  });
+
   it('returns null when nothing has been saved', () => {
     expect(loadPersistedSession()).toBeNull();
   });
 
   it('returns null for corrupted stored JSON rather than throwing', () => {
-    localStorage.setItem('ffa.draftSession.v3', '{not valid json');
+    localStorage.setItem('ffa.draftSession.v4', '{not valid json');
     expect(loadPersistedSession()).toBeNull();
   });
 

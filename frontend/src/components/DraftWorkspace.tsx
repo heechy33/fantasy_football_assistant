@@ -35,6 +35,14 @@ export interface DraftWorkspaceProps {
   picksSignature: string;
   onTheClock: OnTheClock | null;
   boundaries: UserPickBoundaries | null;
+  /** Click-to-log handler (2026-09-01). The parent (`App`) owns this — it has the `useDraftSession`
+   * hook, so it can call `board.applyOverride` with the snake-order `manualTargetInfo`. Provided
+   * for manual/Yahoo sessions and any future from-scratch provider; `undefined` for live
+   * Sleeper/ESPN-bridge sessions (those handle picks through the live layer instead). */
+  onDraftPlayer?: (playerId: PlayerId) => void;
+  /** Row-level "Edit pick" handler for the DraftLog (the existing modal path). The parent owns
+   * the `setCorrecting` state in `useDraftSession` — same pattern as `onDraftPlayer`. */
+  onCorrectPick?: (overall: number) => void;
   /** Session-management actions (log a pick, edit setup, switch modes, reconnect, choose another
    * draft) rendered in the board's `⋯` menu, next to the card/row presentation toggle. */
   sessionActions?: ReadonlyArray<SessionAction>;
@@ -58,6 +66,8 @@ export function DraftWorkspace({
   picksSignature,
   onTheClock,
   boundaries,
+  onDraftPlayer,
+  onCorrectPick,
   sessionActions = [],
 }: DraftWorkspaceProps) {
   const adpBoardKey = useMemo(() => adpBoardKeyFor(activeProvider, adpFormat), [activeProvider, adpFormat]);
@@ -124,6 +134,7 @@ export function DraftWorkspace({
       playersById={playersById}
       onTheClock={onTheClock}
       onViewPlayer={handleViewDetails}
+      onCorrect={onCorrectPick}
       userNextOverall={boundaries?.decisionPick ?? null}
       picksUntilUserTurn={picksUntilUserTurn}
       roundPick={roundPick}
@@ -175,6 +186,7 @@ export function DraftWorkspace({
             onViewDetails={handleViewDetails}
             onClosePlayer={handleClosePlayer}
             onOpenRailDrawer={handleOpenRailDrawer}
+            onDraftPlayer={onDraftPlayer}
             sessionActions={sessionActions}
           />
         ) : null}

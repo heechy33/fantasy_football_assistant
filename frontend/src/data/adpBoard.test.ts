@@ -32,6 +32,17 @@ describe('adpBoardKeyFor', () => {
     expect(adpBoardKeyFor('manual', 'ppr')).toBe('ppr');
     expect(adpBoardKeyFor('sleeper', '2qb')).toBe('2qb');
   });
+
+  it('selects a yahoo-<fmt> key for every Yahoo combination (closes the silent Sleeper fallback gap)', () => {
+    // Phase 1 only wired yahoo-half-ppr, so Yahoo PPR/standard users were silently getting
+    // the plain format board. Phase 2 fixes that for all three Yahoo-served formats.
+    expect(adpBoardKeyFor('yahoo', 'half-ppr')).toBe('yahoo-half-ppr');
+    expect(adpBoardKeyFor('yahoo', 'ppr')).toBe('yahoo-ppr');
+    expect(adpBoardKeyFor('yahoo', 'standard')).toBe('yahoo-standard');
+    // Yahoo does not serve 2qb; that combination stays on the format key (a Yahoo user
+    // selecting 2qb is an unsupported edge case that the create form doesn't offer).
+    expect(adpBoardKeyFor('yahoo', '2qb')).toBe('2qb');
+  });
 });
 
 describe('fetchAdpBoard', () => {

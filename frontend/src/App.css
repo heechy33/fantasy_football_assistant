@@ -60,6 +60,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   position: sticky;
   top: 0;
   z-index: 8;
+  font-stretch: var(--display-stretch-wide);
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid var(--chrome-border);
@@ -131,7 +132,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   color: var(--chrome-ink);
   background: transparent;
   font-family: var(--font-display);
-  font-stretch: 125%; /* App-name role: Archivo Expanded, per the tokens.css font hierarchy. */
+  font-stretch: var(--display-stretch-wide); /* App-name role: Archivo Expanded, per the tokens.css font hierarchy. */
   font-weight: 800;
   font-size: 1.2rem;
   letter-spacing: .06em;
@@ -290,6 +291,9 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 /* Landing — one persistent cinematic scene (LandingPage): a fixed full-viewport Three.js layer
    behind every section, so the chrome Lombardi carries the whole narrative instead of living
    only in the hero. Sections stay transparent/frosted so the scene never breaks mid-story. */
+.landing-page {
+  font-stretch: var(--display-stretch-wide);
+}
 .landing-page > section,
 .landing-page > footer { position: relative; z-index: 1; }
 .landing-scene { position: fixed; z-index: 0; inset: 0; pointer-events: none; }
@@ -358,6 +362,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   border: 0;
   background: none;
   color: var(--text-3);
+  font-family: var(--font-display);
   font-size: .74rem;
   font-weight: 700;
   letter-spacing: .12em;
@@ -368,7 +373,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 .landing-hero-title {
   margin: 0;
   font-family: var(--font-display);
-  font-stretch: 125%; /* Hero display role: Archivo Expanded (see tokens.css hierarchy note). */
+  font-stretch: var(--display-stretch-wide); /* Hero display role: Archivo Expanded (see tokens.css hierarchy note). */
   font-size: clamp(2.5rem, 6vw, 4.6rem);
   font-weight: 800;
   letter-spacing: -.01em;
@@ -382,7 +387,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   margin: 0;
   color: var(--accent-cool-bright);
   font-family: var(--font-display);
-  font-stretch: 125%; /* matches .landing-hero-title's Archivo Expanded */
+  font-stretch: var(--display-stretch-wide); /* matches .landing-hero-title's Archivo Expanded */
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: .04em;
@@ -392,6 +397,12 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 }
 .draft-room-empty p,
 .teams-page .teams-empty-copy { max-width: 46rem; margin-bottom: 0; color: var(--text-2); }
+.draft-room-launcher .eyebrow { color: var(--accent-cool); }
+.draft-room-launcher h2 {
+  font-family: var(--font-display);
+  font-stretch: var(--display-stretch-wide);
+  font-weight: 800;
+}
 /* Sections — plain numbered kickers, sentence-case headings, even rhythm. */
 .landing-section {
   position: relative;
@@ -412,6 +423,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 .landing-kicker {
   margin: 0;
   color: var(--text-3);
+  font-family: var(--font-display);
   font-size: .8rem;
   font-weight: 700;
   letter-spacing: .02em;
@@ -450,7 +462,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   display: block;
   margin-bottom: .3rem;
   font-family: var(--font-display);
-  font-stretch: 125%;
+  font-stretch: var(--display-stretch-wide);
   font-weight: 800;
   font-size: 2.6rem;
   line-height: 1;
@@ -467,7 +479,9 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   gap: clamp(1.4rem, 4vw, 3.2rem);
   align-items: start;
 }
-@media (max-width: 940px) { .landing-board { grid-template-columns: 1fr; } }
+@media (max-width: 940px) {
+  .landing-board { grid-template-columns: 1fr; }
+}
 .landing-board-feed {
   border: 0;
   border-radius: 0;
@@ -475,6 +489,7 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   overflow: visible;
+  font-stretch: normal;
 }
 .landing-feed-head {
   display: flex;
@@ -484,17 +499,20 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   padding: .8rem 1rem;
   border-bottom: 1px solid var(--border-divider);
   color: var(--text-3);
-  font-size: .72rem;
+  font-size: .68rem;
   font-weight: 800;
-  letter-spacing: .14em;
+  letter-spacing: .1em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .landing-feed-dot {
   width: .48rem;
   height: .48rem;
   border-radius: 50%;
   background: var(--accent-cool);
-  box-shadow: 0 0 8px var(--accent-cool);
+  /* --accent-cool-glow (30% alpha), not the full-opacity token — matches every other glow in the
+     app (.auth-screen-points::before, .espn-download-button, etc); this one had drifted. */
+  box-shadow: 0 0 8px var(--accent-cool-glow);
   animation: landing-feed-pulse 1.6s ease-in-out infinite;
 }
 @keyframes landing-feed-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
@@ -528,8 +546,16 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 }
 /* Card showcase — the REAL Draft-Room PlayerCard faces rendered with static demo data, fanned
    slightly like a hand of cards. Display-only: the details click is a no-op on the landing. */
-.landing-board-cards { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 1.6rem; }
-.landing-demo-card { transition: transform 180ms ease; }
+.landing-board-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  width: min(34rem, 100%);
+  gap: 1rem;
+  transform: translateX(1rem);
+}
+@media (max-width: 940px) { .landing-board-cards { transform: none; } }
+.landing-demo-card { transition: transform 180ms ease; font-stretch: normal; }
 .landing-demo-card-left { transform: rotate(-2.4deg); }
 .landing-demo-card-right { transform: rotate(2deg) translateY(.7rem); }
 .landing-demo-card:hover { transform: rotate(0deg) translateY(-.25rem); }
@@ -566,8 +592,10 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   gap: 2.5rem;
 }
 .landing-integrations-copy { text-align: left; }
+.landing-integrations-grid > .integrations-map { transform: translateX(-1rem); }
 @media (max-width: 56rem) {
   .landing-integrations-grid { grid-template-columns: 1fr; gap: 1.6rem; justify-items: center; }
+  .landing-integrations-grid > .integrations-map { transform: none; }
   .integrations-map { justify-self: center; }
 }
 .integrations-map {
@@ -763,6 +791,12 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
   flex-wrap: wrap;
   align-items: center;
   gap: .15rem;
+  /* width: fit-content, not the block/grid-item default of stretching to fill the parent — a
+     bare width:auto here draws the border-wrapped pill the full width of whatever surrounds it
+     (a --provider-panel-body grid column on /leagues/connect, a plain block on the Draft Room's
+     ESPN column), leaving a long mostly-empty outlined box after the two tab buttons. */
+  width: fit-content;
+  max-width: 100%;
   margin: 0 0 .75rem;
   padding: .2rem;
   border: 1px solid var(--border-divider);
@@ -829,20 +863,37 @@ a.quiet-button:hover, a.quiet-button:focus-visible { background: var(--surface-3
 .provider-card-steps code { padding: .05rem .35rem; border-radius: 5px; background: var(--surface-3); font-size: .85em; }
 .connect-sleeper { display: grid; gap: .9rem; }
 .connect-sleeper > div { display: grid; gap: .9rem; }
-.primary-button { border: 1px solid var(--chrome-border); background: var(--chrome-2); color: var(--chrome-ink); }
+.primary-button { border: 1px solid var(--chrome-border); background: var(--chrome-2); color: var(--chrome-ink); font-family: var(--font-display); font-weight: 700; }
 .primary-button:hover, .primary-button:focus-visible { background: var(--chrome); }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
+/* Type ramp Tier 2 (see tokens.css's font-hierarchy doc): every page-level heading defaults to
+   Archivo at normal width, weight 700 — not the Expanded cut, that's Tier 1 and stays rare. This
+   is the rule that was missing before 2026-08-30: without it, every page <h2> (Leagues, Draft
+   Guide, Connect, Onboarding, 404, the workspace column titles) rendered in Inter. */
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; }
 .top-nav .brand,
 .recommendation-panel h2 {
-  font-family: var(--font-display);
-  font-weight: 400;
   letter-spacing: 0.02em;
   text-transform: none;
 }
-.eyebrow { margin-bottom: .35rem; color: var(--accent-cool); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.section-title-accent { color: var(--accent-cool); }
-.quiet-button { color: var(--text-2); background: var(--surface-quiet); }
+/* Tier 2 micro-labels — same face/weight as headings, smaller and tracked. .eyebrow's color moved
+   to --accent-cool-quiet (desaturated) in the 2026-08-30 accent-role split: full-saturation neon
+   on a small uppercase label, repeated on every page, was the single biggest source of both color
+   vibration and accent-inflation (see tokens.css's --accent-cool doc). */
+.eyebrow {
+  margin-bottom: .35rem;
+  color: var(--accent-cool-quiet);
+  font-family: var(--font-display);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+/* Only font-weight here — .section-title-accent is always an <h2>, so the global h1-h4 rule above
+   already supplies font-family/700; this just bumps the three workspace column titles to 800. */
+.section-title-accent { font-weight: 800; color: var(--accent-cool); }
+.quiet-button { font-family: var(--font-display); font-weight: 700; color: var(--text-2); background: var(--surface-quiet); }
 .section-heading, .pick-dialog header, .player-board-heading, .dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .manual-picks { display: grid; gap: .45rem; padding: 0; list-style: none; }
 .manual-picks li { display: grid; grid-template-columns: 4rem minmax(7rem, .6fr) minmax(12rem, 2fr) auto; gap: .7rem; align-items: center; padding: .7rem; border-radius: 8px; background: var(--surface-3); }
@@ -897,7 +948,9 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 /* ---------------------------------------------------------------------
    Three-column draft workspace (Phase 3) — war-room panels
    --------------------------------------------------------------------- */
-.draft-workspace { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr) 13.75rem; align-items: start; gap: 1.25rem; position: relative; }
+/* Keep the original side-rail width while using the flexible center track for the recommendation
+   board. The tighter gutter gives the player cards more room without allowing panel overlap. */
+.draft-workspace { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr) 12.5rem; align-items: start; gap: .625rem; position: relative; }
 .draft-workspace[data-narrow] { display: block; }
 /* Navy strip behind the panel-header row (the DraftSharks layering move): the three panels hang
    from one shared chrome band instead of floating separately on the page background. It is flat
@@ -938,21 +991,27 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
   align-items: center;
   justify-content: space-between;
   gap: .4rem;
-  height: var(--panel-header-h);
+  font-stretch: var(--display-stretch-wide);
+  flex: 0 0 var(--panel-header-h, 2.6rem);
+  height: var(--panel-header-h, 2.6rem);
+  min-height: var(--panel-header-h, 2.6rem);
   margin: 0;
   padding: 0 .85rem;
   background: var(--chrome);
   border-bottom: 1px solid var(--chrome-border);
 }
+/* Tier 2, standard width — these are section headers, not brand moments (see tokens.css's
+   font-hierarchy doc). Previously carried font-stretch:125% ("Expanded"), but
+   .workspace-column-log/team's h2 resolve to Inter (no wdth axis; the global h1-h4 rule below now
+   fixes that to real Archivo), so the stretch was silently ignored/synthesized on two of the
+   three selectors while the comment claimed Archivo Expanded on all three. Font-family/weight
+   now come from the global h1, h2, h3, h4 rule; only the size/spacing overrides stay here. */
 .workspace-column-log h2,
 .workspace-column-team h2,
 .recommendation-panel .section-heading h2 {
   margin-bottom: 0;
   font-size: 1.02rem;
   font-weight: 800;
-  /* Archivo Expanded — the variable font ships the wdth axis (see tokens.css @font-face), and the
-     wide display cut is what gives the reference UI its headline voice. */
-  font-stretch: 125%;
   letter-spacing: .01em;
 }
 /* ↓ jump-to-current-pick control beside the "Draft log" heading (the banner above the header is
@@ -995,11 +1054,13 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
   align-items: center;
   gap: .6rem;
   min-width: 0;
-  margin: 0 0 .6rem;
+  margin: .6rem .7rem;
   padding: .5rem .7rem;
   overflow: hidden;
   border: 1px solid var(--border-1);
-  border-left: 3px solid var(--accent-cool);
+  /* --accent-cool-quiet, not --accent-cool — a 3px hairline is exactly the stroke role the
+     desaturated accent step exists for (see tokens.css's --accent-cool doc). */
+  border-left: 3px solid var(--accent-cool-quiet);
   border-radius: var(--radius-md);
   color: var(--text-1);
   background: var(--surface-3);
@@ -1009,7 +1070,7 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .draft-log-clock-banner[data-onclock="true"] { border-color: var(--accent); border-left-color: var(--accent); }
 .draft-log-clock-banner-round { display: flex; flex-direction: column; gap: .12rem; }
 .draft-log-clock-banner-label { font-size: .56rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
-.draft-log-clock-banner-pick { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; font-stretch: 125%; font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1; color: var(--accent-cool); }
+.draft-log-clock-banner-pick { font-family: var(--font-display); font-stretch: var(--display-stretch-wide); font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1; color: var(--accent-cool); }
 .draft-log-clock-banner[data-onclock="true"] .draft-log-clock-banner-pick { color: var(--accent-strong); }
 .draft-log-clock-banner-status {
   min-width: 0;
@@ -1078,6 +1139,28 @@ h1 { margin-bottom: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 }
 button.draft-log-card { width: 100%; }
 button.draft-log-card:hover, button.draft-log-card:focus-visible { background: var(--surface-row-hover); }
+/* Row-level "Edit pick" (2026-09-01) — only renders when DraftLog receives an onCorrect handler.
+   Small, quiet, intentionally secondary: the row's whole-body click still opens the player
+   drawer (it's the primary surface), and the existing ManualPickCorrection modal opens from
+   here, so the user is correcting — not re-doing. */
+.draft-log-edit-button {
+  flex: 0 0 auto;
+  align-self: stretch;
+  padding: 0 .55rem;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font: inherit;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.draft-log-edit-button:hover, .draft-log-edit-button:focus-visible { background: var(--surface-row-hover); color: var(--text-1); }
+.draft-log-edit-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .draft-log-pick-no {
   flex-shrink: 0;
   display: flex;
@@ -1114,6 +1197,7 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
 .badge-confidence-medium { color: var(--warn-text); background: var(--warn-bg); }
 .badge-confidence-low { color: var(--danger-text); background: var(--danger-bg); }
 .badge-warning { color: var(--caution-text); background: var(--caution-bg); }
+.badge-danger { color: var(--danger-strong); background: var(--danger-strong-bg); }
 .badge-info { color: var(--info-text); background: var(--info-bg); }
 .badge-context { color: var(--context-text); background: var(--context-bg); border: 1px solid var(--border-3); }
 .badge-action-take-now { color: var(--surface-0); background: var(--accent); font-weight: 800; }
@@ -1272,7 +1356,7 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
   min-width: 100%;
   grid-template-columns: repeat(var(--filmstrip-columns), minmax(0, 1fr));
   align-items: stretch;
-  gap: var(--space-5);
+  gap: .5rem;
 }
 .board-filmstrip-page > * { min-width: 0; }
 .player-card {
@@ -1367,6 +1451,29 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
 }
 .player-card-head { display: flex; align-items: center; gap: var(--space-2); }
 .player-card-pos-rank { color: var(--team-ink, var(--accent)); font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+/* Click-to-log "Draft" affordance (2026-09-01) — only rendered when DraftWorkspace passes an
+   onDraftPlayer handler (manual/Yahoo sessions). Solid, high-contrast pill that reads as a
+   primary action so a draft-day user can find it in the corner of their eye and never confuse it
+   with the card's whole-body "view details" click. */
+.player-card-draft-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: .3rem .7rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--surface-0);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 120ms ease;
+}
+.player-card-draft-button:hover, .player-card-draft-button:focus-visible { filter: brightness(1.08); transform: translateY(-1px); }
+.player-card-draft-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.player-card-draft-button:active { transform: translateY(0); }
 .player-card-identity {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1657,8 +1764,8 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
   max-width: 11rem;
   padding: .4rem .55rem;
   border-radius: var(--radius-sm, 6px);
-  background: var(--surface-3, #1c1f26);
-  color: var(--text-1, #fff);
+  background: var(--surface-3, #151a21);
+  color: var(--text-1, #dcdcdc);
   font-size: .66rem;
   font-weight: 500;
   line-height: 1.3;
@@ -1837,6 +1944,7 @@ button.my-team-row:hover, button.my-team-row:focus-visible { background: var(--s
    the browser's default <p> margin-bottom would double up on top of that and open a visible gap
    above and below the line, so both are zeroed here. */
 .player-detail-summary .player-context-meta { margin: 0; }
+.player-detail-unavailable-reason { margin: 0; color: var(--danger-strong); font-size: .78rem; font-weight: 600; }
 /* Team-depth role interpretation row (TeamDepthRoleRow) â€” clearly-labeled "Depth chart" heading
    + ordered room table. The viewed player's row is highlighted and rows lift slightly on hover
    so scanning the room feels interactive rather than a static dump of numbers. Lives in the
@@ -1914,6 +2022,7 @@ button.my-team-row:hover, button.my-team-row:focus-visible { background: var(--s
 .market-comparison { margin: 1.25rem 0 0; display: grid; gap: var(--space-4); }
 .market-comparison h3 { margin: 0; }
 .adp-summary, .projection-summary { display: grid; gap: .5rem; }
+.adp-summary-window { margin: 0; font-size: .74rem; color: var(--text-3); }
 .market-tile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
@@ -2313,12 +2422,11 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
    named explicitly so its layout doesn't depend on the bare-`section` selector by coincidence. */
 .manual-draft { display: flex; flex-direction: column; }
 
-/* DataHealth was rendered as a bare `<p>`/`<div role="status">` with no container at the bottom of
-   the page. Healthy state stays quiet (muted text, no border) so it doesn't compete with the
-   workspace above it; the warning state gets the same caution treatment as `.warning-banner` since
-   it is exactly that: a non-blocking but real advisory. */
+/* DataHealth was rendered as a bare `<div role="status">` with no container at the bottom of the
+   page. Healthy state renders nothing at all (2026-08-30 — was a muted "Data healthy" line, pure
+   noise once a draft is actually running); the warning state gets the same caution treatment as
+   `.warning-banner` since it is exactly that: a non-blocking but real advisory. */
 .data-health { margin-top: 1rem; }
-.data-health-ok { color: var(--text-3); font-size: .88rem; }
 .data-health-warning { padding: .85rem 1rem; border: 1px solid var(--border-3); border-radius: 9px; color: var(--caution-text); background: var(--caution-bg); }
 .data-health-warning strong { display: block; margin-bottom: .4rem; color: var(--caution-text); }
 .data-health-warning ul { margin: 0; padding-left: 1.2rem; color: var(--text-2); font-size: .88rem; }
@@ -2333,6 +2441,15 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 .data-health-espn-capture dt { color: var(--text-3); }
 .data-health-espn-capture dd { margin: 0; color: var(--text-2); }
 .data-health-espn-capture button { margin-top: .4rem; }
+
+/* ADP/projection freshness disclosure (2026-08-31) — same collapsed, plain-text treatment as the
+   ESPN capture inspector above, and unconditional on the healthy/unhealthy state: freshness is
+   worth knowing even on a fully healthy day. */
+.data-health-freshness { margin-top: .6rem; font-size: .82rem; color: var(--text-3); }
+.data-health-freshness summary { cursor: pointer; color: var(--text-2); }
+.data-health-freshness dl { margin: .5rem 0; display: grid; grid-template-columns: auto 1fr; gap: .2rem .75rem; }
+.data-health-freshness dt { color: var(--text-3); }
+.data-health-freshness dd { margin: 0; color: var(--text-2); }
 
 .recommendation-refinement-status {
   margin: .65rem 0;
@@ -2367,7 +2484,7 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
 .board-rows-list { display: grid; gap: .6rem; }
 .board-rows-header, .player-board-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(3.2rem, .8fr) repeat(4, minmax(2.75rem, .62fr));
+  grid-template-columns: minmax(0, 2.4fr) minmax(3.2rem, .8fr) repeat(3, minmax(2.75rem, .62fr));
   align-items: center;
   column-gap: .65rem;
 }
@@ -2423,6 +2540,27 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
   letter-spacing: .03em;
   cursor: help;
 }
+/* Click-to-log "Draft" affordance for the row presentation (2026-09-01). The row is a div
+   (PlayerBoardRow.tsx's HTML-validity fix), so this is a real nested <button>. The button slots
+   into a final grid column that mirrors the card's button placement. */
+.player-board-row-draft-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: .25rem .55rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--surface-0);
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.player-board-row-draft-button:hover, .player-board-row-draft-button:focus-visible { filter: brightness(1.08); }
+.player-board-row-draft-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* --- Draft Guide (public /draft-guide) -------------------------------------
    Broadcast Neon pass (2026-08-26, DECISIONS.md): de-boxed per the landing/guide redesign — the
@@ -2431,7 +2569,7 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
    (2026-08-26), and every decorative border runs on --border-divider/--hairline-strong
    instead of --border-1 (the WCAG-gated functional border token, left alone). */
 
-.draft-guide { max-width: 1280px; margin: 0 auto; padding: 0 16px 64px; border: 0; background: none; }
+.draft-guide { max-width: 1280px; margin: 0 auto; padding: 0 16px 64px; border: 0; background: none; font-stretch: var(--display-stretch-wide); }
 
 /* One toolbar row above the board: format/position filter chips on the left, the Table/Draft-grid
    toggle on the right; wraps on narrow screens. Owns the spacing the old separate blocks had. */
@@ -2440,11 +2578,12 @@ g[role="button"]:focus-visible .body-map-region { stroke: var(--accent); stroke-
   align-items: center;
   justify-content: space-between;
   gap: 12px 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin: 20px 0 16px;
 }
 .guide-filters {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   gap: 8px 24px;
   align-items: center;
@@ -2546,9 +2685,13 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .guide-pos-pill[data-position='K'] { color: var(--pos-k); }
 .guide-pos-pill[data-position='DEF'] { color: var(--pos-def); }
 
-.guide-view-toggle { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; padding: .2rem; border-radius: var(--radius-pill); background: rgb(255 255 255 / .03); flex: none; }
+.guide-view-toggle { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-left: auto; padding: .2rem; border-radius: var(--radius-pill); background: rgb(255 255 255 / .03); flex: none; }
 .guide-view-button { padding: 6px 16px; border-radius: var(--radius-pill); font-size: .85rem; background: transparent; color: var(--text-3); }
 .guide-view-button[aria-pressed='true'] { color: var(--text-1); background: rgb(255 255 255 / .08); }
+@media (max-width: 900px) {
+  .guide-toolbar { flex-wrap: wrap; }
+  .guide-view-toggle { margin-left: 0; }
+}
 
 .guide-draft-scroll { overflow-x: auto; border: 0; border-radius: 0; }
 .guide-draft-grid { border-collapse: collapse; font-size: .72rem; min-width: 100%; }
@@ -2613,6 +2756,7 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .auth-screen-pill {
   margin: 0;
   color: var(--text-3);
+  font-family: var(--font-display);
   font-size: .74rem;
   font-weight: 700;
   letter-spacing: .12em;
@@ -2622,7 +2766,6 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .auth-screen-title {
   margin: 0;
   font-family: var(--font-display);
-  font-stretch: 125%;
   font-size: clamp(2rem, 3.6vw, 3.2rem);
   font-weight: 800;
   letter-spacing: -.01em;
@@ -2668,4 +2811,3 @@ td.guide-col-lane[data-unavailable] { color: var(--text-3); }
 .onboarding-step[data-state='done'] { opacity: .65; }
 .onboarding-panel { display: grid; gap: var(--space-8); }
 .onboarding-panel .provider-panel { display: grid; gap: var(--space-6); padding: var(--space-8); }
-

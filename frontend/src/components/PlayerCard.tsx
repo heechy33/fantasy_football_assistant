@@ -53,6 +53,13 @@ export interface PlayerCardProps {
    * render — see the JSX comment above the slot. Omitted/empty → the slot stays blank. */
   roleStats?: readonly CardRoleStat[] | null;
   onViewDetails: () => void;
+  /** Click-to-log: the click-to-draft handler threaded from the session (2026-09-01). When
+   * provided, the card renders a real "Draft" button in the headline row that fires this handler
+   * with the card's playerId. The card's whole-body click is preserved as `onViewDetails` — the
+   * two never collide because the button is its own element with `stopPropagation`. When omitted
+   * (landing demo, direct renders, ESPN live-detected sessions), no button renders and the card
+   * behaves exactly as before. */
+  onDraftPlayer?: () => void;
 }
 
 function formatStat(value: number | null | undefined): string {
@@ -81,7 +88,7 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 export function PlayerCard(props: PlayerCardProps) {
   const {
     playerId, recommendation, player, adpBoard, nextUp, usage, depthRole, avgPointsPerGame,
-    availabilityVisible = true, roleStats, onViewDetails,
+    availabilityVisible = true, roleStats, onViewDetails, onDraftPlayer,
   } = props;
   const values = boardFaceValues(props);
   const name = player?.name ?? playerId;
@@ -136,6 +143,22 @@ export function PlayerCard(props: PlayerCardProps) {
           </span>
         </div>
         {player ? <PlayerPortrait player={player} className="player-card-portrait" /> : null}
+        {onDraftPlayer && (
+          <button
+            type="button"
+            className="player-card-draft-button"
+            aria-label={`Draft ${name}`}
+            onClick={(event) => {
+              // The whole article is a click target for `onViewDetails`; the button is its own
+              // element with its own click handler. stopPropagation so the article's click handler
+              // doesn't open the drawer on top of the draft commit.
+              event.stopPropagation();
+              onDraftPlayer();
+            }}
+          >
+            Draft
+          </button>
+        )}
       </div>
 
       <dl className="player-card-attributes">

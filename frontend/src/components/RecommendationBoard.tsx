@@ -121,6 +121,12 @@ export interface RecommendationBoardProps {
   onViewDetails: (playerId: PlayerId) => void;
   onClosePlayer: () => void;
   onOpenRailDrawer: (kind: 'log' | 'team') => void;
+  /** Click-to-log handler (2026-09-01). When provided, every card and every row renders a "Draft"
+   * affordance that dispatches the board's applyOverride with the correct snake-order round/slot/
+   * team. The DraftWorkspace passes it through; manual/Yahoo sessions and the landing demo get it,
+   * Sleeper live sessions deliberately don't. See PlayerCard/PlayerBoardRow for the keyboard and
+   * stopPropagation rules. */
+  onDraftPlayer?: (playerId: PlayerId) => void;
   /** Session-management actions, rendered in the board's `⋯` menu next to the card/row toggle. */
   sessionActions?: ReadonlyArray<SessionAction>;
 }
@@ -151,6 +157,7 @@ export function RecommendationBoard({
   onViewDetails,
   onClosePlayer,
   onOpenRailDrawer,
+  onDraftPlayer,
   sessionActions = [],
 }: RecommendationBoardProps) {
   const [displayPosition, setDisplayPosition] = useState<Position | null>(null);
@@ -460,7 +467,17 @@ export function RecommendationBoard({
       ?? undefined
     : undefined;
 
-  const activeAdpSource = manifest?.sources[resolvedAdpKey === 'espn-ppr' ? 'adp_active_espn_ppr' : `adp_active_${adpFormat}`];
+  // The resolvedAdpKey -> manifest source mapping. The three additive keys (espn-ppr, yahoo-*)
+  // each have their own manifest entry; everything else reads the plain adp_active_<fmt> entry.
+  // (Phase 2, 2026-09-XX: yahoo-<fmt> keys are wired but the artifacts are not yet committed;
+  // the manifest entry's status will be 'error' and the disclosure falls back to 'sleeper'.)
+  const activeSourceManifestKey = resolvedAdpKey === 'espn-ppr'
+    ? 'adp_active_espn_ppr'
+    : resolvedAdpKey === 'yahoo-half-ppr' ? 'adp_active_yahoo_half-ppr'
+      : resolvedAdpKey === 'yahoo-ppr' ? 'adp_active_yahoo_ppr'
+        : resolvedAdpKey === 'yahoo-standard' ? 'adp_active_yahoo_standard'
+          : `adp_active_${adpFormat}`;
+  const activeAdpSource = manifest?.sources[activeSourceManifestKey];
   const ffcAdpSource = manifest?.sources[`ffc_adp_${adpFormat}`];
   const adpDisclosure: AdpDisclosure | null = activeAdpSource == null
     ? null
@@ -470,10 +487,14 @@ export function RecommendationBoard({
           mockDrafts: ffcAdpSource?.population?.mockDrafts ?? null,
           teams: ffcAdpSource?.population?.teams ?? 12,
           format: ffcAdpSource?.population?.format ?? adpFormat,
+          startDate: ffcAdpSource?.population?.startDate ?? null,
+          endDate: ffcAdpSource?.population?.endDate ?? null,
         }
       : activeAdpSource.activeAdpSource === 'espn'
         ? { source: 'espn', format: adpFormat }
-        : { source: 'sleeper', format: adpFormat };
+        : activeAdpSource.activeAdpSource === 'yahoo'
+          ? { source: 'yahoo', format: adpFormat }
+          : { source: 'sleeper', format: adpFormat };
 
   const source = manifest?.sources.fftoday_projections;
   const scoringUnavailable = Object.keys(draftInit.settings.scoring).length === 0;
@@ -580,6 +601,7 @@ export function RecommendationBoard({
                             nextUp={nextUpAt(rankedRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             selected={selectedPlayerId === recommendation.playerId}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
+                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(recommendation.playerId) : undefined}
                           />
                         ))
                       : marketRows.map((row, index) => (
@@ -601,6 +623,7 @@ export function RecommendationBoard({
                             nextUp={nextUpAt(marketRows, index, playersById)}
                             selected={selectedPlayerId === row.playerId}
                             onViewDetails={() => onViewDetails(row.playerId)}
+                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(row.playerId) : undefined}
                           />
                         ))}
                   </BoardRows>
@@ -635,6 +658,7 @@ export function RecommendationBoard({
                             currentPick={currentOverall}
                             nextUp={nextUpAt(cardRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
                             onViewDetails={() => onViewDetails(recommendation.playerId)}
+                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(recommendation.playerId) : undefined}
                           />
                         ))
                       : visibleMarketRows.map((row, index) => (
@@ -656,6 +680,7 @@ export function RecommendationBoard({
                             currentPick={currentOverall}
                             nextUp={nextUpAt(visibleMarketRows, index, playersById)}
                             onViewDetails={() => onViewDetails(row.playerId)}
+                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(row.playerId) : undefined}
                           />
                         ))}
                   </BoardFilmstrip>

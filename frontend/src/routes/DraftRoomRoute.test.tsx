@@ -40,10 +40,10 @@ describe('DraftRoomRoute end-draft exit', () => {
   });
 
   it('offers "End draft" on a wedged manual session and clears the stored session on click', async () => {
-    // The exact shape `persistence.ts` (v3) writes for a leave-mid-draft-then-abandoned ESPN
+    // The exact shape `persistence.ts` (v4) writes for a leave-mid-draft-then-abandoned ESPN
     // session that never reconnected: `manual`, no frozenInit, no reconnectCred (activeProvider
     // reads this as 'espn' — see DraftSessionProvider's doc on that ternary).
-    localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
+    localStorage.setItem('ffa.draftSession.v4', JSON.stringify({
       userId: null, draftId: null, mode: 'manual', overrides: [], frozenInit: null,
       completedAt: null, from: null, provider: null, savedLeagueId: null,
     }));
@@ -62,7 +62,7 @@ describe('DraftRoomRoute end-draft exit', () => {
     // Lands back on the disconnected launcher...
     expect(await screen.findByText(/Start tracking a draft/)).toBeInTheDocument();
     // ...and the wedge cannot recur on the next refresh.
-    expect(localStorage.getItem('ffa.draftSession.v3')).toBeNull();
+    expect(localStorage.getItem('ffa.draftSession.v4')).toBeNull();
     // The ESPN-owned session asked the extension to drop its captured stream too, so a fresh
     // draft never inherits the abandoned one's picks.
     expect(requestEspnResetSnapshotMock).toHaveBeenCalled();

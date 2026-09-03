@@ -111,7 +111,7 @@ function startEspnBridgeSession() {
       format: { reception: 'ppr', qb: 'one-qb', draft: 'snake' },
     },
   };
-  localStorage.setItem('ffa.draftSession.v3', JSON.stringify({
+  localStorage.setItem('ffa.draftSession.v4', JSON.stringify({
     userId: null,
     draftId: null,
     mode: 'espn',
@@ -155,10 +155,9 @@ describe('Onboarding league step — ESPN session routing', () => {
     await user.click(screen.getByRole('button', { name: 'Session actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Switch to manual' }));
 
-    const alert = await screen.findByText(/Not connected to your ESPN draft tab/i);
-    expect(alert).toBeInTheDocument();
-    const connectAction = screen.getByRole('button', { name: 'Connect ESPN tab' });
-    expect(connectAction).toBeInTheDocument();
+    expect(screen.queryByText(/Not connected to your ESPN draft tab/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Session actions' }));
+    const connectAction = screen.getByRole('menuitem', { name: 'Connect ESPN tab' });
 
     // The action must actually work: it re-arms the bridge (kind: 'bridge' again).
     await user.click(connectAction);
@@ -185,7 +184,7 @@ describe('Onboarding league step — ESPN session routing', () => {
 
     // The escape hatch freezes the live board into a manual session, exactly like the menu action.
     await user.click(screen.getByRole('button', { name: 'Switch to manual' }));
-    expect(await screen.findByText(/Not connected to your ESPN draft tab/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Not connected to your ESPN draft tab/i)).not.toBeInTheDocument();
   });
 
   it('warns when the ESPN tab attached mid-draft and names the attach point (Step 6d)', async () => {

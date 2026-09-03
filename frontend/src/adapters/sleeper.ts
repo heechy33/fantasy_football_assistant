@@ -374,6 +374,24 @@ export interface SleeperDraftRef {
   type: string;
 }
 
+/** Accept a raw id or a link copied from Sleeper Share Draftboard. */
+export function parseSleeperDraftId(input: string): string | null {
+  const value = input.trim();
+  if (!value) return null;
+  if (!value.includes('/') && !/^[a-z][a-z\d+.-]*:/i.test(value)) return value;
+
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    if (hostname !== 'sleeper.com' && hostname !== 'www.sleeper.com') return null;
+    const match = url.pathname.match(/^\/draft\/nfl\/([^/]+)\/?$/i);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Sleeper exposes mocks in a user's draft history, separately from leagues.
  * Keeping this Sleeper-specific avoids widening the provider contract before

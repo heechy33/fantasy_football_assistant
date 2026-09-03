@@ -13,7 +13,13 @@ import type { PickOverride } from './draftBoardState';
 // This bump is doing double duty as the fix for the "stuck on local storage" bug — every v2 record
 // on a user's machine (some of them genuinely stale, resurrected by the write-side bug fixed
 // alongside this in DraftSessionProvider) is dropped in one move rather than needing a migration.
-const STORAGE_KEY = 'ffa.draftSession.v3';
+//
+// Bumped again v3 -> v4 (2026-09-01): `provider` gained 'yahoo' so a rehydrated manual session
+// can recover whether it was a Yahoo from-scratch session or a generic manual one — drives the
+// disclosure-banner decision in `DraftRoomRoute`. `mode` is unchanged: a Yahoo session still
+// serializes as `mode: 'manual'` with `provider: 'yahoo'` on the side. Drop v3 wholesale (the v3
+// records' provider field is rejected by the new check and would re-render as ESPN/None).
+const STORAGE_KEY = 'ffa.draftSession.v4';
 
 /**
  * Session mode as persisted. This is a superset of `DraftBoardState['mode']` ('live' | 'manual'):
@@ -47,7 +53,10 @@ export interface PersistedSession {
   frozenInit: DraftInit | null;
   completedAt: string | null;
   from: PersistedSessionMode | null;
-  provider: 'sleeper' | 'espn' | null;
+  /** 'yahoo' (2026-09-01) is a rehydrate-only signal — used by the draft-room disclosure banner
+   * to render the Yahoo half-PPR preset claim. The session itself is `kind: 'manual'`; `provider`
+   * is the only field that distinguishes a Yahoo from-scratch session from a generic manual one. */
+  provider: 'sleeper' | 'espn' | 'yahoo' | null;
   savedLeagueId: string | null;
 }
 
@@ -99,7 +108,9 @@ export function loadPersistedSession(): PersistedSession | null {
       frozenInit: isDraftInitLike(parsed.frozenInit) ? parsed.frozenInit : null,
       completedAt: typeof parsed.completedAt === 'string' ? parsed.completedAt : null,
       from: isPersistedModeLike(parsed.from) ? parsed.from : null,
-      provider: parsed.provider === 'sleeper' || parsed.provider === 'espn' ? parsed.provider : null,
+      provider: parsed.provider === 'sleeper' || parsed.provider === 'espn' || parsed.provider === 'yahoo'
+        ? parsed.provider
+        : null,
       savedLeagueId: typeof parsed.savedLeagueId === 'string' ? parsed.savedLeagueId : null,
     };
   } catch {

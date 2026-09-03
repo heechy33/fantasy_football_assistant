@@ -17,13 +17,13 @@ describe('BoardRows', () => {
     expect(screen.queryByRole('button', { name: 'Load more players' })).not.toBeInTheDocument();
   });
 
-  it('includes an Avail column header alongside Player/Role/Proj/ADP/Usage (no Rank column)', () => {
+  it('keeps the Row header focused on the scan-friendly core stats (no Rank or Avail column)', () => {
     render(
       <BoardRows itemCount={1} label="Recommendation players">
         <div>Player 1</div>
       </BoardRows>,
     );
-    expect(screen.getByText('Avail')).toBeInTheDocument();
+    expect(screen.queryByText('Avail')).not.toBeInTheDocument();
     expect(screen.queryByText('Rank')).not.toBeInTheDocument();
   });
 });
@@ -43,14 +43,7 @@ describe('PlayerBoardRow', () => {
     expect(onViewDetails).toHaveBeenCalledTimes(2);
   });
 
-  it('renders an em dash for the Avail cell when no probability is available', () => {
-    render(<PlayerBoardRow playerId="p1" player={undefined} recommendation={null} onViewDetails={vi.fn()} />);
-    const row = screen.getByRole('button', { name: 'View details for p1' });
-    const cells = row.querySelectorAll('.player-board-row-cell');
-    expect(cells[cells.length - 1]).toHaveTextContent('\u2014');
-  });
-
-  it('hides the Avail percentage off the clock even when an estimate exists', () => {
+  it('omits the availability cell even when an estimate exists', () => {
     render(
       <PlayerBoardRow
         playerId="p1"
@@ -62,11 +55,11 @@ describe('PlayerBoardRow', () => {
       />,
     );
     const row = screen.getByRole('button', { name: 'View details for p1' });
-    const cells = row.querySelectorAll('.player-board-row-cell');
-    expect(cells[cells.length - 1]).toHaveTextContent('\u2014');
+    expect(row.querySelectorAll('.player-board-row-cell')).toHaveLength(4);
+    expect(within(row).queryByText('26%')).not.toBeInTheDocument();
   });
 
-  it('shows the per-player ADP provenance suffix in the ADP cell', () => {
+  it('keeps ADP provenance out of the visible ADP cell', () => {
     render(
       <PlayerBoardRow
         playerId="p1"
@@ -80,21 +73,7 @@ describe('PlayerBoardRow', () => {
     const row = screen.getByRole('button', { name: 'View details for p1' });
     const cells = row.querySelectorAll('.player-board-row-cell');
     expect(cells[2]).toHaveTextContent('73.0');
-    expect(cells[2]!.querySelector('.player-board-row-adp-source')?.textContent).toBe('ESPN');
-  });
-
-  it('renders the fallback availability percentage in the Avail cell when recommendation is null', () => {
-    render(
-      <PlayerBoardRow
-        playerId="p1"
-        player={undefined}
-        recommendation={null}
-        availableNextPickProbability={0.256}
-        onViewDetails={vi.fn()}
-      />,
-    );
-    const row = screen.getByRole('button', { name: 'View details for p1' });
-    expect(within(row).getByText('26%')).toBeInTheDocument();
+    expect(cells[2]!.querySelector('.player-board-row-adp-source')).toBeNull();
   });
 
   it('flags a reach with a context chip only at or past the 20-pick threshold', () => {

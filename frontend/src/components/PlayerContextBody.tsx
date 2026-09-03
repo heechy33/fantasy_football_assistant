@@ -8,11 +8,13 @@ export type PlayerContextFeedStatus = 'loading' | 'ready' | 'unavailable';
 /** Which upstream actually produced the active `adp-<format>.json`, read off
  * `DataManifest.sources['adp_active_' + format]`. Sleeper's draft-lobby ADP is canonical; the
  * FFC-derived board only appears when Sleeper's endpoint was unavailable or too sparse; the ESPN
- * variant appears only on ESPN PPR sessions whose `adp-espn-ppr.json` board actually loaded. */
+ * variant appears only on ESPN PPR sessions whose `adp-espn-ppr.json` board actually loaded;
+ * the Yahoo variant appears only on Yahoo sessions whose `adp-yahoo-<fmt>.json` board shipped. */
 export type AdpDisclosure =
   | { source: 'sleeper'; format: string }
   | { source: 'ffc-fallback'; mockDrafts: number | null; teams: number; format: string }
-  | { source: 'espn'; format: string };
+  | { source: 'espn'; format: string }
+  | { source: 'yahoo'; format: string };
 
 export interface PlayerContextBodyProps {
   player: PlayerMeta;
@@ -102,7 +104,7 @@ export function PlayerContextBody({
             </details>
           )}
 
-          <h4>Availability model ({adpDisclosure?.source === 'ffc-fallback' ? 'FFC ADP — fallback' : adpDisclosure?.source === 'espn' ? 'ESPN default-PPR ADP' : 'Sleeper draft-lobby ADP'})</h4>
+          <h4>Availability model ({adpDisclosure?.source === 'ffc-fallback' ? 'FFC ADP — fallback' : adpDisclosure?.source === 'espn' ? 'ESPN default-PPR ADP' : adpDisclosure?.source === 'yahoo' ? 'Yahoo draft-analysis ADP' : 'Sleeper draft-lobby ADP'})</h4>
           <dl className="context-metrics">
             <div><dt>ADP</dt><dd>{number(recommendation.availabilityAdp)}</dd></div>
             <div><dt>Range</dt><dd>{recommendation.availabilityAdpLow != null && recommendation.availabilityAdpHigh != null ? `${recommendation.availabilityAdpHigh}–${recommendation.availabilityAdpLow}` : 'n/a'}</dd></div>
@@ -122,6 +124,11 @@ export function PlayerContextBody({
                 {' '}Football Calculator's dispersion shape — the same experimental treatment as Sleeper. The feed censors every undrafted player at a fixed late pick, so the board is
                 {' '}truncated at the detected censoring point and the remaining players are carried over from the Sleeper board (clamped to the cutoff) — deep-ADP rows are Sleeper
                 {' '}provenance, not ESPN.</>
+              ) : adpDisclosure.source === 'yahoo' ? (
+                <>Yahoo's own draft-analysis average pick for {adpDisclosure.format} scoring, from the public unauthenticated `pub-api-ro.fantasysports.yahoo.com` feed. The same fitted-stdev +
+                {' '}null-population caveat as Sleeper/ESPN applies (Yahoo publishes no range or sample size, and the standard deviation is a fitted estimate calibrated against Fantasy Football
+                {' '}Calculator's dispersion shape). The feed averages only over drafts where the player was actually picked, so the honest head is truncated at the detected censoring point and
+                {' '}the remaining players are carried over from the Sleeper board (clamped to the cutoff) — deep-ADP rows are Sleeper provenance, not Yahoo.</>
               ) : (
                 <>Sleeper's draft-lobby ADP was unavailable or too sparse for this format, so this board falls back to {adpDisclosure.mockDrafts != null ? `${adpDisclosure.mockDrafts.toLocaleString()} recorded` : 'an unknown number of'} Fantasy
                 {' '}Football Calculator mock drafts, configured for {adpDisclosure.teams}-team {adpDisclosure.format} scoring.</>

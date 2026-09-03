@@ -86,6 +86,7 @@ describe('guideBoard against real data/', () => {
       sleeper: sleeperFull,
       espn: unavailableProviderColumn('espn', 'ESPN'),
       ffc: ffcSparse,
+      yahoo: unavailableProviderColumn('yahoo', 'Yahoo'),
       underdog: unavailableProviderColumn('underdog', 'Underdog'),
     }, engineRankByPlayer);
 

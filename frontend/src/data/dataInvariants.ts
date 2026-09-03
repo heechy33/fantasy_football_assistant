@@ -335,10 +335,10 @@ export function validateAdpRanges(entries: AdpEntry[]): ValidationIssue[] {
 }
 
 /** `high`/`low`/`timesDrafted` are `null`, not a real 0, when a source (Sleeper's lobby ADP, ESPN's
- * leaguedefaults feed, or Underdog's best-ball board) doesn't expose them at all — see AdpEntry's
- * doc. Checks the provenance tags are one of the declared values and that each source's nullability
- * contract holds: FFC always carries observed population fields; Sleeper, ESPN and Underdog always
- * carry fitted stdev with null population fields. */
+ * leaguedefaults feed, Yahoo's draft-analysis feed, or Underdog's best-ball board) doesn't expose
+ * them at all — see AdpEntry's doc. Checks the provenance tags are one of the declared values and
+ * that each source's nullability contract holds: FFC always carries observed population fields;
+ * Sleeper, ESPN, Yahoo, and Underdog always carry fitted stdev with null population fields. */
 export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const entry of entries) {
@@ -347,8 +347,10 @@ export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
         ? 'adp-underdog-population-absent'
         : entry.adpSource === 'espn'
           ? 'adp-espn-population-absent'
-          : 'adp-sleeper-population-absent';
-    if (entry.adpSource !== 'sleeper' && entry.adpSource !== 'ffc' && entry.adpSource !== 'espn' && entry.adpSource !== 'underdog') {
+          : entry.adpSource === 'yahoo'
+            ? 'adp-yahoo-population-absent'
+            : 'adp-sleeper-population-absent';
+    if (entry.adpSource !== 'sleeper' && entry.adpSource !== 'ffc' && entry.adpSource !== 'espn' && entry.adpSource !== 'underdog' && entry.adpSource !== 'yahoo') {
       issues.push({ check: 'adp-source-valid', detail: `${entry.name} has invalid adpSource ${String(entry.adpSource)}` });
     }
     if (entry.stdevSource !== 'observed' && entry.stdevSource !== 'fitted') {
@@ -373,11 +375,12 @@ export function validateAdpProvenance(entries: AdpEntry[]): ValidationIssue[] {
         });
       }
     }
-    if (entry.adpSource === 'sleeper' || entry.adpSource === 'espn' || entry.adpSource === 'underdog') {
+    if (entry.adpSource === 'sleeper' || entry.adpSource === 'espn' || entry.adpSource === 'underdog' || entry.adpSource === 'yahoo') {
       if (entry.stdevSource !== 'fitted') {
         issues.push({
           check: entry.adpSource === 'espn' ? 'adp-espn-stdev-fitted'
             : entry.adpSource === 'underdog' ? 'adp-underdog-stdev-fitted'
+            : entry.adpSource === 'yahoo' ? 'adp-yahoo-stdev-fitted'
             : 'adp-sleeper-stdev-fitted',
           detail: `${entry.name} is adpSource '${entry.adpSource}' but stdevSource is ${entry.stdevSource}`,
         });

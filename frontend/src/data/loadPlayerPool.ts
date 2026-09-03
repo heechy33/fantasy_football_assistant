@@ -50,7 +50,17 @@ export async function loadKnownPlayerIds(): Promise<ReadonlySet<PlayerId>> {
 export async function loadRankedPlayers(key: AdpBoardKey = 'ppr'): Promise<RankedPlayer[]> {
   let promise = rankedPlayerPromises.get(key);
   if (!promise) {
-    const format: AdpFormat = key === 'espn-ppr' ? 'ppr' : key;
+    // Additive board keys (espn-ppr, yahoo-half-ppr, yahoo-ppr, yahoo-standard) share their
+    // base-format artifact; the fail-open in fetchAdpBoard will load the additive key on its
+    // own if the file exists. (Format-key mapping kept here so a future 'yahoo-ppr' or
+    // 'espn-half-ppr' would resolve correctly without breaking the existing 'espn-ppr'
+    // shortcut.)
+    const format: AdpFormat = key === 'espn-ppr'
+      ? 'ppr'
+      : key === 'yahoo-half-ppr' ? 'half-ppr'
+        : key === 'yahoo-ppr' ? 'ppr'
+          : key === 'yahoo-standard' ? 'standard'
+            : key;
     promise = Promise.all([
       loadPlayerPool(),
       fetchAdpBoard(key, format).then(({ entries }) => entries),

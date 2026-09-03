@@ -43,6 +43,78 @@ export interface EspnCaptureSummary {
   onReset: () => void;
 }
 
+/** Hours-old label for a manifest source's `fetchedAt`, or 'unknown' when unparsable. Rounds to
+ * one decimal under 10h (where the difference between a morning and midday refresh matters most
+ * for a same-day draft) and to a whole number above it. */
+function formatHoursAgo(iso: string, now: number): string {
+  const fetchedAt = Date.parse(iso);
+  if (!Number.isFinite(fetchedAt)) return 'unknown';
+  const hours = Math.max(0, (now - fetchedAt) / (60 * 60 * 1000));
+  if (hours < 0.1) return 'just now';
+  return hours < 10 ? `${hours.toFixed(1)}h ago` : `${Math.round(hours)}h ago`;
+}
+
+const ACTIVE_ADP_SOURCE_LABEL: Readonly<Record<string, string>> = {
+  sleeper: 'Sleeper draft-lobby',
+  'ffc-fallback': 'FFC (fallback)',
+  espn: 'ESPN',
+};
+
+/**
+ * Collapsed-by-default disclosure of how old the ADP/projection numbers actually are — the
+ * concrete gap behind "why does this feel outdated": every fetch succeeds, but a once-daily
+ * refresh plus rolling-window ADP sources both under-react to same-day news. Always rendered
+ * (independent of the healthy/unhealthy banner above) since freshness is worth knowing even on a
+ * fully healthy day, the same way EspnCapturePanel below is unconditional on `espnCapture`.
+ */
+function DataFreshnessPanel({ manifest, adpSourceKey }: { manifest: DataManifest; adpSourceKey: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((value) => value + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const now = Date.now();
+
+  const playerPool = manifest.sources.sleeper_players;
+  const adp = manifest.sources[adpSourceKey];
+  const projection = manifest.sources.fftoday_projections;
+  const underdog = manifest.sources.underdog_bestball;
+
+  return (
+    <details className="data-health-freshness">
+      <summary>Data freshness</summary>
+      <dl>
+        <dt>Player pool</dt>
+        <dd>{playerPool ? formatHoursAgo(playerPool.fetchedAt, now) : '—'}</dd>
+        <dt>Active ADP board</dt>
+        <dd>
+          {adp
+            ? `${ACTIVE_ADP_SOURCE_LABEL[adp.activeAdpSource ?? ''] ?? 'unknown source'}, ${formatHoursAgo(adp.fetchedAt, now)}`
+            : '—'}
+        </dd>
+        <dt>ADP freshness window</dt>
+        <dd>
+          {adp?.freshnessWindow
+            ? `pooled average, ${adp.freshnessWindow.startDate ?? '?'} to ${adp.freshnessWindow.endDate ?? '?'}${adp.freshnessWindow.mockDrafts != null ? ` (${adp.freshnessWindow.mockDrafts.toLocaleString()} drafts)` : ''}`
+            : 'window unpublished (no rolling-average disclosure from this source)'}
+        </dd>
+        <dt>Season projections</dt>
+        <dd>
+          {projection
+            ? `${formatHoursAgo(projection.fetchedAt, now)}${projection.upstreamUpdatedAt ? `, upstream dated ${projection.upstreamUpdatedAt}` : ''}`
+            : '—'}
+        </dd>
+        {underdog && (
+          <>
+            <dt>Underdog market ADP (display-only)</dt>
+            <dd>{underdog.upstreamUpdatedAt ? `upstream dated ${underdog.upstreamUpdatedAt}` : formatHoursAgo(underdog.fetchedAt, now)}</dd>
+          </>
+        )}
+      </dl>
+    </details>
+  );
+}
+
 function findDuplicatePlayerIds(picks: Pick[]): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
@@ -92,10 +164,17 @@ export function DataHealth({
   // which is precisely the case `fetchAdpBoard` resolves to 'espn-ppr'). On an ESPN fetch-failure
   // day the app fell back to the Sleeper board, so health must keep the plain format key — the same
   // never-switch-sources-silently rule as the disclosure surfaces.
+  // (Phase 2, 2026-09-XX: a Yahoo session resolves against `adp_active_yahoo_<fmt>` the same way,
+  // for whatever format Yahoo's user picked.)
+  const yahooManifestKey = activeProvider === 'yahoo'
+    ? `adp_active_yahoo_${adpFormat}`
+    : null;
   const adpSourceKey = activeProvider === 'espn' && adpFormat === 'ppr'
     && manifest?.sources.adp_active_espn_ppr?.status === 'ok'
     ? 'adp_active_espn_ppr'
-    : `adp_active_${adpFormat}`;
+    : yahooManifestKey != null && manifest?.sources[yahooManifestKey]?.status === 'ok'
+      ? yahooManifestKey
+      : `adp_active_${adpFormat}`;
   const dataMode: DataMode | 'unknown' = manifest
     ? resolveDataMode(manifest, { adpSourceKey })
     : 'unknown';
@@ -104,9 +183,11 @@ export function DataHealth({
 
   return (
     <>
-      {isHealthy ? (
-        <p className="data-health data-health-ok">Data healthy — static data full, live poll current.</p>
-      ) : (
+      {/* Healthy path renders nothing (2026-08-30) — a permanent "everything's fine" line was
+          pure noise once a draft is actually running; this component only needs to speak up when
+          there's something to say. Matches the Draft Room's existing less-copy direction
+          (DECISIONS.md, 2026-08-30). */}
+      {!isHealthy && (
         <div className="data-health data-health-warning" role="status">
           <strong>Data health warning</strong>
           <ul>
@@ -131,6 +212,7 @@ export function DataHealth({
           </ul>
         </div>
       )}
+      {manifest && <DataFreshnessPanel manifest={manifest} adpSourceKey={adpSourceKey} />}
       {espnCapture && <EspnCapturePanel capture={espnCapture} />}
     </>
   );

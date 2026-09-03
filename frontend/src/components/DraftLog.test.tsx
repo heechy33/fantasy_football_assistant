@@ -244,7 +244,7 @@ describe('DraftLog', () => {
     expect(screen.getByRole('button', { name: 'Go to current pick' })).toBeInTheDocument();
   });
 
-  it('renders the clock banner outside the panel box, above the heading and pick list', () => {
+  it('renders the clock banner inside the panel, below the heading and above the pick list', () => {
     render(
       <DraftLog
         {...baseProps()}
@@ -256,10 +256,9 @@ describe('DraftLog', () => {
     const section = document.querySelector('.draft-log')!;
     const heading = section.querySelector('.section-heading')!;
     const list = section.querySelector('.draft-log-list')!;
-    // The banner sits OUTSIDE the log panel (its own element above the box), which sits above
-    // the pick ledger.
-    expect(banner.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(banner.contains(heading)).toBe(false);
+    expect(section.contains(banner)).toBe(true);
+    expect(heading.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(banner.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(heading.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -383,4 +382,19 @@ describe('DraftLog', () => {
     render(<DraftLog {...baseProps()} draftInit={null} />);
     expect(screen.getByText('No draft connected yet.')).toBeInTheDocument();
   });
+
+  it('keeps the prior countdown indicator instead of a picks-logged counter', () => {
+    render(
+      <DraftLog
+        {...baseProps()}
+        effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+        onTheClock={{ teamId: 'them', slot: 2, round: 1, overall: 2 }}
+        roundPick="1.02"
+        picksUntilUserTurn={1}
+      />,
+    );
+    expect(screen.getByText('1 until your turn')).toBeInTheDocument();
+    expect(screen.queryByTestId('picks-logged-counter')).not.toBeInTheDocument();
+  });
+
 });

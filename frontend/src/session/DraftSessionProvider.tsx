@@ -33,6 +33,11 @@ type Session =
       /** The live session that was taken over, so "Reconnect" restores polling in one click. */
       reconnectCred: SleeperCred | null;
       reconnectDraftId: string | null;
+      /** ActiveProvider for the manual session's origin (2026-09-01, Yahoo from-scratch). Defaults
+       * to 'espn' for backward compatibility with rehydrated v3 records and any future path that
+       * still wants to start a generic manual session. `'sleeper'` here means a Sleeper takeover
+       * (reconnectCred is non-null in that case). `'yahoo'` means a from-scratch Yahoo session. */
+      provider?: 'espn' | 'sleeper' | 'yahoo';
     }
   | {
       kind: 'bridge';
@@ -70,8 +75,10 @@ type Session =
        * directly rather than re-derived from `from`, since re-deriving would lose the
        * `reconnectCred` distinction for a completed manual (takeover) session. Narrowed to
        * exclude 'none': only `connected`/`manual`/`bridge` sessions ever reach `complete`, and
-       * `activeProvider` is never 'none' for any of those three. */
-      provider: 'sleeper' | 'espn';
+       * `activeProvider` is never 'none' for any of those three. `'yahoo'` (2026-09-01) is a
+       * from-scratch manual session that finished — same `kind: 'manual'` origin, just a
+       * different session-start path. */
+      provider: 'sleeper' | 'espn' | 'yahoo';
       /** Captured once at the moment of transition (not recomputed on every persistence-effect
        * run, which would drift on every subsequent override edit to the frozen board). */
       completedAt: string;
@@ -184,11 +191,18 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
         });
       } else if (persisted.mode === 'manual') {
         board.setMode('manual');
+        // A rehydrated manual session may be a Sleeper takeover (reconnectCred non-null — the
+        // pre-existing path) OR a from-scratch Yahoo session (reconnectCred null, provider 'yahoo'
+        // — 2026-09-01). The `provider` field is the only signal; the wire-shape union already
+        // excludes any other value (persistence.ts's load guard).
         setSession({
           kind: 'manual',
           frozenInit: persisted.frozenInit,
           reconnectCred: persisted.userId ? { provider: 'sleeper', userId: persisted.userId } : null,
           reconnectDraftId: persisted.draftId,
+          provider: persisted.provider === 'yahoo' || persisted.provider === 'sleeper'
+            ? persisted.provider
+            : 'espn',
         });
         // No auto-navigation: the landing's ResumeCard ("Resume draft" → /draft) is the
         // in-progress indicator. A deep link to /draft-guide must not yank the user into
@@ -332,10 +346,12 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     || (session.kind === 'complete' && session.from === 'connected')
     ? 'sleeper'
     : session.kind === 'bridge'
-      || (session.kind === 'manual' && session.reconnectCred == null)
-      || (session.kind === 'complete' && session.provider !== 'sleeper')
+      || (session.kind === 'manual' && session.reconnectCred == null && session.provider !== 'yahoo')
+      || (session.kind === 'complete' && session.provider !== 'sleeper' && session.provider !== 'yahoo')
       ? 'espn'
-      : 'none';
+      : session.kind === 'manual' && session.provider === 'yahoo'
+        ? 'yahoo'
+        : 'none';
   const preCompletionActiveProvider = activeProvider;
 
   // Draft-end detection (2026-08-28): the ONE place a live session gets flagged finished. Both
@@ -517,16 +533,8 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
           });
         }
       }
-    } else if (session.kind === 'manual' && session.reconnectCred == null && session.frozenInit) {
-      // An ESPN-eligible manual session (created via ESPN setup, or downgraded from a bridge via
-      // "Switch to manual") that isn't currently streaming — the exact state the header can't
-      // distinguish from a healthy bridge on its own.
-      alerts.push({
-        id: 'bridge-not-connected',
-        message: 'Not connected to your ESPN draft tab — picks are being logged manually. Connect the extension to stream picks live.',
-        action: { label: 'Connect ESPN tab', onSelect: handleEspnBridgeConnect },
-      });
     }
+      // "Switch to manual") that isn't currently streaming — the exact state the header can't
     return alerts;
   }, [session, bridge.status, bridge.seatMismatch, bridge.relayWarning, bridge.picks, bridge.live, seatCorrection, teamsCorrection, roundsCorrection]);
 
@@ -688,6 +696,63 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     setManualSetup(null);
   }
 
+  /** Start a from-scratch Yahoo draft (2026-09-01, see DECISIONS.md). The session is structurally
+   * `kind: 'manual'` (Yahoo has no live adapter); `provider: 'yahoo'` on the manual variant is
+   * what makes the activeProvider calculation resolve to `'yahoo'` and the draft-room disclosure
+   * banner render the half-PPR preset claim. The whole session lives in localStorage — there's no
+   * live layer to wire and no SavedLeague to upsert (a refresh-resume lands on the same session
+   * because the `v4` storage record carries `frozenInit` and `provider: 'yahoo'`; on completion,
+   * the existing `handleSaveToMyLeagues` banner writes the durable SavedDraft). */
+  function handleYahooStart(init: DraftInit) {
+    board.reset('manual');
+    setCorrecting(null);
+    setSeatCorrection(null);
+    setTeamsCorrection(null);
+    setRoundsCorrection(null);
+    correctedSeatRef.current = null;
+    correctedTeamsRef.current = null;
+    correctedRoundsRef.current = null;
+    bridgeBaselineRef.current = null;
+    // No SavedLeague exists for a from-scratch draft — draftSync correctly writes nothing during
+    // play, and the completion banner's `handleSaveToMyLeagues` is the durable-save path.
+    setSavedLeagueId(null);
+    setSession({
+      kind: 'manual',
+      frozenInit: init,
+      reconnectCred: null,
+      reconnectDraftId: null,
+      provider: 'yahoo',
+    });
+    setManualSetup(null);
+  }
+
+  /** Click-to-log handler (2026-09-01): commits the next manual pick via the board reducer with
+   * the snake-order round/slot/team, so a card click is exactly equivalent to picking that player
+   * in the existing ManualPickCorrection modal. The handler is a no-op when the session is
+   * `kind: 'connected'` (live Sleeper picks arrive through the poll, never the manual layer) or
+   * for auction drafts (no per-pick snake target to compute). DraftRoomRoute gates the prop on
+   * `kind: 'manual' | 'bridge'` so a live session never offers the affordance. */
+  function handleDraftPlayer(playerId: PlayerId) {
+    if (session.kind !== 'manual' && session.kind !== 'bridge') return;
+    if (nextManualTarget == null) return;
+    if (effectiveInit == null) return;
+    // Name lookup: `rankedPlayers` (the same source the modal uses) is in session state already,
+    // and the player pool is small enough that a linear scan is fine here — this handler is on
+    // the click path, not the render path. The modal's `providerPlayerName` came from the same
+    // `rankedPlayers` lookup, so a click and a modal pick are indistinguishable downstream.
+    const playerName = rankedPlayers.find((p) => p.playerId === playerId)?.name;
+    board.applyOverride({
+      overall: nextManualOverall,
+      round: nextManualTarget.round,
+      slot: nextManualTarget.slot,
+      teamId: nextManualTarget.teamId,
+      playerId,
+      providerPlayerName: playerName,
+      source: 'manual-entry',
+      correctedAt: Date.now(),
+    });
+  }
+
   /**
    * Resume an in-progress SAVED draft (ESPN or manual) from its Cosmos `SavedDraft` transcript —
    * the launcher's one way back into a session whose live detection lapsed (the ESPN tab closed,
@@ -843,6 +908,21 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
   }
 
   const nextManualOverall = board.effectivePicks.reduce((max, p) => Math.max(max, p.overall), 0) + 1;
+  /** Round/slot/team for the NEXT manual pick (the click-to-draft target). Mirrors the modal's
+   * `manualTargetInfo` derivation exactly (snake order, no re-typed team) so the click path and
+   * the modal path produce the same override shape — a manual pick is a manual pick, however it
+   * got there. The modal calls this with the modal's `correcting.overall`; the click path uses
+   * `nextManualOverall`. Auction drafts have no per-pick target, so the click path is disabled
+   * for them (no `nextManualTarget` returned). */
+  const nextManualTarget = useMemo(() => {
+    if (!effectiveInit) return null;
+    if (effectiveInit.draftType === 'auction') return null;
+    const round = roundForOverall(effectiveInit.teams, nextManualOverall);
+    const slot = slotForOverall(effectiveInit.draftType, effectiveInit.teams, nextManualOverall);
+    const teamId = effectiveInit.slotToTeam[slot] ?? null;
+    if (teamId == null) return null;
+    return { round, slot, teamId };
+  }, [effectiveInit, nextManualOverall]);
   const correctingPick = correcting
     ? board.effectivePicks.find((p) => p.overall === correcting.overall)
     : undefined;
@@ -940,6 +1020,8 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     unavailablePlayerIds,
     handleConnect,
     handleEspnStart,
+    handleYahooStart,
+    handleDraftPlayer,
     handleResumeDraft,
     handleManualSetupEdit,
     handleEspnBridgeConnect,
@@ -983,6 +1065,15 @@ interface DraftSessionValue {
   unavailablePlayerIds: Set<PlayerId>;
   handleConnect: (cred: SleeperCred, draftId: string) => void;
   handleEspnStart: (league: SavedLeague, mySlot: number, usesPresetSettings?: boolean) => void;
+  /** Start a from-scratch Yahoo draft (2026-09-01). The session is `kind: 'manual'` with
+   * `provider: 'yahoo'`; the DraftLauncher shows the YahooDraftSetup form which calls this with
+   * a complete DraftInit built from the form's typed values. */
+  handleYahooStart: (init: DraftInit) => void;
+  /** Click-to-log handler (2026-09-01). The route gates the prop on `kind: 'manual' | 'bridge'`;
+   * for `kind: 'connected'` the handler is a no-op (live picks flow through the poll, not the
+   * manual layer). Always returns a stable closure (recomputed every render like the other
+   * session handlers, see the `sessionActions` comment). */
+  handleDraftPlayer: (playerId: PlayerId) => void;
   /** Resume an in-progress saved ESPN/manual draft from its Cosmos transcript — the launcher's way
    * back into a session whose live detection lapsed. See the implementation's doc. */
   handleResumeDraft: (draft: SavedDraft) => void;

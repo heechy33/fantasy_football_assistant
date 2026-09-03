@@ -19,6 +19,10 @@
  * surface with an obvious selected state rather than another set of outlined boxes.
  */
 
+/* My Leagues pages keep the title's Expanded Archivo treatment; other application content stays
+ * at the standard Archivo width inherited from App.css's root typography. */
+.leagues-page { font-stretch: var(--display-stretch-wide); }
+
 /* ---------------------------------------------------------------------------------------------
  * Meta chips — replaces the old "season · N teams · your team: X" run-on muted paragraph
  * (LeaguesRoute, LeagueDetailRoute, DraftLauncher) with a scannable pill-per-fact row.

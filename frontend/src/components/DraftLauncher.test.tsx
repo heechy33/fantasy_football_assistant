@@ -9,6 +9,7 @@ const useEspnBridgeMock = vi.fn();
 const useActiveSavedDraftsMock = vi.fn();
 const handleConnectMock = vi.fn();
 const handleEspnStartMock = vi.fn();
+const handleYahooStartMock = vi.fn();
 const handleResumeDraftMock = vi.fn();
 const listSleeperDraftsMock = vi.fn();
 const resolveUserMock = vi.fn();
@@ -26,6 +27,7 @@ vi.mock('../session/DraftSessionProvider', () => ({
   useDraftSession: () => ({
     handleConnect: handleConnectMock,
     handleEspnStart: handleEspnStartMock,
+    handleYahooStart: handleYahooStartMock,
     handleResumeDraft: handleResumeDraftMock,
   }),
 }));
@@ -123,6 +125,15 @@ beforeEach(() => {
   mockAccountHook(null);
 });
 
+describe('DraftLauncher styling', () => {
+  it('uses the expanded title treatment and neon-blue Draft Room label', async () => {
+    harness();
+
+    expect(await screen.findByText('Draft Room')).toHaveClass('draft-room-launcher-label');
+    expect(screen.getByRole('heading', { name: 'Start tracking a draft' })).toHaveClass('draft-room-launcher-title');
+  });
+});
+
 describe('DraftLauncher — Sleeper', () => {
   it('auto-lists the remembered account’s drafts and tracks the chosen one', async () => {
     mockAccountHook({ userId: 'u-9', username: 'coach_x' });
@@ -186,6 +197,38 @@ describe('DraftLauncher — Sleeper', () => {
     );
     expect(await screen.findByText(/No 2026 Sleeper drafts on this account yet/)).toBeTruthy();
     expect(screen.queryByText(/Sleeper username/i)).toBeNull();
+  });
+
+  it('offers a Sleeper draft-id guide and parses a pasted Share Draftboard link', async () => {
+    mockAccountHook({ userId: 'u-9', username: 'coach_x' });
+    listSleeperDraftsMock.mockResolvedValue([]);
+    harness();
+
+    await userEvent.click(screen.getByRole('tab', { name: /Find draft ID/ }));
+    expect(screen.getAllByText(/Share Draftboard/)).toHaveLength(2);
+    expect(screen.queryByLabelText(/Draft ID or Share Draftboard link/)).toBeNull();
+
+    await userEvent.click(screen.getByRole('tab', { name: /Start draft/ }));
+    const input = await screen.findByLabelText('Draft ID or Share Draftboard link');
+    await userEvent.type(input, 'https://sleeper.com/draft/nfl/1400965012339580928?ftue=commish');
+    await userEvent.click(screen.getByRole('button', { name: 'Track' }));
+
+    expect(handleConnectMock).toHaveBeenCalledWith(
+      { provider: 'sleeper', userId: 'u-9' },
+      '1400965012339580928',
+    );
+  });
+
+  it('shows an error and does not start when the pasted link is not a Sleeper draft link', async () => {
+    mockAccountHook({ userId: 'u-9', username: 'coach_x' });
+    listSleeperDraftsMock.mockResolvedValue([]);
+    harness();
+    const input = await screen.findByLabelText('Draft ID or Share Draftboard link');
+    await userEvent.type(input, 'https://example.com/draft/nfl/123');
+    await userEvent.click(screen.getByRole('button', { name: 'Track' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Sleeper draft ID or a Share Draftboard link/);
+    expect(handleConnectMock).not.toHaveBeenCalled();
   });
 });
 
@@ -347,6 +390,23 @@ describe('DraftLauncher — ESPN (live-only, 2026-08-29 redesign)', () => {
     harness();
     expect(screen.queryByTestId('espn-live-detected-card')).toBeNull();
   });
+
+  it('offers an Extension setup sub-tab alongside Start draft, reachable without leaving the Draft Room', async () => {
+    // Default beforeEach state: no extension detected, nothing live.
+    harness();
+    await userEvent.click(screen.getByRole('tab', { name: /^ESPN/ }));
+    expect(screen.getByRole('tab', { name: 'Start draft' })).toBeTruthy();
+    expect(screen.getByText(/Extension not detected/)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Download extension/ })).toBeNull();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Extension setup' }));
+    expect(screen.getByRole('link', { name: /Download extension/ })).toBeTruthy();
+    expect(screen.queryByText(/Extension not detected/)).toBeNull();
+
+    // Switching back to Start draft restores the status copy, not a stale/blank panel.
+    await userEvent.click(screen.getByRole('tab', { name: 'Start draft' }));
+    expect(screen.getByText(/Extension not detected/)).toBeTruthy();
+  });
 });
 
 describe('DraftLauncher — Resume', () => {
@@ -430,5 +490,60 @@ describe('DraftLauncher — ESPN live-detected draft resume (2026-08-30 re-entry
     useEspnBridgeMock.mockReturnValue({ ...liveFixture });
     harness();
     expect(screen.queryByRole('button', { name: /Resume draft/ })).toBeNull();
+  });
+});
+
+describe('DraftLauncher — Yahoo (2026-09-01 from-scratch)', () => {
+  // ProviderBadge's accessible name is "<brand> <brand>" because the inline SVG's <text> tag
+  // contributes the monogram AND the outer span holds the visible label — the chip's accessible
+  // name is the full concatenation. Match on the trailing unique word "Yahoo" instead of the full
+  // accessible name so the test stays robust to badge refactors.
+  function yahooChip() {
+    return screen.getByRole('tab', { name: /Yahoo$/ });
+  }
+
+  it('enables the Yahoo chip and renders the half-PPR description', async () => {
+    harness();
+    expect(yahooChip()).not.toBeDisabled();
+    await userEvent.click(yahooChip());
+    expect(yahooChip()).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText(/Sit in the Yahoo draft room/)).toBeInTheDocument();
+  });
+
+  it('opens the YahooDraftSetup dialog when "Set up a Yahoo draft" is clicked', async () => {
+    harness();
+    await userEvent.click(yahooChip());
+    await userEvent.click(screen.getByRole('button', { name: 'Set up a Yahoo draft' }));
+    expect(screen.getByRole('dialog', { name: 'Set up Yahoo draft' })).toBeInTheDocument();
+    expect(screen.getByTestId('yahoo-preset-disclosure')).toBeInTheDocument();
+  });
+
+  it('passes the form\'s DraftInit to handleYahooStart and closes the dialog on submit', async () => {
+    harness();
+    await userEvent.click(yahooChip());
+    await userEvent.click(screen.getByRole('button', { name: 'Set up a Yahoo draft' }));
+    await userEvent.clear(screen.getByLabelText('League name'));
+    await userEvent.type(screen.getByLabelText('League name'), 'Friends League');
+    await userEvent.selectOptions(screen.getByLabelText('Teams'), '10');
+    await userEvent.clear(screen.getByLabelText(/Your draft position/));
+    await userEvent.type(screen.getByLabelText(/Your draft position/), '4');
+    await userEvent.click(screen.getByRole('button', { name: 'Start draft' }));
+
+    expect(handleYahooStartMock).toHaveBeenCalledTimes(1);
+    const init = handleYahooStartMock.mock.calls[0]?.[0];
+    expect(init.provider).toBe('yahoo');
+    expect(init.teams).toBe(10);
+    expect(init.mySlot).toBe(4);
+    // Dialog closed on successful submit — no double-open path.
+    expect(screen.queryByRole('dialog', { name: 'Set up Yahoo draft' })).toBeNull();
+  });
+
+  it('cancels without calling handleYahooStart', async () => {
+    harness();
+    await userEvent.click(yahooChip());
+    await userEvent.click(screen.getByRole('button', { name: 'Set up a Yahoo draft' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(handleYahooStartMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Set up Yahoo draft' })).toBeNull();
   });
 });

@@ -34,21 +34,21 @@ export const clerkAppearance: ClerkAppearance = {
     '--clerk-border-radius': '9px',                                     // --radius-md
     '--clerk-background': '#10141a',                                    // --surface-2
     '--clerk-color-background': '#10141a',                              // --surface-2
-    '--clerk-color-text': '#ececec',                                    // --text-1
+    '--clerk-color-text': '#dcdcdc',                                    // --text-1
     '--clerk-color-text-secondary': '#b4b4b4',                          // --text-3
     '--clerk-color-primary': '#5bb8ff',                                 // --accent-cool
     '--clerk-color-input-background': '#151a21',                        // --surface-3
-    '--clerk-color-input-text': '#ececec',                              // --text-1
+    '--clerk-color-input-text': '#dcdcdc',                              // --text-1
 
     // Legacy aliases (pre-migration naming), same values:
     fontFamily: '"Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif',
     borderRadius: '9px',
     colorBackground: '#10141a',
-    colorText: '#ececec',
+    colorText: '#dcdcdc',
     colorTextSecondary: '#b4b4b4',
     colorPrimary: '#5bb8ff',
     colorInputBackground: '#151a21',
-    colorInputText: '#ececec',
+    colorInputText: '#dcdcdc',
   },
   elements: {
     /* Element overrides are the second layer: values the variable surface can't reach, keyed by
@@ -66,7 +66,7 @@ export const clerkAppearance: ClerkAppearance = {
       fontFamily: '"Archivo", ui-sans-serif, system-ui, sans-serif',
       fontWeight: 800,
       letterSpacing: '-.015em',
-      color: '#ececec',
+      color: '#dcdcdc',
     },
     headerSubtitle: {
       color: '#b4b4b4',

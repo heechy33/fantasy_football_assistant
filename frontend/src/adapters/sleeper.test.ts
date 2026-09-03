@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cred, EspnCred, PlayerMeta, SleeperCred } from '../../../shared/types';
 import { __resetPlayerPoolCache } from '../data/loadPlayerPool';
-import { listSleeperDrafts, resolveUser, sleeperAdapter } from './sleeper';
+import { listSleeperDrafts, parseSleeperDraftId, resolveUser, sleeperAdapter } from './sleeper';
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'fixtures', 'sleeper');
 
@@ -68,6 +68,23 @@ describe('resolveUser', () => {
       username: 'coach_hodgetwins',
       displayName: 'CoachH',
     });
+  });
+});
+
+describe('parseSleeperDraftId', () => {
+  it('extracts the id from a Share Draftboard link and ignores its query string', () => {
+    expect(parseSleeperDraftId('https://sleeper.com/draft/nfl/1400965012339580928?ftue=commish'))
+      .toBe('1400965012339580928');
+  });
+
+  it('keeps accepting a raw draft id', () => {
+    expect(parseSleeperDraftId('raw-draft-ppr')).toBe('raw-draft-ppr');
+  });
+
+  it('rejects malformed and non-Sleeper links', () => {
+    expect(parseSleeperDraftId('https://example.com/draft/nfl/123')).toBeNull();
+    expect(parseSleeperDraftId('https://sleeper.com/league/nfl/123')).toBeNull();
+    expect(parseSleeperDraftId('')).toBeNull();
   });
 });
 
