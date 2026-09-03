@@ -63,7 +63,15 @@ describe('verifyClerkJwt', () => {
     expect(jwtVerifyMock).toHaveBeenCalledWith(
       'a.b.c',
       'jwks',
-      { issuer: 'https://clerk.example.com', algorithms: ['RS256', 'ES256', 'EdDSA'] },
+      {
+        issuer: 'https://clerk.example.com',
+        algorithms: [
+          'RS256', 'RS384', 'RS512',
+          'PS256', 'PS384', 'PS512',
+          'ES256', 'ES384', 'ES512',
+          'EdDSA',
+        ],
+      },
     );
     expect(verifyTokenMock).not.toHaveBeenCalled();
   });

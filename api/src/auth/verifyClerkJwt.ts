@@ -30,6 +30,12 @@ function requireIssuer(): string {
 
 let cachedIssuer = '';
 let cachedJwks: JWTVerifyGetKey | null = null;
+const allowedClerkAlgorithms = [
+  'RS256', 'RS384', 'RS512',
+  'PS256', 'PS384', 'PS512',
+  'ES256', 'ES384', 'ES512',
+  'EdDSA',
+];
 
 function remoteJwksFor(issuer: string): JWTVerifyGetKey {
   if (cachedJwks && cachedIssuer === issuer) return cachedJwks;
@@ -105,7 +111,7 @@ export async function verifyClerkJwtDetailed(
   const secretKey = configuredIssuer ? undefined : requireSecretKey();
   try {
     const payload = configuredIssuer
-      ? (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: ['RS256', 'ES256', 'EdDSA'] })).payload
+      ? (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: allowedClerkAlgorithms })).payload
       : await verifyToken(token, { secretKey });
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
       return { user: null, failure: 'claims_invalid' };
