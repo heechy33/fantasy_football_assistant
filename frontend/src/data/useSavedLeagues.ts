@@ -20,7 +20,7 @@ export function useSavedLeagues(repositoryOverride?: SavedLeaguesRepository): {
   saveDraft: (input: Partial<SavedDraft> & { leagueId: string }) => Promise<SavedDraft>;
   removeLeague: (id: string) => Promise<void>;
 } {
-  const { getToken } = useAuth();
+  const { getToken, status } = useAuth();
   const repository = useMemo(
     () => repositoryOverride ?? createHttpRepository(getToken),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,8 +43,12 @@ export function useSavedLeagues(repositoryOverride?: SavedLeaguesRepository): {
   }, [repository]);
 
   useEffect(() => {
+    // Clerk's auth state can render the guarded route just before its token bridge is ready. Wait
+    // for the signed-in transition so the first repository request includes Authorization instead
+    // of permanently caching the initial unauthenticated failure.
+    if (status !== 'signed-in') return;
     void refresh();
-  }, [refresh]);
+  }, [refresh, status]);
 
   const saveLeague = useCallback(
     (input: Partial<SavedLeague> & { settings: LeagueSettings }) => repository.upsertLeague(input),
