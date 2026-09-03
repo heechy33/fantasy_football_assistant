@@ -7,14 +7,22 @@ implementation notes live in `archive/PLAN-history.md`. Repo conventions/command
 
 ## Status
 
-**Plan last revised:** August 30, 2026
+**Plan last revised:** September 1, 2026
 
 **The Sleeper edge track is complete, and the Edge Validation Gate is closed and authorized.** All
 phases (Gate 0, S0-S3, S4 draft experience, S5 reliability/clock, S6/edge validation) are done —
 their build records and exit-criteria evidence live in `archive/PLAN-history.md`, and the closure
 evidence lives in `DECISIONS.md`'s 2026-08-30 (6) entry. On 2026-08-30 the user reviewed the gate
-evidence and authorized roadmap expansion. **No next track is chosen yet** — the roadmap below is a
-menu, not a plan; opening any specific track is its own dated decision in `DECISIONS.md`.
+evidence and authorized roadmap expansion.
+
+**Yahoo from-scratch track opened on 2026-09-01** (`DECISIONS.md`, 2026-09-01) — driven by a hard
+draft date (the user's Yahoo league drafts 2026-09-05, two weeks before the Yahoo dev API key
+window). Phase 1 (universal manual-mode hardening: from-scratch session, click-to-draft
+affordance, persistence v3→v4 bump) shipped 2026-09-01. Phase 2 (Yahoo ADP engine board,
+`pipeline/yahoo_adp.py` modeled on `pipeline/espn_adp.py`, all three Yahoo-served formats:
+standard/half-ppr/ppr) shipped 2026-09-01 (later) — the data plane and frontend wiring are
+landed, and the pipeline produced all three `data/adp-yahoo-<fmt>.json` artifacts on
+2026-09-02. The Yahoo adapter + OAuth track (A2) remains unopened.
 
 The long-term product is still a season-long assistant for Sleeper, ESPN, and Yahoo (live draft
 assistant, post-draft grades, lineup optimizer, waiver assistant, trade analyzer). Those features are

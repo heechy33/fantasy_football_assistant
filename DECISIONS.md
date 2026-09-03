@@ -1162,3 +1162,209 @@ machinery for D already ships (`refresh-data.yml` vintage tags, `npm run snapsho
 **Record-keeping:** completed-phase detail moved to `archive/PLAN-history.md` (S4/S5/S6 entries);
 `PLAN.md` re-baselined to forward-looking only; `benchmarks/reports/*.md` reports are now tracked in
 git so the gate evidence survives a clone (`.json`/`.log` machine output stays ignored).
+
+---
+
+## 2026-09-01 (Phase 2)  Yahoo ADP engine board
+
+**Decision:** the Yahoo ADP engine track is open and partially landed. Yahoos draft-analysis
+data plane (data/adp-yahoo-<fmt>.json for standard / half-ppr / ppr) is now wired end
+to end: pipeline module, HTTP fetcher, board builder, fail-open manifest, frontend selectors,
+disclosure surfaces, data health resolution, drawer comparison lane, type union, and invariant
+validator. The three artifact files are not yet committed -- the pipeline hasnt shipped a
+successful run for Yahoo yet, so verify:artifact correctly reports them as fail-open (no
+missing-file error).
+
+**Why now:** the Phase 1 half-ppr preset was always going to be insufficient for a 10-team
+PPR Yahoo league. Closing the gap was a known TODO in Phase 1s deferred list. Better to land
+the data plane + frontend wiring now (the expensive plumbing) and let the pipeline produce
+artifacts on its next scheduled run than to wait until the data is also needed.
+
+**Architecture decisions (all driven by existing codebase conventions, no new patterns):**
+
+1. **Three formats wired, not one.** Phase 1s yahoo-half-ppr was a single-format shortcut;
+   Phase 2 adds yahoo-ppr and yahoo-standard so a Yahoo user on any of Yahoos three
+   served game types gets Yahoos own draft-analysis numbers, not a silent Sleeper fallback.
+   2qb stays on the plain format board (Yahoo does not serve 2qb; the create form
+   doesnt offer it).
+2. **detect_censor_cutoff mirrors ESPNs pattern, with a Yahoo-tuned spike factor (4x vs
+   ESPNs 8x).** Yahoos percent_drafted field is optional in the upstream payload and
+   not always present, so the head/tail decision falls back to a density-based detector
+   (bin density vs the same _CENSOR_BASELINE_RANGE 24-100 that ESPN uses). A Yahoo-tuned
+   factor is needed because Yahoos saturation tail is denser than ESPNs.
+3. **AdpBoardKey union grew to include yahoo-ppr and yahoo-standard.** Same shape as
+   the existing espn-ppr extension. loadRankedPlayers got a matching format-key map so
+   the additive fetch doesnt bypass and silently hit the plain <fmt>.json board.
+4. **AdpDisclosure gained yahoo.** AdpSource: yahoo was already part of AdpEntry
+   after Step 3; the disclosure enum is the matching UI surface. PlayerContextBody got
+   the long-form copy block (fitted stdev + null-population caveat, plus the censor-cliff
+   splice explanation).
+5. **Yahoo comparison lane added to useProviderAdpBoards.** On a non-Yahoo session, the
+   drawers Market ADP tile now shows Yahoos number alongside Sleeper/ESPN/FFC. The lane
+   fails open to unavailable when the artifact is missing -- same convention as ESPN.
+6. **ActiveAdpSource union gained yahoo.** Manifest entries for the three Yahoo formats
+   use the same adp_active_yahoo_<fmt> key pattern as ESPNs adp_active_espn_ppr.
+7. **Pipeline fail-open mirrors ESPN exactly:** fetch error, schema drift, or fewer than
+   YAHOO_ADP_MIN_ROWS=120 honest head rows all keep the relevant adp-yahoo-<fmt>.json
+   untouched, record an error manifest entry, and delete any stale board so it cant look
+   current. verify-artifact.mjs requires each artifact only when its manifest entry
+   reports ok.
+
+**Files added:**
+- pipeline/yahoo_adp.py -- pure module, mirrors pipeline/espn_adp.py shape (no HTTP).
+- pipeline/test_yahoo_adp.py -- 13 fixture-driven tests (parse / censor / build / tail-splice).
+
+**Files modified:**
+- pipeline/sources.py -- added YAHOO_DRAFT_ANALYSIS_URL, fetch_yahoo_draft_analysis,
+  fetch_yahoo_draft_analysis_pages (25-per-page, hard cap 24 pages).
+- pipeline/build_data.py -- _build_yahoo_adp_board helper, Yahoo block in main()
+  (parallel to the ESPN block), YAHOO_ADP_FORMATS constant tuple, yahoo_id_to_player_id
+  crosswalk.
+- pipeline/transform.py -- AdpSource dataclass comment updated to list all five tags.
+- shared/types.d.ts -- AdpSource and ActiveAdpSource unions gain yahoo.
+- frontend/src/data/adpBoard.ts -- AdpBoardKeyFor returns yahoo-ppr /
+  yahoo-standard; AdpBoardKey union extended.
+- frontend/src/data/loadPlayerPool.ts -- format-key map for the two new board keys.
+- frontend/src/data/dataInvariants.ts -- yahoo arm in validateAdpProvenance.
+- frontend/src/data/dataInvariants.test.ts -- sibling test mirroring the ESPN one.
+- frontend/src/data/adpBoard.test.ts -- sibling test mirroring the ESPN key-selection one.
+- frontend/src/components/PlayerContextBody.tsx -- AdpDisclosure union + copy block.
+- frontend/src/components/PlayerDetailDrawer.tsx -- AdpDisclosure union + boardAdp
+  source/brandKey switches gain the yahoo arms.
+- frontend/src/components/RecommendationBoard.tsx --
+resolvedAdpKey -> manifest source
+  mapping extended; AdpDisclosure switch gains the yahoo arm.
+- frontend/src/components/DataHealth.tsx -- health resolution extended to use
+  adp_active_yahoo_<fmt> for Yahoo sessions.
+- frontend/src/components/playerBoardFace.ts -- AdpSourceLabel returns Yahoo.
+- frontend/src/hooks/useProviderAdpBoards.ts -- Yahoo comparison lane added for the
+  three served formats; ProviderAdpLaneState.brandKey union extended.
+- scripts/verify-artifact.mjs -- Yahoo artifact requirement block.
+
+**Verification (after this change):**
+- Typecheck: clean (both packages)
+- All tests: 1430 frontend + 34 API + 147 non-network pipeline = 1611 tests pass
+- Build + verify-artifact: passes (Yahoo artifacts correctly reported as fail-open
+  until the pipeline produces them)
+
+**What remains (still not Phase 2):**
+- Yahoo adapter + OAuth track (A2 on the roadmap) -- separate, much larger work.
+- A 2025 Yahoo frozen-bytes fixture (for pipeline/freeze_2025_retrievable.py) -- same
+  pre-flight as the existing Sleeper/ESPN/Underdog fixtures. Skipped here because a frozen
+  fixture requires a live Yahoo fetch we cant make from this test environment. The pipeline
+  fetcher is sources.fetch_yahoo_draft_analysis_pages (HTTP), so the freeze script can be
+  added in a follow-up if a future test needs it.
+
+**Record-keeping:** completed-phase detail moved to `archive/PLAN-history.md` (S4/S5/S6 entries);
+`PLAN.md` re-baselined to forward-looking only; `benchmarks/reports/*.md` reports are now tracked in
+git so the gate evidence survives a clone (`.json`/`.log` machine output stays ignored).
+
+---
+
+## 2026-09-01  Yahoo from-scratch draft room (click-to-log + Yahoo ADP engine board)
+
+**Decision:** open a Yahoo draft-room entry in the DraftLauncher that runs a from-scratch,
+adapter-free session (the universal manual-mode hardening) plus a Yahoo data lane (half-PPR ADP
+board). Driven by a hard draft date (the user's league drafts 2026-09-05, two weeks before
+the Yahoo dev API key window); the OAuth/roadmap-A2 path stays unopened.
+
+**This is NOT roadmap A2 (Yahoo adapter + OAuth).** It's the universal manual-mode
+hardening + a Yahoo data lane, deliberately leaving A2 unopened. The two are separate tracks
+on the roadmap menu (`PLAN.md`); this entry authorizes only the one driven by the 4-day deadline.
+
+**Why now:** the engine is already provider-blind (`state/draftBoardState.ts`'s
+`computeEffectivePicks` merges manual + live + overrides uniformly), so the click-to-log path is
+an existing-modal path with the modal stripped out. The blocker is *interactivity under
+draft-clock pressure*, not math  the cheapest guard against the silent-missed-pick failure
+mode is a visible picks-logged counter alongside the existing clock banner.
+
+**Architecture decisions:**
+
+1. **No new session kind.** A Yahoo from-scratch session is `kind: 'manual'` with
+   `frozenInit.settings.provider === 'yahoo'`. The `{ kind: 'manual'; provider?: 'espn' | 'sleeper'
+   | 'yahoo' }` field carries the origin; `ActiveProvider = 'none' | 'sleeper' | 'espn' | 'yahoo'`
+   is the new disclosure-banner value (UI-only  the live adapter set is unchanged).
+2. **No `SavedLeague.provider` / `SavedDraft.provider` extension.** Both stay
+   `'sleeper' | 'espn' | 'manual'`. The existing `mapProvider` collapse (`state/draftSync.ts:20-22`)
+   already does the right thing for Yahoo: a Yahoo from-scratch session has no upstream adapter,
+   so it stores as `provider: 'manual'` server-side, with the real provider on
+   `frozenInit.settings.provider`. The API normalizer at `api/src/functions/normalize.ts:10-12`
+   mirrors the same collapse. **One source of truth** (`frozenInit.settings.provider`); no
+   second, possibly-divergent, surface.
+3. **`PersistedSession.provider` gains `'yahoo'`** so a rehydrated manual session can recover
+   whether it was a Yahoo from-scratch session or a generic manual one (drives the disclosure
+   banner). `PersistedSessionMode` is **unchanged** (Yahoo serializes as `'manual'`). Storage key
+   bumps v3?v4 (same drop-whole-record pattern as the prior v1?v2?v3 bumps; the v3 record's
+   provider field doesn't accept `'yahoo'` and would silently downgrade the disclosure).
+4. **HTML fix on `PlayerBoardRow`.** The row was a real `<button>` calling `onViewDetails`,
+   so a nested "Draft" `<button>` would have been invalid HTML. Row is now a `<div role="button"
+   tabIndex={0}>` with an `Enter`/`Space` keydown shim that mirrors the real-button behavior;
+   the "Draft" affordance is then a real nested `<button>`. Card (`<article>`) needs no
+   equivalent change.
+5. **Click handler threaded from `useDraftSession`** through `App ? DraftWorkspace ?
+   RecommendationBoard ? PlayerCard/PlayerBoardRow`, with `DraftRoomRoute` gating the prop on
+   `kind: 'manual' | 'bridge'`. The handler commits via `board.applyOverride` with the existing
+   `manualTargetInfo` round/slot/team derivation  a click is exactly the same shape as a modal
+   pick, so a click and a modal pick are indistinguishable downstream.
+
+**Phase 2 (separate work, follows after draft day):**
+
+- New pipeline `pipeline/yahoo_adp.py` modeled on `pipeline/espn_adp.py` (pure module, no HTTP).
+- Yahoo's `pub-api-ro.fantasysports.yahoo.com` feed is unauthenticated, read-only, and returns
+  `draft_analysis.average_pick` + `percent_drafted` on every player. Half-PPR is Yahoo's default
+  scoring (verified 2026-09-01). Selection-bias tail (Yahoo computes average only over drafts
+  where the player was actually taken) gets a `PERCENT_DRAFTED_FLOOR` cut  same shape as
+  ESPN's `detect_censor_cutoff`. Splice tail from the Sleeper board, clamped up to the cutoff
+  so a censored Yahoo player with a deep Sleeper rank can't sort into the honest head.
+- `pipeline/sources.py`'s `fetch_yahoo_adp_pages(season)` walks the 25-per-page endpoint, hard
+  cap ~600. Single GET per page (the file's dumb-fetcher convention).
+- `adpBoardKeyFor` already returns `'yahoo-half-ppr'` for `provider === 'yahoo' && format
+  === 'half-ppr'`; `fetchAdpBoard`'s fail-open falls back to `/data/adp-half-ppr.json` if the
+  Yahoo artifact is missing  draft-day safety net, already built.
+- `dataInvariants.ts` `validateAdpProvenance` gains a `'yahoo'` arm mirroring the existing
+  ESPN one (fitted stdev required, null population fields required). `AdpEntry.adpSource` union
+  extends to include `'yahoo'` in `shared/types.d.ts`, `pipeline/transform.py`, and the
+  test fixtures.
+- `scripts/verify-artifact.mjs` requires `data/adp-yahoo-half-ppr.json` once the pipeline
+  writes it.
+
+**Deferred until after draft day (per the original plan's deferred list, unchanged):**
+
+- Generic "Other league" launcher entry (CBS / NFL.com / in-person)  needs the `'manual'` arm
+  in `LauncherProvider`; orthogonal to draft day.
+- Deduping the provider-chooser markup shared with `ConnectLeagueRoute.tsx`.
+- A Yahoo lane in `useProviderAdpBoards.ts:48` so the Market ADP tile shows Yahoo's number
+  when it's not the active board.
+- Server-side persistence of a scratch draft (still gated on `savedLeagueId == null` in
+  `state/draftSync.ts:220`).
+- Sibling tests for `RecommendationBoard.tsx` / `PlayerBoardRow.tsx` beyond the new handler
+   pre-existing gap called out in `PLAN.md`.
+
+**Record-keeping:** `PLAN.md`'s roadmap status block updated to reflect the active Yahoo
+track; the plan's "no track chosen" status from 2026-08-30 is now narrowed to the still-
+unopened A2 (Yahoo adapter + OAuth) — A1 (this work) is opened and dated here.
+
+---
+
+## 2026-09-02 — Phase 2 Yahoo ADP validation and pipeline unblock
+
+**Decision:** close the Yahoo ADP engine-board implementation as validated. The real public source
+is `https://football.fantasysports.yahoo.com/f1/draftanalysis?type=<standard|half-ppr|ppr>&count=2000`.
+The earlier `pub-api-ro.fantasysports.yahoo.com/.../draft_analysis` assumption was wrong: a plain
+HTTP request either returned an invalid response or the client-rendered shell with no player rows.
+The pipeline therefore renders the page in headless Chromium through Playwright, then parses the
+hydrated table in the pure `pipeline/yahoo_adp.py` module. Yahoo remains an adapter-free,
+click-to-log draft lane; this is public ADP data only, not Yahoo OAuth or draft-pick polling.
+
+**Evidence:** the live Playwright test passed for standard, half-PPR, and PPR on 2026-09-02. One
+end-to-end pipeline run passed after lowering the FFToday top-300 projection-coverage floor from
+0.90 to 0.85 for the observed broader Sleeper population (89.0% coverage, with the missing names
+treated as genuine FFToday absences). It wrote `data/adp-yahoo-standard.json`,
+`data/adp-yahoo-half-ppr.json`, and `data/adp-yahoo-ppr.json`, each with 1,144 rows and a manifest
+status of `ok`; `scripts/verify-artifact.mjs` now requires each board only when its manifest entry
+is healthy. Playwright is pinned in `pipeline/requirements.txt`, and CI installs Chromium before
+the refresh.
+
+**Still deferred:** Yahoo adapter/OAuth (A2), live Yahoo draft synchronization, and a frozen 2025
+Yahoo source fixture. The 2026 Yahoo ADP lane is complete and fail-open if Playwright, Chromium,
+Yahoo, or the rendered table is unavailable.

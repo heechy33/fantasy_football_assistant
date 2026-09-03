@@ -10,13 +10,35 @@ regardless of which coding agent you are. Update this file whenever a structural
 not on a schedule, and not for anything that's just "what's being worked on right now" (that
 belongs in `PLAN.md`).
 
-## Active scope: post-gate — expansion unlocked, no track chosen
+## Active scope: Yahoo from-scratch track open (A1); A2 (Yahoo adapter + OAuth) still unopened
 
 The Sleeper edge track is **complete** and the Edge Validation Gate **closed and authorized on
 2026-08-30** (`DECISIONS.md`, 2026-08-30 (6)). Roadmap expansion is unlocked by evidence — it no
-longer needs an exception or priority change — but **no next track is chosen**: opening any specific
-track (Yahoo, ESPN in-season, new formats, in-season features) is its own dated decision recorded in
-`DECISIONS.md`, with a `PLAN.md` status update. `PLAN.md`'s roadmap is a menu, not a plan.
+longer needs an exception or priority change.
+
+**Yahoo from-scratch track (A1) opened 2026-09-01** (`DECISIONS.md`, 2026-09-01) — driven by a hard
+draft date (the user's Yahoo league drafts 2026-09-05, two weeks before the Yahoo dev API key
+window). Phase 1 (universal manual-mode hardening: from-scratch session, click-to-draft
+affordance, persistence v3→v4 bump) shipped 2026-09-01. Phase 2 (Yahoo ADP engine board —
+`pipeline/yahoo_adp.py` modeled on `pipeline/espn_adp.py`, all three Yahoo-served formats:
+standard / half-ppr / ppr) shipped 2026-09-01 (later) — the data plane and frontend wiring
+are landed, and the pipeline produced all three `data/adp-yahoo-<fmt>.json` artifacts on
+2026-09-02. The Yahoo adapter + OAuth track (A2) remains unopened — opening it
+still needs its own dated decision in `DECISIONS.md`. The rest of the roadmap below is a
+menu, not a plan: opening any other specific track (ESPN in-season, new formats, in-season
+features) is its own dated decision recorded in `DECISIONS.md`, with a `PLAN.md` status update.
+
+**Adapter-free provider lane (new, 2026-09-01).** A Yahoo from-scratch session runs through the
+`Session` kind: 'manual' with `provider: 'yahoo'` and `frozenInit.settings.provider === 'yahoo'` —
+no `DraftProviderAdapter` is implemented for Yahoo. The existing ESPN/Sleeper adapter families
+under `frontend/src/adapters/espn*.ts` and `frontend/src/adapters/sleeper.ts` are unchanged.
+The chip-driven click-to-log flow in `components/DraftLauncher.tsx` opens
+`components/YahooDraftSetup.tsx` (new); the create flow commits via `handleYahooStart` (new) on
+`session/DraftSessionProvider.tsx`, which is a thin wrapper over the existing
+`handleTakeoverManual` path. The Phase 2 (now shipped) work was a *data* lane
+(`pipeline/yahoo_adp.py` + `pipeline/sources.py`'s `fetch_yahoo_draft_analysis_html`), not an
+adapter — Yahoo's draft picks still come from the user clicking cards in the Yahoo draft
+room, never from a poll.
 
 > **Closed exception — August 14-15, 2026.** A narrow ESPN draft-day project (manual takeover, an
 > ESPN reconnaissance Chrome extension under `extension/`, a draft-only `DraftProviderAdapter`
@@ -41,6 +63,9 @@ track (Yahoo, ESPN in-season, new formats, in-season features) is its own dated 
   Functions, so no code should assume a server-side scheduler exists. Currently just `/api/health`;
   no provider endpoints exist yet.
 - **Data pipeline**: Python, runs via GitHub Actions cron (not Azure — that's the scheduler).
+  Yahoo draft analysis is a client-rendered page; `pipeline/requirements.txt` includes Playwright,
+  and the refresh workflow installs its Chromium browser before running the pipeline. For a local
+  setup, run `python -m playwright install chromium` once after installing the requirements.
 - **Draft engine**: pure TypeScript. Stage C (VONA rollouts) runs in a long-lived Web Worker
   (`frontend/src/workers/recommendation.worker.ts` + `hooks/useRecommendationRefinement.ts`, shipped
   in `f821318`) initialized at pool load with cooperative cancel of superseded requests; a
@@ -64,7 +89,8 @@ track (Yahoo, ESPN in-season, new formats, in-season features) is its own dated 
   in-season ESPN adapter without a new decision** (`espnLeague.ts` is the same exception, one page
   wider: it parses the extension's league-page capture into `EspnLeagueSnapshot`/`LeagueSettings`
   — the ONLY place ESPN slot ids/statIds are translated; unmapped values become diagnostics).
-  Yahoo isn't created yet.
+  A Yahoo live/draft adapter isn't created yet; the current Yahoo path is the adapter-free
+  click-to-log session plus the pipeline's public ADP data lane.
 - `frontend/src/data/` — context/data-health/player-pool helpers (not engine logic), incl.
   `percentileRankings.ts`/`qbPercentileRankings.ts`/`cardRoleStats.ts` (Role-tab and card-bottom
   cohort percentile ranking, display-only, never feeds `planValue`). `state/`, `hooks/`,
@@ -115,7 +141,10 @@ track (Yahoo, ESPN in-season, new formats, in-season features) is its own dated 
   **display-only** lanes (Market ADP tile only) — never an engine input, never blended into
   `data/adp-*.json`'s redraft-engine boards (`DECISIONS.md`, 2026-08-24). The FantasyPros stars/SOS
   decoration pipeline was cut entirely (`DECISIONS.md`, 2026-08-23/24) — do not re-add it without a
-  new decision.
+  new decision. `data/player-status-overrides.json` is the one hand-maintained input under `data/`
+  (everything else there is pipeline output) — same-day availability corrections (a commissioner's
+  exempt-list move, a suspension) that a feed hasn't caught up to yet; always wins over Sleeper's
+  own `status` field (`pipeline/transform.py`'s `resolve_availability`/`apply_status_overrides`).
 - `fixtures/sleeper/` — recorded contract fixtures: **nine real recorded Sleeper mocks** committed
   since `ad2802b` (2026-08-13), ~90-92% autodrafted, so machinery-grade rather than human-shape; the
   remaining 14 flat files (scoring, players, partial drafts, …) are hand-authored.
@@ -176,8 +205,8 @@ and `DECISIONS.md`'s 2026-08-10/2026-08-11 entries.
 
 ## Provider gotchas
 
-(ESPN/Yahoo items are roadmap notes, preserved for when that work starts; see `PLAN.md` for full
-detail.)
+(ESPN/Yahoo OAuth and live-adapter items are roadmap notes, preserved for when that work starts;
+the Yahoo public ADP data lane is already active. See `PLAN.md` for full detail.)
 
 - Sleeper is unauthenticated and explicitly read-only (no API token exists) — every feature is
   advisory, never "set my lineup for me."
