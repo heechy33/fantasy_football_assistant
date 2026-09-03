@@ -38,7 +38,9 @@ jobs:
 
       - name: Build
         run: npm run build
-
+        env:
+          VITE_AUTH_PROVIDER: clerk
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       - name: Verify production artifact
         run: npm run verify:artifact
 
