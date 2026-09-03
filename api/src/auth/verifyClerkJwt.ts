@@ -29,6 +29,34 @@ export interface VerifiedUser {
   userId: string;
 }
 
+export type JwtVerificationFailure =
+  | 'header_missing'
+  | 'token_expired'
+  | 'claims_invalid'
+  | 'jwks_key_not_found'
+  | 'signature_invalid'
+  | 'jwks_unavailable'
+  | 'verification_failed';
+
+export interface JwtVerificationResult {
+  user: VerifiedUser | null;
+  failure?: JwtVerificationFailure;
+}
+
+function classifyVerificationFailure(error: unknown): JwtVerificationFailure {
+  const record = typeof error === 'object' && error !== null
+    ? error as { code?: unknown; name?: unknown }
+    : {};
+  const code = typeof record.code === 'string' ? record.code : '';
+  const name = typeof record.name === 'string' ? record.name : '';
+  if (code === 'ERR_JWT_EXPIRED' || name === 'JWTExpired') return 'token_expired';
+  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' || name === 'JWTClaimValidationFailed') return 'claims_invalid';
+  if (code === 'ERR_JWKS_NO_MATCHING_KEY' || name === 'JWKSNoMatchingKey') return 'jwks_key_not_found';
+  if (code === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' || name === 'JWSSignatureVerificationFailed') return 'signature_invalid';
+  if (name === 'JWKSTimeout' || name === 'JWKSMultipleMatchingKeys' || name === 'TypeError') return 'jwks_unavailable';
+  return 'verification_failed';
+}
+
 /**
  * Returns the verified user, or `null` when the *token itself* fails verification (missing
  * header, expired/invalid/wrong-issuer, malformed). Callers translate `null` into
@@ -40,26 +68,38 @@ export interface VerifiedUser {
  * throws a real error (surfacing as a 500 in the Functions logs) instead of silently degrading
  * into "every request looks unauthenticated," which would be much harder to diagnose.
  */
-export async function verifyClerkJwt(authorizationHeader: string | null | undefined): Promise<VerifiedUser | null> {
-  if (!authorizationHeader?.startsWith('Bearer ')) return null;
+export async function verifyClerkJwtDetailed(
+  authorizationHeader: string | null | undefined,
+): Promise<JwtVerificationResult> {
+  if (!authorizationHeader?.startsWith('Bearer ')) return { user: null, failure: 'header_missing' };
   const token = authorizationHeader.slice('Bearer '.length).trim();
-  if (!token) return null;
+  if (!token) return { user: null, failure: 'header_missing' };
 
   const issuer = requireIssuer();
   try {
     const { payload } = await jwtVerify(token, getJwks(issuer), { issuer });
-    if (typeof payload.sub !== 'string' || payload.sub.length === 0) return null;
-    return { userId: payload.sub };
+    if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+      return { user: null, failure: 'claims_invalid' };
+    }
+    return { user: { userId: payload.sub } };
   } catch (error) {
     // Keep the client-facing response deliberately generic, but leave a safe diagnostic for
     // Application Insights. This distinguishes an issuer mismatch, a missing JWKS key, and a
     // network/signature failure without ever logging the bearer token itself.
+    const failure = classifyVerificationFailure(error);
     console.error('Clerk JWT verification failed.', {
       issuer,
+      failure,
       reason: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
     });
-    return null;
+    return { user: null, failure };
   }
+}
+
+export async function verifyClerkJwt(
+  authorizationHeader: string | null | undefined,
+): Promise<VerifiedUser | null> {
+  return (await verifyClerkJwtDetailed(authorizationHeader)).user;
 }
 
 /** Test-only: forces the next call to re-resolve the JWKS (e.g. after stubbing CLERK_ISSUER). */

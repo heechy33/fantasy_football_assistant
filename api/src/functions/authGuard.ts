@@ -1,6 +1,6 @@
 import type { HttpRequest, HttpResponseInit } from '@azure/functions';
 import type { ApiError } from '../../../shared/types.js';
-import { verifyClerkJwt, type VerifiedUser } from '../auth/verifyClerkJwt.js';
+import { verifyClerkJwtDetailed, type VerifiedUser } from '../auth/verifyClerkJwt.js';
 
 /** A boolean discriminant rather than structural narrowing (e.g. `'status' in auth`) —
  * `HttpResponseInit`'s fields are all optional, which this TypeScript version correctly refuses
@@ -23,14 +23,17 @@ export type AuthResult =
  */
 export async function requireUser(request: HttpRequest): Promise<AuthResult> {
   const authorization = request.headers.get('authorization');
-  const user = await verifyClerkJwt(authorization);
-  if (!user) {
+  const verification = await verifyClerkJwtDetailed(authorization);
+  if (!verification.user) {
     const body: ApiError = {
       error: 'Missing or invalid bearer token.',
       code: 'unauthenticated',
       authStage: authorization?.startsWith('Bearer ') ? 'token_rejected' : 'header_missing',
+      authReason: authorization?.startsWith('Bearer ')
+        ? verification.failure ?? 'verification_failed'
+        : undefined,
     };
     return { ok: false, response: { status: 401, jsonBody: body } };
   }
-  return { ok: true, user };
+  return { ok: true, user: verification.user };
 }

@@ -1102,6 +1102,15 @@ export interface ApiError {
   provider?: Provider;
   /** Non-sensitive auth diagnostic used to distinguish a stripped header from a rejected JWT. */
   authStage?: 'header_missing' | 'token_rejected';
+  /** Non-sensitive reason for a rejected bearer token; never contains token details. */
+  authReason?:
+    | 'header_missing'
+    | 'token_expired'
+    | 'claims_invalid'
+    | 'jwks_key_not_found'
+    | 'signature_invalid'
+    | 'jwks_unavailable'
+    | 'verification_failed';
 }
 
 export type ApiResult<T> = T | ApiError;
