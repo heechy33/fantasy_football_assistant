@@ -1,4 +1,3 @@
-import { verifyToken } from '@clerk/backend';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 
 /**
@@ -10,12 +9,6 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
  * `createRemoteJWKSet` caches Clerk's public keys itself (refetching on a `kid` miss, rate-limited
  * internally) — no separate cache needed here.
  */
-function requireSecretKey(): string {
-  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
-  if (!secretKey) throw new Error('CLERK_SECRET_KEY app setting is not configured.');
-  return secretKey;
-}
-
 function requireIssuer(): string {
   const issuer = process.env.CLERK_ISSUER?.trim();
   if (!issuer) throw new Error('CLERK_ISSUER app setting is not configured.');
@@ -107,12 +100,9 @@ export async function verifyClerkJwtDetailed(
   const token = authorizationHeader.slice('Bearer '.length).trim();
   if (!token) return { user: null, failure: 'header_missing' };
 
-  const configuredIssuer = process.env.CLERK_ISSUER?.trim() ? requireIssuer() : null;
-  const secretKey = configuredIssuer ? undefined : requireSecretKey();
+  const configuredIssuer = requireIssuer();
   try {
-    const payload = configuredIssuer
-      ? (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: allowedClerkAlgorithms })).payload
-      : await verifyToken(token, { secretKey });
+    const payload = (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: allowedClerkAlgorithms })).payload;
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
       return { user: null, failure: 'claims_invalid' };
     }
