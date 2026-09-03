@@ -32,6 +32,7 @@ export async function requireUser(request: HttpRequest): Promise<AuthResult> {
       authReason: authorization?.startsWith('Bearer ')
         ? verification.failure ?? 'verification_failed'
         : undefined,
+      authDetail: authorization?.startsWith('Bearer ') ? verification.detail : undefined,
     };
     return { ok: false, response: { status: 401, jsonBody: body } };
   }

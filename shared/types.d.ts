@@ -1111,6 +1111,8 @@ export interface ApiError {
     | 'signature_invalid'
     | 'jwks_unavailable'
     | 'verification_failed';
+  /** Safe JOSE error class/code only; never includes the error message or token. */
+  authDetail?: string;
 }
 
 export type ApiResult<T> = T | ApiError;

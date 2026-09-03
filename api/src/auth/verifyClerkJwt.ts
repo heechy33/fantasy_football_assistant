@@ -41,6 +41,18 @@ export type JwtVerificationFailure =
 export interface JwtVerificationResult {
   user: VerifiedUser | null;
   failure?: JwtVerificationFailure;
+  /** Safe JOSE class/code only; intentionally excludes the error message and token. */
+  detail?: string;
+}
+
+function describeVerificationError(error: unknown): string | undefined {
+  const record = typeof error === 'object' && error !== null
+    ? error as { code?: unknown; name?: unknown }
+    : {};
+  const code = typeof record.code === 'string' ? record.code : '';
+  const name = typeof record.name === 'string' ? record.name : '';
+  const detail = [name, code].filter(Boolean).join(':');
+  return detail || undefined;
 }
 
 function classifyVerificationFailure(error: unknown): JwtVerificationFailure {
@@ -87,12 +99,14 @@ export async function verifyClerkJwtDetailed(
     // Application Insights. This distinguishes an issuer mismatch, a missing JWKS key, and a
     // network/signature failure without ever logging the bearer token itself.
     const failure = classifyVerificationFailure(error);
+    const detail = describeVerificationError(error);
     console.error('Clerk JWT verification failed.', {
       issuer,
       failure,
+      detail,
       reason: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
     });
-    return { user: null, failure };
+    return { user: null, failure, detail };
   }
 }
 
