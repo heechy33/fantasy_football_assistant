@@ -105,7 +105,7 @@ export async function verifyClerkJwtDetailed(
   const secretKey = configuredIssuer ? undefined : requireSecretKey();
   try {
     const payload = configuredIssuer
-      ? (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: ['RS256'] })).payload
+      ? (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: ['RS256', 'ES256', 'EdDSA'] })).payload
       : await verifyToken(token, { secretKey });
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
       return { user: null, failure: 'claims_invalid' };
