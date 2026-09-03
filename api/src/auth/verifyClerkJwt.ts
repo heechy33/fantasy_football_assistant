@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { verifyToken } from '@clerk/backend';
 
 /**
  * Verifies the Bearer token on an authenticated `/api/*` request. SWA's role system stays
@@ -9,19 +9,10 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
  * `createRemoteJWKSet` caches Clerk's public keys itself (refetching on a `kid` miss, rate-limited
  * internally) — no separate cache needed here.
  */
-let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
-
-function getJwks(issuer: string): ReturnType<typeof createRemoteJWKSet> {
-  if (!jwks) {
-    jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
-  }
-  return jwks;
-}
-
-function requireIssuer(): string {
-  const issuer = process.env.CLERK_ISSUER?.trim().replace(/\/+$/, '');
-  if (!issuer) throw new Error('CLERK_ISSUER app setting is not configured.');
-  return issuer;
+function requireSecretKey(): string {
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+  if (!secretKey) throw new Error('CLERK_SECRET_KEY app setting is not configured.');
+  return secretKey;
 }
 
 export interface VerifiedUser {
@@ -75,7 +66,7 @@ function classifyVerificationFailure(error: unknown): JwtVerificationFailure {
  * `ApiError.code: 'unauthenticated'` — a bad token is never thrown past this boundary, since a
  * Function handler's job there is a clean 401, not a 500.
  *
- * A missing `CLERK_ISSUER` app setting is different: that's a deploy misconfiguration, not
+ * A missing `CLERK_SECRET_KEY` app setting is different: that's a deploy misconfiguration, not
  * something about the caller's token, so `requireIssuer()` runs OUTSIDE the try/catch below and
  * throws a real error (surfacing as a 500 in the Functions logs) instead of silently degrading
  * into "every request looks unauthenticated," which would be much harder to diagnose.
@@ -87,9 +78,9 @@ export async function verifyClerkJwtDetailed(
   const token = authorizationHeader.slice('Bearer '.length).trim();
   if (!token) return { user: null, failure: 'header_missing' };
 
-  const issuer = requireIssuer();
+  const secretKey = requireSecretKey();
   try {
-    const { payload } = await jwtVerify(token, getJwks(issuer), { issuer });
+    const payload = await verifyToken(token, { secretKey });
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
       return { user: null, failure: 'claims_invalid' };
     }
@@ -101,7 +92,6 @@ export async function verifyClerkJwtDetailed(
     const failure = classifyVerificationFailure(error);
     const detail = describeVerificationError(error);
     console.error('Clerk JWT verification failed.', {
-      issuer,
       failure,
       detail,
       reason: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
@@ -116,7 +106,6 @@ export async function verifyClerkJwt(
   return (await verifyClerkJwtDetailed(authorizationHeader)).user;
 }
 
-/** Test-only: forces the next call to re-resolve the JWKS (e.g. after stubbing CLERK_ISSUER). */
+/** Test-only compatibility hook; Clerk's backend SDK owns its JWKS cache. */
 export function __resetJwksCache(): void {
-  jwks = null;
 }
