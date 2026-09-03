@@ -22,17 +22,23 @@ export type AuthResult =
  * ```
  */
 export async function requireUser(request: HttpRequest): Promise<AuthResult> {
-  const authorization = request.headers.get('authorization');
-  const verification = await verifyClerkJwtDetailed(authorization);
+  // Check x-clerk-authorization and x-authorization before authorization. Azure Static Web
+  // Apps' managed Functions proxy overwrites the standard Authorization header with an internal
+  // platform token (HS256); custom headers pass through the proxy intact.
+  const bearerHeader =
+    request.headers.get('x-clerk-authorization') ||
+    request.headers.get('x-authorization') ||
+    request.headers.get('authorization');
+  const verification = await verifyClerkJwtDetailed(bearerHeader);
   if (!verification.user) {
     const body: ApiError = {
       error: 'Missing or invalid bearer token.',
       code: 'unauthenticated',
-      authStage: authorization?.startsWith('Bearer ') ? 'token_rejected' : 'header_missing',
-      authReason: authorization?.startsWith('Bearer ')
+      authStage: bearerHeader?.startsWith('Bearer ') ? 'token_rejected' : 'header_missing',
+      authReason: bearerHeader?.startsWith('Bearer ')
         ? verification.failure ?? 'verification_failed'
         : undefined,
-      authDetail: authorization?.startsWith('Bearer ') ? verification.detail : undefined,
+      authDetail: bearerHeader?.startsWith('Bearer ') ? verification.detail : undefined,
     };
     return { ok: false, response: { status: 401, jsonBody: body } };
   }

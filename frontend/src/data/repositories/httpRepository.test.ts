@@ -32,9 +32,12 @@ describe('createHttpRepository', () => {
 
     const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(path).toBe('/api/leagues');
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer token-1');
+    expect(headers['x-clerk-authorization']).toBe('Bearer token-1');
+    expect(headers['x-authorization']).toBe('Bearer token-1');
     // GET carries no body, so no Content-Type should be forced on.
-    expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+    expect(headers['Content-Type']).toBeUndefined();
   });
 
   it('upsertLeague posts a JSON body with the bearer token and Content-Type', async () => {
@@ -46,8 +49,11 @@ describe('createHttpRepository', () => {
     expect(path).toBe('/api/leagues');
     expect(init.method).toBe('POST');
     expect(init.body).toBe(JSON.stringify({ id: 'l1', name: 'My League' }));
-    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Content-Type']).toBe('application/json');
+    expect(headers.Authorization).toBe('Bearer token-1');
+    expect(headers['x-clerk-authorization']).toBe('Bearer token-1');
+    expect(headers['x-authorization']).toBe('Bearer token-1');
   });
 
   it('refuses to call the API when getToken yields no token (signed out)', async () => {

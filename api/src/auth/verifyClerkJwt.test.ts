@@ -85,6 +85,21 @@ describe('verifyClerkJwt', () => {
     });
   });
 
+  it('classifies unsupported algorithm errors (e.g. HS256 against JWKS) as alg_not_allowed', async () => {
+    const error = Object.assign(new Error('unsupported algorithm'), {
+      name: 'JOSENotSupported',
+      code: 'ERR_JOSE_NOT_SUPPORTED',
+    });
+    jwtVerifyMock.mockRejectedValue(error);
+    decodeProtectedHeaderMock.mockReturnValue({ alg: 'HS256' });
+
+    await expect(verifyClerkJwtDetailed('Bearer a.b.c')).resolves.toMatchObject({
+      user: null,
+      failure: 'alg_not_allowed',
+      detail: expect.stringContaining('tokenHeader:' + JSON.stringify({ alg: 'HS256' })),
+    });
+  });
+
   it('returns null when the payload has no usable sub claim', async () => {
     jwtVerifyMock.mockResolvedValue({ payload: {} });
     expect(await verifyClerkJwt('Bearer a.b.c')).toBeNull();

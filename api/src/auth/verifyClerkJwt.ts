@@ -69,7 +69,12 @@ function classifyVerificationFailure(error: unknown): JwtVerificationFailure {
     : {};
   const code = typeof record.code === 'string' ? record.code : '';
   const name = typeof record.name === 'string' ? record.name : '';
-  if (code === 'ERR_JOSE_ALG_NOT_ALLOWED' || name === 'JOSEAlgNotAllowed') return 'alg_not_allowed';
+  if (
+    code === 'ERR_JOSE_ALG_NOT_ALLOWED' ||
+    name === 'JOSEAlgNotAllowed' ||
+    code === 'ERR_JOSE_NOT_SUPPORTED' ||
+    name === 'JOSENotSupported'
+  ) return 'alg_not_allowed';
   if (code === 'ERR_JWT_EXPIRED' || name === 'JWTExpired') return 'token_expired';
   if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' || name === 'JWTClaimValidationFailed') return 'claims_invalid';
   if (code === 'ERR_JWKS_NO_MATCHING_KEY' || name === 'JWKSNoMatchingKey') return 'jwks_key_not_found';

@@ -1368,3 +1368,27 @@ the refresh.
 **Still deferred:** Yahoo adapter/OAuth (A2), live Yahoo draft synchronization, and a frozen 2025
 Yahoo source fixture. The 2026 Yahoo ADP lane is complete and fail-open if Playwright, Chromium,
 Yahoo, or the rendered table is unavailable.
+
+---
+
+## 2026-09-03 — Azure SWA Authorization header overwrite and x-clerk-authorization bypass
+
+**Decision:** send Clerk bearer tokens from `frontend/src/data/repositories/httpRepository.ts` over
+`x-clerk-authorization: Bearer <token>` (and alias `x-authorization`) in addition to standard
+`Authorization`, and update `api/src/functions/authGuard.ts` to prioritize `x-clerk-authorization`
+and `x-authorization` before falling back to `authorization`.
+
+**Empirical observation from production:** when deployed to Azure Static Web Apps (SWA), the
+managed Functions reverse proxy intercepts inbound `/api/*` requests and overwrites the standard
+HTTP `Authorization` header with a platform-internal HMAC-SHA256 (`HS256`) system token used by
+the SWA gateway to authenticate against the Azure Functions host. While this platform behavior is
+not documented as an explicit contract in Microsoft Learn docs, it was confirmed empirically in
+production when JOSE failed with `JOSENotSupported:ERR_JOSE_NOT_SUPPORTED tokenHeader:{"alg":"HS256"}`
+upon verifying the incoming token against Clerk's remote JWKS (which only publishes asymmetric
+`RS256` keys).
+
+Custom headers (`x-clerk-authorization` / `x-authorization`) pass through Azure SWA's reverse proxy
+unaltered, allowing the backend Functions host to receive the authentic Clerk session token and
+verify its RS256 signature cleanly. Standard `Authorization` remains on the wire for local
+development proxies (Vite -> Functions Core Tools) and standard HTTP tooling.
+

@@ -9,9 +9,19 @@ export function createHttpRepository(getToken: () => Promise<string | null>): Sa
   async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
     const token = await getToken();
     if (!token) throw new Error(`Cannot call ${path}: not signed in.`);
+    // Send standard Authorization (for local dev proxy and standard HTTP tooling) alongside
+    // x-clerk-authorization (and x-authorization alias). Azure Static Web Apps' managed reverse
+    // proxy overwrites Authorization with an internal platform HS256 token in production; custom
+    // headers pass through to the Azure Functions host untouched.
     const response = await fetch(path, {
       ...init,
-      headers: { ...init.headers, Authorization: `Bearer ${token}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
+      headers: {
+        ...init.headers,
+        Authorization: `Bearer ${token}`,
+        'x-clerk-authorization': `Bearer ${token}`,
+        'x-authorization': `Bearer ${token}`,
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      },
     });
     if (!response.ok) throw new Error(`${path} failed: ${response.status}`);
     return response;
