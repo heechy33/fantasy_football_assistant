@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify, type JWTVerifyGetKey } from 'jose';
 
 /**
  * Verifies the Bearer token on an authenticated `/api/*` request. SWA's role system stays
@@ -23,12 +23,6 @@ function requireIssuer(): string {
 
 let cachedIssuer = '';
 let cachedJwks: JWTVerifyGetKey | null = null;
-const allowedClerkAlgorithms = [
-  'RS256', 'RS384', 'RS512',
-  'PS256', 'PS384', 'PS512',
-  'ES256', 'ES384', 'ES512',
-  'EdDSA',
-];
 
 function remoteJwksFor(issuer: string): JWTVerifyGetKey {
   if (cachedJwks && cachedIssuer === issuer) return cachedJwks;
@@ -46,6 +40,7 @@ export type JwtVerificationFailure =
   | 'header_missing'
   | 'token_expired'
   | 'claims_invalid'
+  | 'alg_not_allowed'
   | 'jwks_key_not_found'
   | 'signature_invalid'
   | 'jwks_unavailable'
@@ -74,12 +69,26 @@ function classifyVerificationFailure(error: unknown): JwtVerificationFailure {
     : {};
   const code = typeof record.code === 'string' ? record.code : '';
   const name = typeof record.name === 'string' ? record.name : '';
+  if (code === 'ERR_JOSE_ALG_NOT_ALLOWED' || name === 'JOSEAlgNotAllowed') return 'alg_not_allowed';
   if (code === 'ERR_JWT_EXPIRED' || name === 'JWTExpired') return 'token_expired';
   if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' || name === 'JWTClaimValidationFailed') return 'claims_invalid';
   if (code === 'ERR_JWKS_NO_MATCHING_KEY' || name === 'JWKSNoMatchingKey') return 'jwks_key_not_found';
   if (code === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' || name === 'JWSSignatureVerificationFailed') return 'signature_invalid';
   if (name === 'JWKSTimeout' || name === 'JWKSMultipleMatchingKeys' || name === 'TypeError') return 'jwks_unavailable';
   return 'verification_failed';
+}
+
+function describeTokenHeader(token: string): string | undefined {
+  try {
+    const header = decodeProtectedHeader(token);
+    const safeHeader = {
+      ...(typeof header.alg === 'string' ? { alg: header.alg } : {}),
+      ...(typeof header.kid === 'string' ? { kid: header.kid } : {}),
+    };
+    return Object.keys(safeHeader).length > 0 ? JSON.stringify(safeHeader) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -102,7 +111,7 @@ export async function verifyClerkJwtDetailed(
 
   const configuredIssuer = requireIssuer();
   try {
-    const payload = (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer, algorithms: allowedClerkAlgorithms })).payload;
+    const payload = (await jwtVerify(token, remoteJwksFor(configuredIssuer), { issuer: configuredIssuer })).payload;
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
       return { user: null, failure: 'claims_invalid' };
     }
@@ -112,7 +121,11 @@ export async function verifyClerkJwtDetailed(
     // Application Insights. This distinguishes an issuer mismatch, a missing JWKS key, and a
     // network/signature failure without ever logging the bearer token itself.
     const failure = classifyVerificationFailure(error);
-    const detail = describeVerificationError(error);
+    const errorDetail = describeVerificationError(error);
+    const tokenHeader = describeTokenHeader(token);
+    const detail = [errorDetail, tokenHeader ? `tokenHeader:${tokenHeader}` : undefined]
+      .filter(Boolean)
+      .join(' ') || undefined;
     console.error('Clerk JWT verification failed.', {
       failure,
       detail,

@@ -1107,6 +1107,7 @@ export interface ApiError {
     | 'header_missing'
     | 'token_expired'
     | 'claims_invalid'
+    | 'alg_not_allowed'
     | 'jwks_key_not_found'
     | 'signature_invalid'
     | 'jwks_unavailable'

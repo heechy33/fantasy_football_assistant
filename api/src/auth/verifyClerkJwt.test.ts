@@ -4,17 +4,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // logic (header parsing, issuer config, failure-to-null mapping) against a mocked `jwtVerify`,
 // not real signature verification.
 const createRemoteJWKSetMock = vi.fn(() => 'jwks');
+const decodeProtectedHeaderMock = vi.fn();
 const jwtVerifyMock = vi.fn();
 vi.mock('jose', () => ({
   createRemoteJWKSet: (...args: unknown[]) => createRemoteJWKSetMock(...args),
+  decodeProtectedHeader: (...args: unknown[]) => decodeProtectedHeaderMock(...args),
   jwtVerify: (...args: unknown[]) => jwtVerifyMock(...args),
 }));
 
-const { verifyClerkJwt, __resetJwksCache } = await import('./verifyClerkJwt.js');
+const { verifyClerkJwt, verifyClerkJwtDetailed, __resetJwksCache } = await import('./verifyClerkJwt.js');
 
 describe('verifyClerkJwt', () => {
   beforeEach(() => {
     createRemoteJWKSetMock.mockClear();
+    decodeProtectedHeaderMock.mockReset();
     jwtVerifyMock.mockReset();
     __resetJwksCache();
     process.env.CLERK_ISSUER = 'https://clerk.example.com';
@@ -57,15 +60,7 @@ describe('verifyClerkJwt', () => {
     expect(jwtVerifyMock).toHaveBeenCalledWith(
       'a.b.c',
       'jwks',
-      {
-        issuer: 'https://clerk.example.com',
-        algorithms: [
-          'RS256', 'RS384', 'RS512',
-          'PS256', 'PS384', 'PS512',
-          'ES256', 'ES384', 'ES512',
-          'EdDSA',
-        ],
-      },
+      { issuer: 'https://clerk.example.com' },
     );
     expect(jwtVerifyMock).toHaveBeenCalled();
   });
@@ -73,6 +68,21 @@ describe('verifyClerkJwt', () => {
   it('returns null when Clerk token verification rejects', async () => {
     jwtVerifyMock.mockRejectedValue(new Error('signature verification failed'));
     expect(await verifyClerkJwt('Bearer a.b.c')).toBeNull();
+  });
+
+  it('classifies algorithm failures and reports only the safe token header fields', async () => {
+    const error = Object.assign(new Error('algorithm rejected'), {
+      name: 'JOSEAlgNotAllowed',
+      code: 'ERR_JOSE_ALG_NOT_ALLOWED',
+    });
+    jwtVerifyMock.mockRejectedValue(error);
+    decodeProtectedHeaderMock.mockReturnValue({ alg: 'HS256', kid: 'kid_123', typ: 'JWT' });
+
+    await expect(verifyClerkJwtDetailed('Bearer a.b.c')).resolves.toMatchObject({
+      user: null,
+      failure: 'alg_not_allowed',
+      detail: expect.stringContaining('tokenHeader:' + JSON.stringify({ alg: 'HS256', kid: 'kid_123' })),
+    });
   });
 
   it('returns null when the payload has no usable sub claim', async () => {
