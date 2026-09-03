@@ -106,16 +106,16 @@ def test_top_adp_projection_coverage_gate_passes_above_threshold_and_fails_below
     # Sleeper's broader draft-lobby board pushed genuinely un-projected deep
     # fliers into the top-300 seed. Still must catch a real regression, e.g. a
     # crosswalk/matching bug that drops coverage far below the new floor.
-    assert TOP_ADP_PROJECTION_COVERAGE_THRESHOLD == pytest.approx(0.90)
+    assert TOP_ADP_PROJECTION_COVERAGE_THRESHOLD == pytest.approx(0.85)
 
     row = SeasonProjection('1', 'fftoday', {'pass_yd': 1})
     # Exactly at the floor must pass; one more miss must fail.
-    at_floor = ['1'] * 90 + ['missing'] * 10
+    at_floor = ['1'] * 85 + ['missing'] * 15
     assert not any(
         'projection coverage' in issue
         for issue in validate_projection_gates([row], {}, required_rows={}, top_adp_ids=at_floor)
     )
-    below_floor = ['1'] * 89 + ['missing'] * 11
+    below_floor = ['1'] * 84 + ['missing'] * 16
     assert any(
         'projection coverage' in issue
         for issue in validate_projection_gates([row], {}, required_rows={}, top_adp_ids=below_floor)

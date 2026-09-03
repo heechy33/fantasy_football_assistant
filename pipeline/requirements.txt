@@ -4,6 +4,10 @@ pandas>=2.2
 nflreadpy>=0.1.5,<0.2
 polars>=1,<2
 
+# Yahoo draft-analysis is a client-rendered page. The CI/local setup must also
+# run `python -m playwright install chromium` once after installing this file.
+playwright>=1.62,<2
+
 # The remaining provider wrappers are kept for reference/cross-checking during
 # development and are not imported by the pipeline's hot path.
 espn-api>=0.46.0

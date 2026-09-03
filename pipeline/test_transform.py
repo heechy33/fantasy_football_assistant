@@ -3,8 +3,11 @@ import pytest
 from transform import (
     AdpEntry,
     PlayerMeta,
+    SeasonProjection,
+    apply_availability_to_projections,
     apply_nflverse_draft,
     apply_player_bye_weeks_to_adp,
+    apply_status_overrides,
     backfill_bye_weeks_from_ids,
     build_adp_entries,
     build_ffc_cv_index,
@@ -19,6 +22,7 @@ from transform import (
     parse_jersey_number,
     parse_weight_lbs,
     per_player_cv,
+    resolve_availability,
     SLEEPER_ADP_SENTINEL,
 )
 
@@ -311,6 +315,113 @@ def test_build_player_meta_maps_sleeper_bio_fields():
     assert result.college == "Wyoming"
     assert result.jerseyNumber == 17
     assert result.draftYear is None
+
+
+def test_build_player_meta_maps_status_and_derates_exempt_availability():
+    # The Josh Jacobs case: Sleeper's `status` field (roster status), not
+    # `injury_status` (weekly game-day tag), is what carries "Exempt".
+    result = build_player_meta(
+        {
+            "5850": {
+                "full_name": "Josh Jacobs",
+                "position": "RB",
+                "fantasy_positions": ["RB"],
+                "team": "GB",
+                "status": "Exempt",
+                "active": False,
+                "injury_status": "Questionable",
+            },
+            "4984": {
+                "full_name": "Josh Allen",
+                "position": "QB",
+                "fantasy_positions": ["QB"],
+                "team": "BUF",
+                "status": "Active",
+                "active": True,
+            },
+        },
+        [],
+    )
+    jacobs = result["5850"]
+    assert jacobs.status == "Exempt"
+    assert jacobs.active is False
+    assert jacobs.availability == 0.0
+    assert jacobs.availabilityReason == "Sleeper roster status: Exempt"
+
+    allen = result["4984"]
+    assert allen.status == "Active"
+    assert allen.availability == 1.0
+    assert allen.availabilityReason is None
+
+
+def test_resolve_availability_only_derates_known_season_long_statuses():
+    assert resolve_availability("Exempt") == (0.0, "Sleeper roster status: Exempt")
+    assert resolve_availability("Suspended") == (0.0, "Sleeper roster status: Suspended")
+    assert resolve_availability("Injured Reserve") == (0.0, "Sleeper roster status: Injured Reserve")
+    # Day-to-day / ambiguous statuses are left alone — this is not a
+    # second-guess of Questionable/Doubtful, and "Inactive" just means not
+    # currently on any NFL roster, not injured.
+    assert resolve_availability("Active") == (1.0, None)
+    assert resolve_availability("Inactive") == (1.0, None)
+    assert resolve_availability(None) == (1.0, None)
+    assert resolve_availability("Some Future Status") == (1.0, None)
+
+
+def test_apply_status_overrides_wins_over_feed_and_flags_stale_reviewby():
+    players = {
+        "5850": PlayerMeta(
+            playerId="5850", name="Josh Jacobs", position="RB", eligiblePositions=["RB"],
+            team="GB", byeWeek=11, age=28, yearsExp=7, injuryStatus="Questionable",
+            depthChartPosition="RB", depthChartOrder=1, injuryBodyPart="Groin",
+            practiceParticipation=None, ids={}, status="Active", active=True,
+        ),
+    }
+    warnings = apply_status_overrides(
+        players,
+        [
+            {
+                "playerId": "5850",
+                "status": "Exempt",
+                "availability": 0,
+                "reason": "Commissioner's Exempt List",
+                "reviewBy": "2020-01-01",  # deliberately in the past
+            },
+            {"playerId": "unknown-id", "status": "Exempt", "availability": 0},
+        ],
+        today="2026-08-31",
+    )
+    jacobs = players["5850"]
+    assert jacobs.status == "Exempt"
+    assert jacobs.availability == 0.0
+    assert jacobs.availabilityReason == "Commissioner's Exempt List"
+    assert len(warnings) == 2
+    assert "reviewBy date" in warnings[0]
+    assert "unknown playerId" in warnings[1]
+
+
+def test_apply_availability_to_projections_scales_stats_and_skips_full_availability():
+    players = {
+        "5850": PlayerMeta(
+            playerId="5850", name="Derated", position="RB", eligiblePositions=["RB"],
+            team="GB", byeWeek=None, age=28, yearsExp=7, injuryStatus=None,
+            depthChartPosition=None, depthChartOrder=None, injuryBodyPart=None,
+            practiceParticipation=None, ids={}, availability=0.0,
+        ),
+        "9999": PlayerMeta(
+            playerId="9999", name="Healthy", position="RB", eligiblePositions=["RB"],
+            team="DAL", byeWeek=None, age=25, yearsExp=3, injuryStatus=None,
+            depthChartPosition=None, depthChartOrder=None, injuryBodyPart=None,
+            practiceParticipation=None, ids={}, availability=1.0,
+        ),
+    }
+    projections = [
+        SeasonProjection(playerId="5850", source="fftoday", stats={"rush_yd": 1000.0, "rush_td": 10.0}),
+        SeasonProjection(playerId="9999", source="fftoday", stats={"rush_yd": 500.0}),
+    ]
+    scaled = apply_availability_to_projections(projections, players)
+    assert scaled == 1
+    assert projections[0].stats == {"rush_yd": 0.0, "rush_td": 0.0}
+    assert projections[1].stats == {"rush_yd": 500.0}
 
 
 def test_apply_nflverse_draft_joins_on_gsis_and_skips_misses():

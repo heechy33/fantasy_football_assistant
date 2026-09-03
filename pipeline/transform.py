@@ -75,6 +75,18 @@ class PlayerMeta:
     draftYear: int | None = None
     draftRound: int | None = None
     draftPick: int | None = None
+    # Sleeper's roster status (Active/Injured Reserve/PUP/Suspended/Exempt/...),
+    # distinct from `injuryStatus` (the weekly game-day designation, e.g.
+    # Questionable). Never read by the engine before this field existed.
+    status: str | None = None
+    active: bool | None = None
+    # Multiplier applied to this player's season projection stats
+    # (see apply_availability_to_projections) — 1.0 unless `status` or a
+    # committed override (apply_status_overrides) indicates the player cannot
+    # play some or all of the season. NOT the ADP draft-survival probability
+    # (frontend/src/engine/availability.ts) — a different, unrelated concept.
+    availability: float = 1.0
+    availabilityReason: str | None = None
 
 
 @dataclass
@@ -96,7 +108,7 @@ class AdpEntry:
     low: int | None
     timesDrafted: int | None
     byeWeek: int | None
-    adpSource: str = "ffc"  # 'sleeper' | 'ffc'
+    adpSource: str = "ffc"  # 'sleeper' | 'ffc' | 'espn' | 'underdog' | 'yahoo'
     stdevSource: str = "observed"  # 'observed' | 'fitted'
 
 
@@ -162,6 +174,90 @@ def sleeper_bio_fields(raw: dict[str, Any]) -> dict[str, Any]:
 
 FANTASY_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
 
+# Season-long-or-longer roster statuses that make a player undraftable-in-
+# effect for a redraft league — a Commissioner's Exempt List placement (Josh
+# Jacobs, 2026-08-30) is the case this exists for. Deliberately narrow: this
+# is Sleeper's `status` field (roster status), never `injury_status` (the
+# weekly Questionable/Doubtful/Out game-day tag) — this is not meant to
+# second-guess a day-to-day injury call, only to zero out a player who
+# structurally cannot play. `Active`/`Inactive`/`Practice Squad` are left at
+# full value: "Inactive" here just means not currently on any NFL roster
+# (free agent), not injured.
+STATUS_AVAILABILITY: dict[str, float] = {
+    "Injured Reserve": 0.0,
+    "PUP": 0.0,
+    "Non Football Injury": 0.0,
+    "NFI": 0.0,
+    "Suspended": 0.0,
+    "Exempt": 0.0,
+}
+
+
+def resolve_availability(status: str | None) -> tuple[float, str | None]:
+    """Feed-derived availability multiplier + human reason from Sleeper's roster
+    `status`. Returns (1.0, None) for Active/Inactive/unknown/missing — a
+    committed override (apply_status_overrides) is the only lane that can
+    react same-day to news a feed hasn't caught up to yet."""
+    if status in STATUS_AVAILABILITY:
+        return STATUS_AVAILABILITY[status], f"Sleeper roster status: {status}"
+    return 1.0, None
+
+
+def apply_status_overrides(
+    players: dict[str, "PlayerMeta"],
+    overrides: list[dict[str, Any]],
+    today: str,
+) -> list[str]:
+    """Applies a committed, hand-maintained override list on top of feed-derived
+    status/availability. Always wins over `resolve_availability`'s result — the
+    only mechanism that can reflect same-day news (a commissioner's exempt-list
+    move, a suspension) faster than the next Sleeper refresh. `today` is an
+    ISO `YYYY-MM-DD` date string; returns one diagnostic per override whose
+    `reviewBy` has passed, so a stale override surfaces in the manifest instead
+    of silently pinning a player to zero forever.
+    """
+    warnings: list[str] = []
+    for row in overrides:
+        player_id = row.get("playerId")
+        player = players.get(player_id) if player_id else None
+        if player is None:
+            warnings.append(f"player-status-override: unknown playerId {player_id!r} — check the override file")
+            continue
+        if row.get("status"):
+            player.status = row["status"]
+        availability = row.get("availability")
+        if availability is not None:
+            player.availability = float(availability)
+        if row.get("reason"):
+            player.availabilityReason = row["reason"]
+        review_by = row.get("reviewBy")
+        if review_by and str(review_by) < today:
+            warnings.append(
+                f"player-status-override for {player_id} ({player.name}) is past its "
+                f"reviewBy date ({review_by}) — re-check and update or remove it."
+            )
+    return warnings
+
+
+def apply_availability_to_projections(
+    projections: list["SeasonProjection"],
+    players: dict[str, "PlayerMeta"],
+) -> int:
+    """Scales each projection's stat map by the player's resolved availability
+    multiplier (see resolve_availability / apply_status_overrides), so a
+    player who cannot play de-rates through replacement/VOR/planValue without
+    any engine change. A normal build (every multiplier 1.0) is a no-op.
+    Returns how many projections were scaled.
+    """
+    scaled = 0
+    for projection in projections:
+        player = players.get(projection.playerId)
+        if player is None or player.availability >= 1.0:
+            continue
+        projection.stats = {key: value * player.availability for key, value in projection.stats.items()}
+        scaled += 1
+    return scaled
+
 
 def build_player_meta(
     sleeper_players: dict[str, dict[str, Any]],
@@ -210,6 +306,9 @@ def build_player_meta(
             if value:
                 ids[key] = value
 
+        status_value = p.get("status")
+        availability, availability_reason = resolve_availability(status_value)
+
         out[sleeper_id] = PlayerMeta(
             playerId=sleeper_id,
             name=name,
@@ -224,6 +323,10 @@ def build_player_meta(
             depthChartOrder=p.get("depth_chart_order"),
             injuryBodyPart=p.get("injury_body_part"),
             practiceParticipation=p.get("practice_participation"),
+            status=status_value,
+            active=p.get("active"),
+            availability=availability,
+            availabilityReason=availability_reason,
             ids=ids,
             **sleeper_bio_fields(p),
         )

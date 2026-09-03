@@ -55,9 +55,20 @@ const manifest = espnManifest;
 const underdogAdpOk = manifest?.sources?.['underdog_bestball']?.status === 'ok';
 const underdogAdpRequired = underdogAdpOk ? [join('data', 'adp-underdog-bestball.json')] : [];
 
+// The Yahoo draft-analysis boards (`data/adp-yahoo-<fmt>.json` for
+// standard/half-ppr/ppr; NOT 2qb) follow the same fail-open pattern as ESPN.
+// One row per served format in the manifest; each independently required
+// when its manifest entry reports ok, deleted by the pipeline on a failed
+// refresh (mirroring ESPN's `adp-espn-ppr.json` behavior). Added 2026-09-XX
+// (Phase 2).
+const yahooAdpRequired = ['standard', 'half-ppr', 'ppr']
+  .filter((fmt) => manifest?.sources?.[`yahoo_adp_${fmt}`]?.status === 'ok')
+  .map((fmt) => join('data', `adp-yahoo-${fmt}.json`));
+
 const missing = required.filter((rel) => !existsSync(join(distDir, rel)))
   .concat(espnAdpRequired.filter((rel) => !existsSync(join(distDir, rel))))
-  .concat(underdogAdpRequired.filter((rel) => !existsSync(join(distDir, rel))));
+  .concat(underdogAdpRequired.filter((rel) => !existsSync(join(distDir, rel))))
+  .concat(yahooAdpRequired.filter((rel) => !existsSync(join(distDir, rel))));
 const forbidden = mustNotExist.filter((rel) => existsSync(join(distDir, rel)));
 
 if (missing.length > 0 || forbidden.length > 0) {
@@ -77,6 +88,12 @@ if (underdogAdpOk) {
   console.log(`Artifact verification: manifest reports underdog_bestball ok — data/adp-underdog-bestball.json present in ${distDir}`);
 } else {
   console.log('Artifact verification: manifest reports underdog_bestball error/absent — Underdog best-ball board not required (fail-open)');
+}
+const yahooOk = ['standard', 'half-ppr', 'ppr'].filter((fmt) => manifest?.sources?.[`yahoo_adp_${fmt}`]?.status === 'ok');
+if (yahooOk.length > 0) {
+  console.log(`Artifact verification: manifest reports yahoo_adp_${yahooOk.join('/yahoo_adp_')} ok — corresponding adp-yahoo-*.json files present in ${distDir}`);
+} else {
+  console.log('Artifact verification: manifest reports all yahoo_adp_* error/absent — Yahoo ADP boards not required (fail-open)');
 }
 
 /** Read and parse a JSON file from dist, or null when missing/unparseable. */

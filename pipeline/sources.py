@@ -113,3 +113,63 @@ def fetch_sleeper_weekly_stats(season: str, week: int) -> dict[str, dict[str, An
     `def_td` key. Do not read `td` as "defensive touchdowns".
     """
     return _get(f"{SLEEPER_BASE}{SLEEPER_WEEKLY_STATS_PATH.format(season=season, week=week)}").json()
+
+
+# Yahoo's draft-analysis page is a public, unauthenticated JS-rendered
+# React shell at `football.fantasysports.yahoo.com/f1/draftanalysis?type=...`.
+# The page itself does NOT return the data table in its initial HTML response;
+# the data hydrates from Yahoo's internal `publicDraftAnalysis` API after the
+# page loads, so a plain `requests.get` returns an 887 KB shell with zero
+# player rows. To extract the data we render the page in headless Chromium
+# via Playwright and return the rendered HTML. The pure parser lives in
+# `yahoo_adp.py`; this module owns the HTTP/Playwright boundary.
+#
+# Yahoo serves three game_types (standard, half-ppr, ppr -- NEVER 2qb). The
+# URL takes a `count` param that defaults to ~25; we always pass `count=2000`
+# to get the full board in one render (verified 2026-09-01: 1163 parsed
+# rows for `type=half-ppr&count=2000`).
+YAHOO_DRAFT_ANALYSIS_URL = "https://football.fantasysports.yahoo.com/f1/draftanalysis"
+YAHOO_DRAFT_ANALYSIS_COUNT = 2000
+YAHOO_DRAFT_ANALYSIS_GAME_TYPES = ("standard", "half-ppr", "ppr")
+YAHOO_DRAFT_ANALYSIS_RENDER_WAIT_MS = 12000  # empirical: time for the React table to hydrate
+
+
+def fetch_yahoo_draft_analysis_html(game_type: str) -> str:
+    """Render Yahoo's draft-analysis page for one game_type in headless Chromium
+    and return the rendered HTML of the data table.
+
+    Fail-open: any error (Playwright missing, Chromium missing, network
+    timeout, page timeout, selector not found) raises a `RuntimeError` that
+    `build_data.py` catches and converts into a `[warn]` line + a manifest
+    `status: "error"` entry. The artifact is then left untouched.
+
+    Imports Playwright lazily so a pipeline run on a machine without
+    Playwright installed (or without the Chromium binary) fails with a clear
+    `ImportError` at this call site, not at module-import time when the
+    pipeline is only doing Sleeper/ESPN/Underdog work.
+    """
+    if game_type not in YAHOO_DRAFT_ANALYSIS_GAME_TYPES:
+        raise ValueError(
+            f"Yahoo draft-analysis: unsupported game_type {game_type!r}; expected one of {YAHOO_DRAFT_ANALYSIS_GAME_TYPES}"
+        )
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise RuntimeError(
+            "Yahoo draft-analysis: Playwright is not installed. Run `pip install playwright` and `playwright install chromium`."
+        ) from exc
+    url = f"{YAHOO_DRAFT_ANALYSIS_URL}?type={game_type}&count={YAHOO_DRAFT_ANALYSIS_COUNT}"
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.set_default_timeout(60000)
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            # The React table hydrates after the initial HTML response. The
+            # exact wait is empirical; 12s is enough for the headless
+            # browser on a fast network.
+            page.wait_for_timeout(YAHOO_DRAFT_ANALYSIS_RENDER_WAIT_MS)
+            html = page.locator("table").first.evaluate("el => el.outerHTML")
+        finally:
+            browser.close()
+    return html

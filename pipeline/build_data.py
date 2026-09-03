@@ -32,6 +32,7 @@ import sources
 import transform
 import underdog_adp
 import weekly_stats
+import yahoo_adp
 from fftoday import FFTodayProjectionProvider, validate_projection_gates
 
 DEFAULT_SEASON = "2026"
@@ -51,6 +52,16 @@ SLEEPER_ADP_MIN_ROWS = 250
 # ESPN board is not shipped and adp-ppr.json stays the only engine input.
 ESPN_ADP_MIN_ROWS = 120
 
+# Yahoo draft-analysis (2026-09-XX, Phase 2): additive, fail-open, one board per
+# scoring format Yahoo actually serves (standard/half-ppr/ppr, NOT 2qb). Each
+# board's honest head is truncated at the detected censor cliff; the remaining
+# tail is splice-sourced from Sleeper, clamped to the cutoff (mirroring ESPN's
+# pattern). Yahoo publishes no freshness stamp so we explicitly write None
+# rather than omitting the field -- the UI can say "unpublished" not "unknown".
+YAHOO_ADP_FORMATS = ("standard", "half-ppr", "ppr")
+YAHOO_ADP_MIN_ROWS = 120  # honest head floor; mirrors ESPN_ADP_MIN_ROWS
+YAHOO_ADP_BOARD_FILENAME_TEMPLATE = "adp-yahoo-{fmt}.json"
+
 # Underdog's best-ball ADP is a SEPARATE LANE, never blended into the redraft
 # composites above: its own artifact / board key (half-PPR TE-premium), used
 # for display/decoration and as raw market-spread material only — never an
@@ -69,6 +80,27 @@ UNDERDOG_BOARD_FILENAME = "adp-underdog-bestball.json"
 # players; below this many crosswalk-matched rows the page is considered
 # degenerate (drift / truncated response), not merely sparse.
 UNDERDOG_ADP_MIN_ROWS = 150
+
+# Hand-maintained, committed same-day availability corrections (see
+# transform.apply_status_overrides) — a repo-root-relative path independent of
+# --out-dir, since this is an input the pipeline reads, never one it writes.
+STATUS_OVERRIDES_PATH = Path(__file__).resolve().parent.parent / "data" / "player-status-overrides.json"
+
+
+def _load_status_overrides(path: Path = STATUS_OVERRIDES_PATH) -> list[dict[str, Any]]:
+    """Missing file or malformed JSON both fail open to an empty list — a typo in a
+    hand-edited override file must never block the whole refresh."""
+    if not path.exists():
+        return []
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"[warn] player-status-overrides: could not read {path.name}: {_sanitized_diagnostic(error)}")
+        return []
+    if not isinstance(rows, list):
+        print(f"[warn] player-status-overrides: {path.name} is not a JSON array; ignoring")
+        return []
+    return rows
 
 # Bumped whenever a source's manifest entry shape changes (fields added/removed/
 # retyped) so consumers can detect a manifest from an older pipeline version
@@ -520,6 +552,52 @@ def _build_espn_adp_board(
     return entries, diagnostics
 
 
+def _build_yahoo_adp_board(
+    rendered_html: str | None,
+    render_error: str | None,
+    *,
+    cv_bands: tuple[tuple[float, float], ...],
+    yahoo_id_to_player_id: dict[str, str],
+    sleeper_index: dict[Any, str],
+    valid_player_ids: set[str],
+    fallback_entries: list[transform.AdpEntry],
+    ffc_cv_index: dict[str, tuple[float, int]] | None = None,
+) -> tuple[list[transform.AdpEntry] | None, dict[str, Any]]:
+    """Build one Yahoo draft-analysis ADP board (per format), or fail open.
+
+    Mirror of `_build_espn_adp_board`: never raises. Fetch error (Playwright
+    missing, Chromium missing, page timeout), schema drift, degenerate
+    censor cutoff, or fewer than YAHOO_ADP_MIN_ROWS honest head rows all
+    return None so the caller leaves the relevant `adp-yahoo-<fmt>.json`
+    untouched and records an error manifest entry. `rendered_html` is the
+    table HTML the Playwright fetcher returned; `yahoo_adp.parse_yahoo_adp_rows`
+    turns it into the same `ParsedYahooAdpRow` list the live fixture produces.
+    """
+    if render_error is not None:
+        return None, {"diagnostic": render_error, "censorCutoff": None, "yahooRows": 0, "tailRows": 0}
+    if rendered_html is None:
+        return None, {"diagnostic": "Yahoo rendered_html is None", "censorCutoff": None, "yahooRows": 0, "tailRows": 0}
+    try:
+        rows = yahoo_adp.parse_yahoo_adp_rows(rendered_html)
+        entries, diagnostics = yahoo_adp.build_yahoo_adp_entries(
+            rows,
+            cv_bands=cv_bands,
+            yahoo_id_to_player_id=yahoo_id_to_player_id,
+            sleeper_index=sleeper_index,
+            valid_player_ids=valid_player_ids,
+            fallback_entries=fallback_entries,
+            ffc_cv_index=ffc_cv_index,
+        )
+    except ValueError as error:
+        return None, {"diagnostic": f"ValueError: {error}", "censorCutoff": None, "yahooRows": 0, "tailRows": 0}
+    if diagnostics["yahooRows"] < YAHOO_ADP_MIN_ROWS:
+        return None, {
+            **diagnostics,
+            "diagnostic": f"yahooRows {diagnostics['yahooRows']} < YAHOO_ADP_MIN_ROWS {YAHOO_ADP_MIN_ROWS}",
+        }
+    return entries, diagnostics
+
+
 def _fetch_underdog_adp(url: str = UNDERDOG_ADP_URL) -> str:
     """CLI-boundary fetch for the Underdog best-ball ADP page HTML.
 
@@ -639,6 +717,11 @@ def main() -> int:
                 "season": int(args.season),
                 "format": fmt,
                 "rows": len(ffc_by_format[fmt]),
+                # FFC's ADP is a rolling pooled average over this window (e.g. "Aug 24-31"), which
+                # under-reacts to same-day news by construction — surfaced so the UI can label the
+                # number honestly instead of implying it's live. See DataHealth's freshness panel.
+                "startDate": meta.get("start_date"),
+                "endDate": meta.get("end_date"),
             },
         }
 
@@ -664,6 +747,13 @@ def main() -> int:
         print(f"    nflverse draft bio applied to {draft_applied} players")
     except Exception as error:
         print(f"    nflverse draft bio skipped: {_sanitized_diagnostic(error)}")
+
+    status_overrides = _load_status_overrides()
+    override_warnings = transform.apply_status_overrides(players, status_overrides, fetched_at[:10])
+    for warning in override_warnings:
+        print(f"    [warn] {warning}")
+    if status_overrides:
+        print(f"    {len(status_overrides)} player-status override(s) applied")
 
     # Built once and reused across every ADP format below: the index depends
     # only on sleeper_players, which doesn't change between formats, so
@@ -737,6 +827,10 @@ def main() -> int:
                 fetched_at,
                 status="error" if sleeper_adp_error else "ok",
             ),
+            # Explicit `None`, not an absent key: Sleeper's draft-lobby ADP publishes no freshness
+            # window at all (unlike FFC's start/end dates below) — "we looked and there isn't one",
+            # not "we didn't check". Lets the freshness panel render "window unpublished" honestly.
+            "upstreamUpdatedAt": None,
             **({"diagnostic": sleeper_adp_error} if sleeper_adp_error else {}),
         }
 
@@ -747,9 +841,22 @@ def main() -> int:
         )
         adp_by_format[fmt] = chosen
         active_url = sleeper_adp_url if active_source == "sleeper" else f"{sources.FFC_BASE}/adp/{fmt}?teams={args.teams}&year={args.season}"
+        active_ffc_meta = ffc_meta_by_format.get(fmt) or {}
         manifest_sources[f"adp_active_{fmt}"] = {
             **_source_entry(active_url, len(chosen), fetched_at),
             "activeAdpSource": active_source,
+            # Neither winner publishes a single "updated at" timestamp — Sleeper publishes no
+            # freshness signal at all, FFC publishes a pooled date *range* instead (below). Explicit
+            # `None`, not an absent key, so the UI can say "unpublished" rather than "unknown".
+            "upstreamUpdatedAt": None,
+            # Whichever board actually won carries its real freshness window so the UI never has to
+            # cross-reference the sibling `sleeper_adp_<fmt>` / `ffc_adp_<fmt>` entries to answer
+            # "how fresh is this?". `None` when the winner (Sleeper) has no window to report.
+            "freshnessWindow": None if active_source == "sleeper" else {
+                "mockDrafts": active_ffc_meta.get("total_drafts"),
+                "startDate": active_ffc_meta.get("start_date"),
+                "endDate": active_ffc_meta.get("end_date"),
+            },
         }
 
     # ESPN default-PPR board (additive — adp-ppr.json stays the Sleeper path).
@@ -774,11 +881,16 @@ def main() -> int:
         adp_by_format["espn-ppr"] = espn_entries
         manifest_sources["espn_adp_ppr"] = {
             **_source_entry(espn_url, len(espn_entries), fetched_at),
+            # ESPN's leaguedefaults endpoint publishes no freshness stamp — explicit `None`, not an
+            # absent key, so the UI can say "unpublished" rather than "unknown" (see the matching
+            # Sleeper ADP comment above).
+            "upstreamUpdatedAt": None,
             **espn_adp_diag,
         }
         manifest_sources["adp_active_espn_ppr"] = {
             **_source_entry(espn_url, len(espn_entries), fetched_at),
             "activeAdpSource": "espn",
+            "upstreamUpdatedAt": None,
         }
     else:
         print(f"[warn] espn adp: {espn_adp_diag['diagnostic']}")
@@ -823,12 +935,81 @@ def main() -> int:
             **underdog_diag,
         }
 
+    # Yahoo draft-analysis ADP (2026-09-XX, Phase 2): one additive board per
+    # format Yahoo actually serves (standard/half-ppr/ppr, NOT 2qb). Same
+    # fail-open pattern as the ESPN block: fetch error, schema drift, or
+    # degenerate censor cutoff all keep the relevant adp-yahoo-<fmt>.json
+    # untouched, record an error manifest entry, and remove any stale board so
+    # it can't look current. Yahoo id crosswalk: ids.yahoo (mirrors espn's
+    # ids.espn). Note: yahoo_id_to_player_id is computed once and reused across
+    # all three formats (the same set of Sleeper players has Yahoo ids).
+    yahoo_id_to_player_id = {
+        str(meta.ids["yahoo"]): player_id
+        for player_id, meta in players.items()
+        if "yahoo" in (meta.ids or {})
+    }
+    for fmt in YAHOO_ADP_FORMATS:
+        yahoo_url = sources.YAHOO_DRAFT_ANALYSIS_URL
+        yahoo_rendered_html: str | None = None
+        yahoo_render_error: str | None = None
+        try:
+            yahoo_rendered_html = sources.fetch_yahoo_draft_analysis_html(fmt)
+        except Exception as error:
+            yahoo_render_error = _sanitized_diagnostic(error)
+        # Per-format fallback: the active Sleeper (or FFC) board for this format.
+        # We must read it AFTER the per-format loop above so adp_by_format[fmt]
+        # is populated. (It's safe: the FFC/Sleeper loop completes before this
+        # block runs.)
+        per_format_fallback = adp_by_format.get(fmt, [])
+        # ffc_cv_index intentionally omitted (defaults to None): Phase 2c H2
+        # failed its own gate against the held-out human drafts (see the note
+        # above the Sleeper ADP loop) and does not ship. The parameter is kept
+        # so a future attempt can wire it back in without touching this call
+        # site's other arguments.
+        yahoo_entries, yahoo_diag = _build_yahoo_adp_board(
+            yahoo_rendered_html,
+            yahoo_render_error,
+            cv_bands=transform.fit_adp_cv_bands(ffc_entries_by_format[fmt]),
+            yahoo_id_to_player_id=yahoo_id_to_player_id,
+            sleeper_index=sleeper_index,
+            valid_player_ids=set(players),
+            fallback_entries=per_format_fallback,
+        )
+        if yahoo_entries is not None:
+            transform.apply_player_bye_weeks_to_adp(yahoo_entries, players)
+            adp_by_format[f"yahoo-{fmt}"] = yahoo_entries
+            manifest_sources[f"yahoo_adp_{fmt}"] = {
+                **_source_entry(yahoo_url, len(yahoo_entries), fetched_at),
+                # Yahoo publishes no freshness stamp — explicit None, not an
+                # absent key, so the UI can say "unpublished" rather than
+                # "unknown" (mirrors the ESPN block's same caveat).
+                "upstreamUpdatedAt": None,
+                **yahoo_diag,
+            }
+            manifest_sources[f"adp_active_yahoo_{fmt}"] = {
+                **_source_entry(yahoo_url, len(yahoo_entries), fetched_at),
+                "activeAdpSource": "yahoo",
+                "upstreamUpdatedAt": None,
+            }
+        else:
+            print(f"[warn] yahoo adp [{fmt}]: {yahoo_diag['diagnostic']}")
+            manifest_sources[f"yahoo_adp_{fmt}"] = {
+                **_source_entry(yahoo_url, 0, fetched_at, status="error"),
+                **yahoo_diag,
+            }
+            stale = out_dir / YAHOO_ADP_BOARD_FILENAME_TEMPLATE.format(fmt=fmt)
+            if stale.exists():
+                stale.unlink()
+
     # Coverage-gate ADP entries double as the projection provider's top-ADP
     # sample, so a rookie/traded player who is highly drafted but silently
     # unmatched by FFToday fails loudly instead of just vanishing from boards.
     top_adp_ids = [entry.playerId for entry in adp_by_format[COVERAGE_GATE_FORMAT][:300] if entry.playerId]
     projection_result = FFTodayProjectionProvider(sleeper_players).load(args.season, top_adp_ids=top_adp_ids)
     projections = projection_result.projections
+    availability_scaled = transform.apply_availability_to_projections(projections, players)
+    if availability_scaled:
+        print(f"    availability-derated projections applied to {availability_scaled} players")
     # FFC covers the mock-lobby cohort; FFToday's Bye column covers the deeper
     # Sleeper lobby board that FFC never drafted. FFC wins on conflict (already
     # applied above) so a source disagreement doesn't thrash week-to-week.
@@ -1009,6 +1190,10 @@ def main() -> int:
         # provider status without fetching the ~200 KB artifact.
         "projectionProviders": provider_summary,
         "context": context_manifest,
+        "playerStatusOverrides": {
+            "count": len(status_overrides),
+            "warnings": override_warnings,
+        },
     }
     sizes["manifest.json"] = _write_json(out_dir / "manifest.json", manifest)
 

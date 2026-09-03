@@ -475,6 +475,16 @@ export interface PlayerMeta {
   depthChartOrder?: number | null;
   injuryBodyPart?: string | null;
   practiceParticipation?: string | null;
+  /** Sleeper's roster status (Active/Injured Reserve/PUP/Suspended/Exempt/...), distinct from
+   * `injuryStatus` (the weekly game-day designation, e.g. Questionable). */
+  status?: string | null;
+  active?: boolean | null;
+  /** Multiplier applied to this player's season projection stats (1.0 unless `status` or a
+   * committed override indicates the player cannot play some or all of the season) — see
+   * pipeline/transform.py's `resolve_availability`/`apply_status_overrides`. NOT the ADP
+   * draft-survival probability in `engine/availability.ts`, an unrelated concept. */
+  availability?: number;
+  availabilityReason?: string | null;
   heightInches?: number | null;
   weightLbs?: number | null;
   college?: string | null;
@@ -768,7 +778,7 @@ export interface AdpEntry {
    * 'underdog' is Underdog's best-ball ADP (the `adp-underdog-bestball.json` board) — a SEPARATE
    * best-ball half-PPR TE-premium lane used for display/decoration and market-spread raw material
    * only; it is never selected as an engine board and never blended into redraft composites. */
-  adpSource: 'sleeper' | 'ffc' | 'espn' | 'underdog';
+  adpSource: 'sleeper' | 'ffc' | 'espn' | 'underdog' | 'yahoo';
   /** 'observed' when `stdev` came directly from the source (FFC). 'fitted' when it was synthesized
    * from FFC's coefficient-of-variation curve applied to a non-FFC adp mean (Sleeper has no
    * dispersion field; ESPN's leaguedefaults feed publishes no draft-position distribution either) â€”
@@ -795,8 +805,11 @@ export interface DataManifest {
       url: string;
       rows: number;
       fetchedAt: string;
-      /** Optional upstream display date, e.g. FFToday's Updated date. */
-      upstreamUpdatedAt?: string;
+      /** Optional upstream display date, e.g. FFToday's Updated date. Explicit `null` (present key)
+       * means the source was checked and publishes no freshness stamp at all (Sleeper/ESPN ADP) â€”
+       * distinct from the key being absent entirely, which means this source has no freshness
+       * concept in the first place (e.g. the player pool). */
+      upstreamUpdatedAt?: string | null;
       role?: string;
       termsUrl?: string;
       diagnostic?: string;
@@ -806,6 +819,10 @@ export interface DataManifest {
         season: number;
         format: string;
         rows: number;
+        /** FFC's ADP is a rolling pooled average over this window, e.g. start "2026-08-24" / end
+         * "2026-08-31" â€” under-reacts to same-day news by construction. */
+        startDate?: string | null;
+        endDate?: string | null;
       };
       /** Only present on `adp_active_<format>` entries â€” which upstream actually produced the
        * committed `adp-<format>.json` for this pipeline run. 'ffc-fallback' means Sleeper's ADP
@@ -813,7 +830,15 @@ export interface DataManifest {
        * board is active rather than silently keeping a stale "Sleeper" label (see CLAUDE.md's
        * "never switch sources silently" rule). 'espn' is only ever produced on the additive
        * `adp_active_espn_ppr` entry â€” the ESPN default-PPR board never replaces `adp-ppr.json`. */
-      activeAdpSource?: 'sleeper' | 'ffc-fallback' | 'espn';
+      activeAdpSource?: 'sleeper' | 'ffc-fallback' | 'espn' | 'yahoo';
+      /** Only on `adp_active_<format>` entries: the real freshness window of whichever board
+       * actually won, so the UI never has to cross-reference the sibling `sleeper_adp_<format>` /
+       * `ffc_adp_<format>` entries. `null` when the winner (Sleeper) publishes no window. */
+      freshnessWindow?: {
+        mockDrafts: number | null;
+        startDate: string | null;
+        endDate: string | null;
+      } | null;
       /** Bumped when this source's manifest entry shape changes. */
       schemaVersion: number;
       /**
@@ -880,6 +905,12 @@ export interface DataManifest {
       matchRate: number;
       missingPlayerIds: PlayerId[];
     };
+  };
+  /** `data/player-status-overrides.json` — hand-maintained same-day availability corrections
+   * (see PlayerMeta.availability). `warnings` names any override past its `reviewBy` date. */
+  playerStatusOverrides?: {
+    count: number;
+    warnings: string[];
   };
 }
 
