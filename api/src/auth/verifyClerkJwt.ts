@@ -19,7 +19,7 @@ function getJwks(issuer: string): ReturnType<typeof createRemoteJWKSet> {
 }
 
 function requireIssuer(): string {
-  const issuer = process.env.CLERK_ISSUER;
+  const issuer = process.env.CLERK_ISSUER?.trim().replace(/\/+$/, '');
   if (!issuer) throw new Error('CLERK_ISSUER app setting is not configured.');
   return issuer;
 }
@@ -50,7 +50,14 @@ export async function verifyClerkJwt(authorizationHeader: string | null | undefi
     const { payload } = await jwtVerify(token, getJwks(issuer), { issuer });
     if (typeof payload.sub !== 'string' || payload.sub.length === 0) return null;
     return { userId: payload.sub };
-  } catch {
+  } catch (error) {
+    // Keep the client-facing response deliberately generic, but leave a safe diagnostic for
+    // Application Insights. This distinguishes an issuer mismatch, a missing JWKS key, and a
+    // network/signature failure without ever logging the bearer token itself.
+    console.error('Clerk JWT verification failed.', {
+      issuer,
+      reason: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    });
     return null;
   }
 }
