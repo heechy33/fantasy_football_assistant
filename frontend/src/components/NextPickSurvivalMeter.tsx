@@ -1,9 +1,9 @@
 import { InfoTooltip } from './InfoTooltip';
 
 export const SURVIVAL_BANDS = [
-  { id: 'hell-nah', label: 'hell nah' },
+  { id: 'next-year', label: 'next year' },
   { id: 'nah', label: 'nah' },
-  { id: 'shiii-mayb', label: 'shiii mayb' },
+  { id: 'maybe', label: 'maybe' },
   { id: 'yee', label: 'yee' },
   { id: 'fs', label: 'fs' },
 ] as const;
