@@ -2,30 +2,12 @@ import { useState, type FormEvent } from 'react';
 import type { DraftInit, RosterSlot } from '../../../shared/types';
 
 const YAHOO_TEAMS_OPTIONS = [8, 10, 12, 14] as const;
-const YAHOO_ROUNDS_OPTIONS = [12, 13, 14, 15, 16] as const;
 const YAHOO_FORMATS: ReadonlyArray<{ value: 'standard' | 'half-ppr' | 'ppr'; label: string }> = [
   { value: 'standard', label: 'Standard' },
   { value: 'half-ppr', label: 'Half-PPR' },
   { value: 'ppr', label: 'Full PPR' },
 ];
-const YAHOO_QB_FORMATS: ReadonlyArray<{ value: 'one-qb' | 'superflex'; label: string }> = [
-  { value: 'one-qb', label: '1QB' },
-  { value: 'superflex', label: 'Superflex' },
-];
 
-/** The 9-slot starting lineup used by both the manual ESPN setup and the Yahoo create form. Kept
- * here as a self-contained constant so the Yahoo create form can synthesize its own LeagueSettings
- * without depending on ManualDraftSetup (which is the seat-edit dialog, not the create form). */
-const YAHOO_STARTING_SLOTS: RosterSlot[] = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'DEF', 'K'];
-const YAHOO_ROSTER_SLOTS: Partial<Record<RosterSlot, number>> = {
-  QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, DEF: 1, K: 1, BN: 5, IR: 1,
-};
-
-/** Yahoo's default half-PPR scoring (pass_yd 0.04, pass_td 4, rush_yd 0.1, rush_td 6, rec 0.5,
- * rec_yd 0.1, rec_td 6, fum_lost -2, fgm 3, xpm 1, sack 1, int 2, fum_rec 2, def_td 6). Standard
- * and full-PPR variants swap `rec: 0.5` to `0` and `1` respectively. Bonuses (TE premium, distance
- * tiers) are intentionally omitted — the existing MANUAL_SCORING_DIAGNOSTICS banner already
- * discloses the unmodeled gap for any league that isn't a vanilla 0.5 PPR Yahoo default. */
 function defaultYahooScoring(reception: 'standard' | 'half-ppr' | 'ppr') {
   const recPoints = reception === 'ppr' ? 1 : reception === 'half-ppr' ? 0.5 : 0;
   return {
@@ -51,32 +33,85 @@ function defaultYahooScoring(reception: 'standard' | 'half-ppr' | 'ppr') {
   };
 }
 
+interface PositionDef {
+  key: string;
+  label: string;
+  badge: string;
+  cls: string;
+  min: number;
+  max: number;
+}
+
+const POSITION_DEFS: PositionDef[] = [
+  { key: 'qb', label: 'QB', badge: 'QB', cls: 'pos-qb', min: 1, max: 3 },
+  { key: 'rb', label: 'RB', badge: 'RB', cls: 'pos-rb', min: 1, max: 5 },
+  { key: 'wr', label: 'WR', badge: 'WR', cls: 'pos-wr', min: 1, max: 5 },
+  { key: 'te', label: 'TE', badge: 'TE', cls: 'pos-te', min: 0, max: 3 },
+  { key: 'flex', label: 'FLEX (W/R/T)', badge: 'FLEX', cls: 'pos-flex', min: 0, max: 4 },
+  { key: 'k', label: 'K', badge: 'K', cls: 'pos-k', min: 0, max: 2 },
+  { key: 'def', label: 'DEF', badge: 'DEF', cls: 'pos-def', min: 0, max: 2 },
+  { key: 'd', label: 'D', badge: 'D', cls: 'pos-d', min: 0, max: 5 },
+  { key: 's', label: 'S', badge: 'S', cls: 'pos-s', min: 0, max: 5 },
+  { key: 'bn', label: 'BN (Bench)', badge: 'BN', cls: 'pos-bn', min: 1, max: 15 },
+];
+
 export interface YahooDraftSetupProps {
-  /** Submit a complete `DraftInit`; the caller wraps this in a `kind: 'manual'` session with
-   * `frozenInit.settings.provider === 'yahoo'`. */
   onSubmit: (init: DraftInit) => void;
   onCancel: () => void;
 }
 
-/**
- * The from-scratch Yahoo create form (2026-09-01, see DECISIONS.md). Distinct from
- * `ManualDraftSetup` (the seat-edit dialog) because the inputs here are the ones the manual-edit
- * dialog *can't* collect: teams, rounds, reception scoring, QB format, my seat. The session is
- * always `kind: 'manual'` (Yahoo has no live adapter yet); `frozenInit.settings.provider` is
- * `'yahoo'` so the draft-room disclosure banner and `adpBoardKeyFor`'s `'yahoo-half-ppr'` branch
- * can both find it.
- */
 export function YahooDraftSetup({ onSubmit, onCancel }: YahooDraftSetupProps) {
   const [name, setName] = useState<string>('Yahoo draft');
   const [teams, setTeams] = useState<number>(12);
-  const [rounds, setRounds] = useState<number>(15);
   const [reception, setReception] = useState<'standard' | 'half-ppr' | 'ppr'>('half-ppr');
-  const [qb, setQb] = useState<'one-qb' | 'superflex'>('one-qb');
   const [mySlotInput, setMySlotInput] = useState<string>('1');
+
+  const [counts, setCounts] = useState<Record<string, number>>({
+    qb: 1,
+    rb: 2,
+    wr: 2,
+    te: 1,
+    flex: 1,
+    k: 1,
+    def: 1,
+    d: 0,
+    s: 0,
+    bn: 6,
+  });
+
+  const qbCount = counts.qb ?? 1;
+  const rbCount = counts.rb ?? 2;
+  const wrCount = counts.wr ?? 2;
+  const teCount = counts.te ?? 1;
+  const flexCount = counts.flex ?? 1;
+  const kCount = counts.k ?? 1;
+  const defCount = counts.def ?? 1;
+  const dCount = counts.d ?? 0;
+  const sCount = counts.s ?? 0;
+  const benchCount = counts.bn ?? 6;
+
+  const startersCount = qbCount + rbCount + wrCount + teCount + flexCount + kCount + defCount;
+  const rounds = startersCount + benchCount + dCount + sCount;
 
   const parsedMySlot = Number(mySlotInput);
   const mySlotValid = Number.isInteger(parsedMySlot) && parsedMySlot >= 1 && parsedMySlot <= teams;
   const canSubmit = name.trim().length > 0 && mySlotValid;
+
+  function handleIncrement(key: string, max: number) {
+    setCounts((prev) => {
+      const current = prev[key] ?? 0;
+      if (current >= max) return prev;
+      return { ...prev, [key]: current + 1 };
+    });
+  }
+
+  function handleDecrement(key: string, min: number) {
+    setCounts((prev) => {
+      const current = prev[key] ?? 0;
+      if (current <= min) return prev;
+      return { ...prev, [key]: current - 1 };
+    });
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -87,12 +122,28 @@ export function YahooDraftSetup({ onSubmit, onCancel }: YahooDraftSetupProps) {
       slotToTeam[slot] = String(slot);
       slotToTeamName[slot] = `Team ${slot}`;
     }
-    const startingSlots: RosterSlot[] = qb === 'superflex'
-      ? [...YAHOO_STARTING_SLOTS.slice(0, -2), 'SUPER_FLEX', ...YAHOO_STARTING_SLOTS.slice(-2)]
-      : YAHOO_STARTING_SLOTS;
+    const startingSlots: RosterSlot[] = [
+      ...Array.from({ length: qbCount }, () => 'QB' as RosterSlot),
+      ...Array.from({ length: rbCount }, () => 'RB' as RosterSlot),
+      ...Array.from({ length: wrCount }, () => 'WR' as RosterSlot),
+      ...Array.from({ length: teCount }, () => 'TE' as RosterSlot),
+      ...Array.from({ length: flexCount }, () => 'FLEX' as RosterSlot),
+      ...Array.from({ length: kCount }, () => 'K' as RosterSlot),
+      ...Array.from({ length: defCount }, () => 'DEF' as RosterSlot),
+    ];
+    const rosterSlots: Partial<Record<RosterSlot, number>> = {
+      QB: qbCount,
+      RB: rbCount,
+      WR: wrCount,
+      TE: teCount,
+      ...(flexCount > 0 ? { FLEX: flexCount } : {}),
+      ...(kCount > 0 ? { K: kCount } : {}),
+      ...(defCount > 0 ? { DEF: defCount } : {}),
+      BN: benchCount + dCount + sCount,
+      IR: 1,
+    };
     const init: DraftInit = {
       provider: 'yahoo',
-      // No league id to anchor against — fall back to a stable local handle for refresh-resume.
       draftId: `yahoo-manual-${parsedMySlot}`,
       leagueId: 'yahoo-manual',
       draftType: 'snake',
@@ -109,11 +160,9 @@ export function YahooDraftSetup({ onSubmit, onCancel }: YahooDraftSetupProps) {
         season: '2026',
         teams,
         startingSlots,
-        rosterSlots: qb === 'superflex'
-          ? { ...YAHOO_ROSTER_SLOTS, SUPER_FLEX: 1 }
-          : YAHOO_ROSTER_SLOTS,
+        rosterSlots,
         scoring: defaultYahooScoring(reception),
-        format: { reception, qb, draft: 'snake' },
+        format: { reception, qb: qbCount > 1 ? 'two-qb' : 'one-qb', draft: 'snake' },
       },
     };
     onSubmit(init);
@@ -124,84 +173,118 @@ export function YahooDraftSetup({ onSubmit, onCancel }: YahooDraftSetupProps) {
       if (event.currentTarget === event.target) onCancel();
     }}>
       <section
-        className="pick-dialog setup-dialog"
+        className="pick-dialog setup-dialog yahoo-setup-dialog"
         role="dialog"
         aria-modal="true"
         aria-label="Set up Yahoo draft"
       >
-        <header>
+        <header className="yahoo-setup-header">
           <div>
             <p className="eyebrow">Yahoo</p>
             <h2>Set up Yahoo draft</h2>
           </div>
           <button className="quiet-button" type="button" onClick={onCancel}>Close</button>
         </header>
-        <p className="muted setup-intro">
-          No Yahoo login is needed. Sit in the Yahoo draft room and click a player for every pick;
-          the rest of the app runs on the half-PPR preset that matches Yahoo&apos;s default scoring.
-        </p>
-        <form className="setup-form" onSubmit={handleSubmit}>
-          <label className="setup-field-wide">
-            League name
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Friends League"
-              required
-            />
-          </label>
-          <label>
-            Teams
-            <select value={teams} onChange={(e) => setTeams(Number(e.target.value))}>
-              {YAHOO_TEAMS_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Rounds
-            <select value={rounds} onChange={(e) => setRounds(Number(e.target.value))}>
-              {YAHOO_ROUNDS_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Scoring
-            <select value={reception} onChange={(e) => setReception(e.target.value as typeof reception)}>
-              {YAHOO_FORMATS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            QB format
-            <select value={qb} onChange={(e) => setQb(e.target.value as typeof qb)}>
-              {YAHOO_QB_FORMATS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Your draft position (1–{teams})
-            <input
-              type="number"
-              min={1}
-              max={teams}
-              value={mySlotInput}
-              onChange={(e) => setMySlotInput(e.target.value)}
-              placeholder="e.g. 4"
-              required
-            />
-          </label>
-          <p className="setup-field-wide setup-hint">
-            On Yahoo this is your position in the snake order — not your team name. The app derives
-            every round/slot/team for each click from this seat and the team count.
-          </p>
-          <p className="setup-field-wide setup-hint" data-testid="yahoo-preset-disclosure">
-            Scoring preset applied — custom league bonuses (TE premium, distance/yardage tiers, return
-            bonuses) are not represented in the projection data and are not modeled.
-          </p>
+
+        <form className="yahoo-setup-form" onSubmit={handleSubmit}>
+          <div className="yahoo-setup-top-grid">
+            <label className="yahoo-setup-label">
+              League name
+              <input
+                className="yahoo-setup-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Friends League"
+                required
+              />
+            </label>
+            <label className="yahoo-setup-label">
+              Teams
+              <select className="yahoo-setup-select" value={teams} onChange={(e) => setTeams(Number(e.target.value))}>
+                {YAHOO_TEAMS_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <label className="yahoo-setup-label">
+              Scoring
+              <select className="yahoo-setup-select" value={reception} onChange={(e) => setReception(e.target.value as typeof reception)}>
+                {YAHOO_FORMATS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="yahoo-setup-label">
+              Draft position
+              <input
+                className="yahoo-setup-input"
+                type="number"
+                min={1}
+                max={teams}
+                value={mySlotInput}
+                onChange={(e) => setMySlotInput(e.target.value)}
+                placeholder="e.g. 4"
+                required
+              />
+            </label>
+          </div>
+
+          <div className="sleeper-roster-settings">
+            <div className="sleeper-roster-header">
+              <div>
+                <h3 className="sleeper-roster-title">Roster Settings</h3>
+                <p className="sleeper-roster-subtitle">Set roster positions</p>
+                <div className="sleeper-title-bar" />
+              </div>
+              <div className="setup-rounds-pill" data-testid="yahoo-rounds-summary">
+                <strong>Draft Rounds: {rounds}</strong>
+                <span className="setup-rounds-sub">
+                  ({startersCount} starters + {benchCount} bench{dCount > 0 ? ` + ${dCount} D` : ''}{sCount > 0 ? ` + ${sCount} S` : ''})
+                </span>
+              </div>
+            </div>
+
+            <div className="sleeper-slot-list" role="region" aria-label="Roster positions">
+              {POSITION_DEFS.map((def) => {
+                const count = counts[def.key] ?? 0;
+                const rowsCount = count === 0 ? 1 : count;
+                return Array.from({ length: rowsCount }, (_, i) => (
+                  <div
+                    key={`${def.key}-${i}`}
+                    className={`sleeper-slot-row ${count === 0 ? 'sleeper-slot-inactive' : ''}`}
+                    data-testid={`roster-slot-row-${def.key}`}
+                  >
+                    <div className="sleeper-slot-buttons">
+                      <button
+                        type="button"
+                        className="sleeper-circle-btn"
+                        onClick={() => handleIncrement(def.key, def.max)}
+                        disabled={count >= def.max}
+                        aria-label={`Increase ${def.label}`}
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        className="sleeper-circle-btn"
+                        onClick={() => handleDecrement(def.key, def.min)}
+                        disabled={count <= def.min}
+                        aria-label={`Decrease ${def.label}`}
+                      >
+                        −
+                      </button>
+                    </div>
+                    <span className={`sleeper-slot-icon ${def.cls}`}>{def.badge}</span>
+                    <span className="sleeper-slot-label">
+                      {def.label}
+                      {count === 0 ? ' (click + to add)' : ''}
+                    </span>
+                  </div>
+                ));
+              })}
+            </div>
+          </div>
+
           <footer className="dialog-actions">
             <button type="submit" disabled={!canSubmit}>Start draft</button>
             <button className="quiet-button" type="button" onClick={onCancel}>Cancel</button>

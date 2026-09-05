@@ -100,7 +100,7 @@ describe('tokens.css --accent-cool family', () => {
   });
 });
 
-describe('tokens.css orange --accent', () => {
+describe('tokens.css neon-blue --accent', () => {
   it('--text-ink clears 4.5:1 on --accent (text-on-chip)', () => {
     const textInk = readRgb('--text-ink');
     const accent = readRgb('--accent');

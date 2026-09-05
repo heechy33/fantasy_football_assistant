@@ -83,6 +83,22 @@ export function applyOverride(state: DraftBoardState, override: PickOverride): D
 }
 
 /**
+ * Applies multiple overrides in a single atomic update pass, avoiding N separate
+ * state updates / renders when bulk-pasting picks.
+ */
+export function applyOverridesBatch(
+  state: DraftBoardState,
+  batchOverrides: readonly PickOverride[],
+): DraftBoardState {
+  if (batchOverrides.length === 0) return state;
+  const overrides = new Map(state.overrides);
+  for (const override of batchOverrides) {
+    overrides.set(override.overall, override);
+  }
+  return { ...state, overrides };
+}
+
+/**
  * Deletes the override; the effective value falls back to whatever
  * `livePicks` currently holds for that `overall` (or "undrafted" if there
  * never was one — correct in manual mode, or if live polling hasn't reached

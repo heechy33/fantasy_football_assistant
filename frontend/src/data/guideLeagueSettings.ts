@@ -22,6 +22,8 @@ export const GUIDE_ROUNDS: readonly number[] = [12, 13, 14, 15, 16];
 /** The guide's position filter vocabulary — shared by the filter buttons and the route's URL-param
  * validation (an unknown `pos` degrades to 'ALL' instead of silently filtering everything away). */
 export const GUIDE_POSITIONS: readonly (Position | 'ALL')[] = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+export type GuidePosition = Position | 'ALL' | 'D' | 'S';
+export const ALL_GUIDE_POSITIONS: readonly GuidePosition[] = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'D', 'S'];
 
 export const GUIDE_DEFAULT_FORMAT: GuideFormat = {
   reception: 'ppr',

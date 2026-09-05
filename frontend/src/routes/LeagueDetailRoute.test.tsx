@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlayerMeta, SavedDraft } from '../../../shared/types';
@@ -111,8 +111,21 @@ function renderDetail() {
   );
 }
 
+function jsonOk(body: unknown) {
+  return { ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: () => Promise.resolve(body) };
+}
+
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]) })));
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('manifest.json')) {
+      return Promise.resolve(jsonOk({ schemaVersion: 1, season: 2026, generatedAt: '', sources: {} }));
+    }
+    if (url.includes('player-usage.json')) {
+      return Promise.resolve(jsonOk({}));
+    }
+    return Promise.resolve(jsonOk([]));
+  }));
 });
 
 afterEach(() => {
@@ -128,6 +141,21 @@ describe('LeagueDetailRoute', () => {
 
     expect(await screen.findByText('Work League')).toBeInTheDocument();
     expect(await screen.findByText('Test Backfield')).toBeInTheDocument();
+  });
+
+  it('clicking a drafted player opens the player detail drawer and allows closing it', async () => {
+    savedLeaguesStub.value = { leagues: [leagueFixture], loading: false, error: null };
+    savedDraftsStub.drafts = [espnDraftFixture()];
+    renderDetail();
+
+    const playerBtn = await screen.findByRole('button', { name: /Test Backfield/i });
+    expect(playerBtn).toBeInTheDocument();
+
+    fireEvent.click(playerBtn);
+    expect(await screen.findByRole('dialog', { name: 'Test Backfield' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Test Backfield' })).not.toBeInTheDocument();
   });
 
   it('shows the honest empty state before any draft exists', async () => {
@@ -146,5 +174,117 @@ describe('LeagueDetailRoute', () => {
 
     expect(await screen.findByText(/No draft tracked for this league yet/)).toBeInTheDocument();
     expect(screen.queryByText('Test Backfield')).not.toBeInTheDocument();
+  });
+
+  it('player detail drawer displays projection and adp data and enables the role panel with usage', async () => {
+    savedLeaguesStub.value = { leagues: [leagueFixture], loading: false, error: null };
+    savedDraftsStub.drafts = [espnDraftFixture()];
+
+    const mockUsage = {
+      'rb-1': {
+        season: 2025,
+        usageSeasonObserved: true,
+        snapPct: 0.65,
+        targetShare: 0.12,
+        carryShare: 0.55,
+        gamesWithAnySnap: 16,
+        recentTeam: 'SF',
+        teamChanged: false,
+        knownAbsent: false,
+        availabilityRate: 0.94,
+        seasons: [2025],
+        durabilityScore: 0.9,
+        opportunity: {
+          season: {
+            airYards: 50,
+            targets: 45,
+            airYardsShare: 0.08,
+            targetShare: 0.12,
+            snapPct: 0.65,
+            receivingYardsAfterCatch: 200,
+            rushAttempts: 220,
+            rushShare: 0.55,
+            redZoneTouches: 35,
+            goalLineCarries: 10,
+          },
+          finalFive: {
+            games: 5,
+            targetsPerGame: 2.0,
+            touchesPerGame: 18.0,
+            targets: 10,
+            carries: 80,
+            touches: 90,
+          },
+          roleEvolution: {
+            targetsPerGameDelta: 0.2,
+            targetShareDelta: 0.01,
+            airYardsShareDelta: null,
+            touchesPerGameDelta: 2.5,
+          },
+        },
+        production: {
+          receptions: 38,
+          receivingYards: 310,
+          receivingTds: 2,
+          rushingYards: 1050,
+          rushingTds: 9,
+          fantasyPointsPpr: 240,
+        },
+        injuryHistory: [],
+      },
+    };
+
+    const mockProjections = [
+      {
+        playerId: 'rb-1',
+        stats: { rush_yd: 1100, rush_td: 8, rec: 40, rec_yd: 320, rec_td: 2 },
+      },
+    ];
+
+    const mockAdp = [
+      { playerId: 'rb-1', adp: 14.5, stdev: 1.2, high: 12, low: 18, timesDrafted: 500, adpSource: 'espn', stdevSource: 'observed' },
+    ];
+
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('manifest.json')) {
+        return Promise.resolve(jsonOk({
+          schemaVersion: 1,
+          season: 2026,
+          generatedAt: '',
+          sources: {
+            nflverse_player_stats: { status: 'ok' },
+            nflverse_snap_counts: { status: 'ok' },
+            nflverse_weekly_rosters: { status: 'ok' },
+            nflverse_injuries: { status: 'ok' },
+          },
+        }));
+      }
+      if (url.includes('player-usage.json')) {
+        return Promise.resolve(jsonOk(mockUsage));
+      }
+      if (url.includes('projections-season.json')) {
+        return Promise.resolve(jsonOk(mockProjections));
+      }
+      if (url.includes('adp-')) {
+        return Promise.resolve(jsonOk(mockAdp));
+      }
+      return Promise.resolve(jsonOk([]));
+    }));
+
+    renderDetail();
+
+    const playerBtn = await screen.findByRole('button', { name: /Test Backfield/i });
+    fireEvent.click(playerBtn);
+
+    // Overview tab should show market ADP & projection
+    expect(await screen.findByRole('dialog', { name: 'Test Backfield' })).toBeInTheDocument();
+    expect(screen.getByText('Market ADP')).toBeInTheDocument();
+    expect(screen.getByText('Projections')).toBeInTheDocument();
+
+    // Role tab should show Role section with usage (not unavailable fallback)
+    fireEvent.click(screen.getByRole('tab', { name: 'Role' }));
+    expect(await screen.findByRole('heading', { name: /role|percentile rankings/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Prior-season role is temporarily unavailable/i)).not.toBeInTheDocument();
   });
 });

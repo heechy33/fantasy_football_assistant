@@ -1105,4 +1105,23 @@ describe('DraftWorkspace late-draft K/DST surfacing and survival gating', () => 
       expect(offClock.container.querySelector('.player-card-role-stats')).not.toBeNull();
     });
   });
+
+  it('renders defensive board toggle only for Yahoo drafts without (IDP) in label', () => {
+    // Sleeper draft: no toggle bar
+    const sleeperRender = render(<DraftWorkspace {...defaultProps()} />);
+    expect(sleeperRender.container.querySelector('.workspace-board-toggle-bar')).toBeNull();
+    sleeperRender.unmount();
+
+    // Yahoo draft: toggle bar present with "Defensive Players" (no IDP)
+    const yahooInit: DraftInit = {
+      ...draftInit,
+      provider: 'yahoo',
+      settings: { ...settings, provider: 'yahoo' },
+    };
+    const yahooRender = render(<DraftWorkspace {...defaultProps({ draftInit: yahooInit })} />);
+    expect(yahooRender.container.querySelector('.workspace-board-toggle-bar')).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Defensive Players' })).toBeInTheDocument();
+    expect(screen.queryByText(/Defensive Players \(IDP\)/)).not.toBeInTheDocument();
+    yahooRender.unmount();
+  });
 });

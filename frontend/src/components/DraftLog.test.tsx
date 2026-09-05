@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { DraftInit, LeagueSettings, Pick, PlayerMeta } from '../../../shared/types';
@@ -212,7 +212,7 @@ describe('DraftLog', () => {
     );
     expect(screen.getByText('Round')).toBeInTheDocument();
     expect(screen.getByText('1.01')).toBeInTheDocument();
-    expect(screen.getByText('On the clock')).toBeInTheDocument();
+    expect(screen.getByText('current pick')).toBeInTheDocument();
     scrollSpy.mockClear();
     await user.click(screen.getByRole('button', { name: 'Go to current pick' }));
     expect(scrollSpy).toHaveBeenCalled();
@@ -232,7 +232,7 @@ describe('DraftLog', () => {
         onTheClock={{ teamId: 'them', slot: 2, round: 1, overall: 3 }}
       />,
     );
-    expect(screen.getByText('2 until your turn')).toBeInTheDocument();
+    expect(screen.getByText('current pick')).toBeInTheDocument();
     expect(screen.queryByText('On the clock')).not.toBeInTheDocument();
   });
 
@@ -393,8 +393,25 @@ describe('DraftLog', () => {
         picksUntilUserTurn={1}
       />,
     );
-    expect(screen.getByText('1 until your turn')).toBeInTheDocument();
+    expect(screen.getByText('current pick')).toBeInTheDocument();
     expect(screen.queryByTestId('picks-logged-counter')).not.toBeInTheDocument();
   });
 
+  it('renders Paste button without emoji and calls onPastePicks when clicked in yahoo draft', () => {
+    const onPastePicks = vi.fn();
+    const yahooDraftInit: DraftInit = { ...draftInit, provider: 'yahoo' };
+    render(<DraftLog {...baseProps()} draftInit={yahooDraftInit} onPastePicks={onPastePicks} />);
+    const pasteBtn = screen.getByRole('button', { name: 'Paste draft picks' });
+    expect(pasteBtn).toBeInTheDocument();
+    expect(pasteBtn).toHaveTextContent('Paste');
+    expect(screen.queryByRole('button', { name: 'Go to current pick' })).not.toBeInTheDocument();
+    fireEvent.click(pasteBtn);
+    expect(onPastePicks).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders jump arrow and not Paste button in non-yahoo draft', () => {
+    render(<DraftLog {...baseProps()} onPastePicks={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Go to current pick' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Paste draft picks' })).not.toBeInTheDocument();
+  });
 });

@@ -154,12 +154,11 @@
   --text-muted: #8c8c8c;
   --text-ink: #141414; /* text-on-accent; 6.57:1 on --accent */
 
-  /* Accent — the single orange, demoted to urgency only: on-clock outline, you're-up chip,
+  /* Accent — neon-blue urgency/interactive accent: on-clock outline, you're-up chip,
      take-now badge, survival marker, draft-log PICK marker. --accent-strong is the lighter sibling
-     used for the selected-row outline. All structural chrome now lives in --chrome-* / --accent-cool
-     below. */
-  --accent: #f97316;
-  --accent-strong: #fb923c;
+     used for the selected-row outline. */
+  --accent: #00d2ff;
+  --accent-strong: #7dd3fc;
 
   /* Chrome family — near-black structural rail (full-bleed top bar, sticky column headers) and the
      neon-blue non-urgency identity accent. --accent stays the ONLY urgency color (on-clock,

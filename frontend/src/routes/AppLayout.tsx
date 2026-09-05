@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { ManualDraftSetup } from '../components/ManualDraftSetup';
 import { ManualPickCorrection } from '../components/ManualPickCorrection';
+import { YahooPastePicksModal } from '../components/YahooPastePicksModal';
 import { SessionAlerts } from '../components/SessionAlerts';
 import { TopNav, type AppPage } from '../components/TopNav';
 import { useDraftSession } from '../session/DraftSessionProvider';
@@ -28,6 +29,9 @@ export function AppLayout() {
     sessionAlerts,
     manualSetup,
     setManualSetup,
+    pastePicksOpen,
+    setPastePicksOpen,
+    handleApplyBatchPicks,
     correcting,
     setCorrecting,
     correctingPick,
@@ -90,6 +94,17 @@ export function AppLayout() {
           initial={session.frozenInit}
           onSubmit={handleManualSetupEdit}
           onCancel={() => setManualSetup(null)}
+        />
+      )}
+
+      {pastePicksOpen && (session.kind === 'manual' || session.kind === 'bridge') && session.frozenInit && (
+        <YahooPastePicksModal
+          draftInit={session.frozenInit}
+          players={rankedPlayers}
+          onSubmit={(overrides, detectedSlot, slotToTeamName) => {
+            handleApplyBatchPicks(overrides, detectedSlot, slotToTeamName);
+          }}
+          onClose={() => setPastePicksOpen(false)}
         />
       )}
       </main>

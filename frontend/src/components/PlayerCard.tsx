@@ -1,4 +1,4 @@
-﻿import type { CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import type { AdpEntry, PlayerId, PlayerMeta, PlayerUsage } from '../../../shared/types';
 import type { TeamDepthRole } from '../data/teamDepthRole';
 import { adpPositionalRank } from '../data/positionalRank';
@@ -88,7 +88,7 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 export function PlayerCard(props: PlayerCardProps) {
   const {
     playerId, recommendation, player, adpBoard, nextUp, usage, depthRole, avgPointsPerGame,
-    availabilityVisible = true, roleStats, onViewDetails, onDraftPlayer,
+    availabilityVisible = true, roleStats, onViewDetails,
   } = props;
   const values = boardFaceValues(props);
   const name = player?.name ?? playerId;
@@ -143,22 +143,6 @@ export function PlayerCard(props: PlayerCardProps) {
           </span>
         </div>
         {player ? <PlayerPortrait player={player} className="player-card-portrait" /> : null}
-        {onDraftPlayer && (
-          <button
-            type="button"
-            className="player-card-draft-button"
-            aria-label={`Draft ${name}`}
-            onClick={(event) => {
-              // The whole article is a click target for `onViewDetails`; the button is its own
-              // element with its own click handler. stopPropagation so the article's click handler
-              // doesn't open the drawer on top of the draft commit.
-              event.stopPropagation();
-              onDraftPlayer();
-            }}
-          >
-            Draft
-          </button>
-        )}
       </div>
 
       <dl className="player-card-attributes">

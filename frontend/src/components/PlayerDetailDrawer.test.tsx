@@ -110,7 +110,7 @@ describe('PlayerDetailDrawer content', () => {
     expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
     // Portaled to document.body by Drawer — queried there, not from the render container.
     const hero = document.body.querySelector('.player-detail-hero')!;
-    expect(hero.querySelector('.player-portrait')).toBeNull();
+    expect(hero.querySelector('.player-portrait')).not.toBeNull();
     expect(screen.queryByText('Full context')).not.toBeInTheDocument();
     const market = document.body.querySelector('.market-comparison')!;
     expect(hero.compareDocumentPosition(market) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

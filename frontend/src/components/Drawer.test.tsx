@@ -49,4 +49,15 @@ describe('Drawer', () => {
     render(<Drawer open size="wide" label="Rush One context" onClose={vi.fn()}><p>content</p></Drawer>);
     expect(screen.getByRole('dialog', { name: 'Rush One context' })).toHaveAttribute('data-size', 'wide');
   });
+
+  it('applies team and custom className to the dialog element', () => {
+    render(
+      <Drawer open label="Rush One" team="BUF" className="player-detail-drawer" onClose={vi.fn()}>
+        <p>content</p>
+      </Drawer>,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Rush One' });
+    expect(dialog).toHaveAttribute('data-team', 'BUF');
+    expect(dialog).toHaveClass('drawer-panel', 'player-detail-drawer');
+  });
 });

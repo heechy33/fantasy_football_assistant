@@ -1,4 +1,4 @@
-﻿import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { DataManifest, DraftInit, OnTheClock, Pick, PlayerId } from '../../../shared/types';
 import type { UserPickBoundaries } from '../adapters/draftOrder';
 import { picksMade, roundPickLabel } from '../adapters/draftOrder';
@@ -10,6 +10,7 @@ import { usePlayerBoardData } from '../hooks/usePlayerBoardData';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { Drawer } from './Drawer';
 import { DraftLog } from './DraftLog';
+import { IdpBoard } from './IdpBoard';
 import type { ActiveProvider } from '../session/activeProvider';
 import { MyTeamRail } from './MyTeamRail';
 import { RecommendationBoard, type RecommendationBoardKind } from './RecommendationBoard';
@@ -40,9 +41,12 @@ export interface DraftWorkspaceProps {
    * for manual/Yahoo sessions and any future from-scratch provider; `undefined` for live
    * Sleeper/ESPN-bridge sessions (those handle picks through the live layer instead). */
   onDraftPlayer?: (playerId: PlayerId) => void;
+  onDraftIdpPlayer?: (playerName: string) => void;
   /** Row-level "Edit pick" handler for the DraftLog (the existing modal path). The parent owns
    * the `setCorrecting` state in `useDraftSession` — same pattern as `onDraftPlayer`. */
   onCorrectPick?: (overall: number) => void;
+  /** Bulk paste handler for manual/Yahoo drafts. */
+  onPastePicks?: () => void;
   /** Session-management actions (log a pick, edit setup, switch modes, reconnect, choose another
    * draft) rendered in the board's `⋯` menu, next to the card/row presentation toggle. */
   sessionActions?: ReadonlyArray<SessionAction>;
@@ -67,7 +71,9 @@ export function DraftWorkspace({
   onTheClock,
   boundaries,
   onDraftPlayer,
+  onDraftIdpPlayer,
   onCorrectPick,
+  onPastePicks,
   sessionActions = [],
 }: DraftWorkspaceProps) {
   const adpBoardKey = useMemo(() => adpBoardKeyFor(activeProvider, adpFormat), [activeProvider, adpFormat]);
@@ -91,6 +97,7 @@ export function DraftWorkspace({
   );
   const isNarrow = useMediaQuery('(max-width: 900px)');
   const [openDrawer, setOpenDrawer] = useState<OpenDrawer>(null);
+  const [activeBoardView, setActiveBoardView] = useState<'offense' | 'idp'>('offense');
   const selectedPlayerId = openDrawer?.kind === 'player' ? openDrawer.playerId : null;
 
   const isMyTurn = draftInit?.myTeamId != null && onTheClock?.teamId === draftInit.myTeamId;
@@ -135,6 +142,7 @@ export function DraftWorkspace({
       onTheClock={onTheClock}
       onViewPlayer={handleViewDetails}
       onCorrect={onCorrectPick}
+      onPastePicks={onPastePicks}
       userNextOverall={boundaries?.decisionPick ?? null}
       picksUntilUserTurn={picksUntilUserTurn}
       roundPick={roundPick}
@@ -158,38 +166,71 @@ export function DraftWorkspace({
       {!isNarrow && <div className="workspace-column workspace-column-log">{draftLog}</div>}
 
       <div className="workspace-column workspace-column-center">
-        {draftInit ? (
-          <RecommendationBoard
-            draftInit={draftInit}
+        {draftInit?.provider === 'yahoo' && (
+          <div className="workspace-board-toggle-bar">
+            <div className="workspace-board-toggle-group" role="tablist" aria-label="Draft board mode">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeBoardView === 'offense'}
+                className={`workspace-board-toggle-btn ${activeBoardView === 'offense' ? 'active' : ''}`}
+                onClick={() => setActiveBoardView('offense')}
+              >
+                Offense &amp; Team DEF
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeBoardView === 'idp'}
+                className={`workspace-board-toggle-btn ${activeBoardView === 'idp' ? 'active' : ''}`}
+                onClick={() => setActiveBoardView('idp')}
+              >
+                Defensive Players
+              </button>
+            </div>
+          </div>
+        )}
+
+        {draftInit?.provider === 'yahoo' && activeBoardView === 'idp' ? (
+          <IdpBoard
             effectivePicks={effectivePicks}
-            picksSignature={picksSignature}
-            onTheClock={onTheClock}
-            boundaries={boundaries}
-            adpFormat={adpFormat}
-            adpBoardKey={adpBoardKey}
-            resolvedAdpKey={resolvedAdpKey}
-            manifest={manifest}
-            players={players}
-            playersById={playersById}
-            projections={projections}
-            adp={adp}
-            usage={usage}
-            loadError={loadError}
-            providerProjectionsArtifact={providerProjectionsArtifact}
-            depthRoleByPlayer={depthRoleByPlayer}
-            availabilityByPlayer={availabilityByPlayer}
-            contextFeedStatus={contextFeedStatus}
-            isMyTurn={isMyTurn}
-            currentOverall={currentOverall}
-            boardKind={boardKind}
-            selectedPlayerId={selectedPlayerId}
-            onViewDetails={handleViewDetails}
-            onClosePlayer={handleClosePlayer}
-            onOpenRailDrawer={handleOpenRailDrawer}
-            onDraftPlayer={onDraftPlayer}
-            sessionActions={sessionActions}
+            onDraftPlayer={onDraftIdpPlayer}
+            showDraftButton={Boolean(onDraftIdpPlayer)}
           />
-        ) : null}
+        ) : (
+          draftInit ? (
+            <RecommendationBoard
+              draftInit={draftInit}
+              effectivePicks={effectivePicks}
+              picksSignature={picksSignature}
+              onTheClock={onTheClock}
+              boundaries={boundaries}
+              adpFormat={adpFormat}
+              adpBoardKey={adpBoardKey}
+              resolvedAdpKey={resolvedAdpKey}
+              manifest={manifest}
+              players={players}
+              playersById={playersById}
+              projections={projections}
+              adp={adp}
+              usage={usage}
+              loadError={loadError}
+              providerProjectionsArtifact={providerProjectionsArtifact}
+              depthRoleByPlayer={depthRoleByPlayer}
+              availabilityByPlayer={availabilityByPlayer}
+              contextFeedStatus={contextFeedStatus}
+              isMyTurn={isMyTurn}
+              currentOverall={currentOverall}
+              boardKind={boardKind}
+              selectedPlayerId={selectedPlayerId}
+              onViewDetails={handleViewDetails}
+              onClosePlayer={handleClosePlayer}
+              onOpenRailDrawer={handleOpenRailDrawer}
+              onDraftPlayer={onDraftPlayer}
+              sessionActions={sessionActions}
+            />
+          ) : null
+        )}
       </div>
 
       {!isNarrow && <div className="workspace-column workspace-column-team">{myTeam}</div>}

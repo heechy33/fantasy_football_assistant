@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DataManifest, DraftInit, OnTheClock, Pick, PlayerId, SavedDraft, SavedLeague, SleeperCred } from '../../../shared/types';
-import type { DraftBoardState } from '../state/draftBoardState';
+import type { DraftBoardState, PickOverride } from '../state/draftBoardState';
 import { canonicalPicksSignature, computeOnTheClock, picksMade, roundForOverall, slotForOverall, userPickBoundaries, type UserPickBoundaries } from '../adapters/draftOrder';
 import { sleeperAdapter } from '../adapters/sleeper';
 import type { ActiveProvider } from './activeProvider';
@@ -140,6 +140,7 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
   const [correcting, setCorrecting] = useState<Correcting | null>(null);
   /** Which setup dialog is open — only 'edit' (correct mySlot mid-draft); see ManualSetupDialog. */
   const [manualSetup, setManualSetup] = useState<ManualSetupDialog | null>(null);
+  const [pastePicksOpen, setPastePicksOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   /** The current session's SavedLeague id, when known — set directly at ESPN start (the league is
    * already in hand) or reported asynchronously by `useDraftSync` for Sleeper (draftSync resolves
@@ -195,14 +196,15 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
         // pre-existing path) OR a from-scratch Yahoo session (reconnectCred null, provider 'yahoo'
         // — 2026-09-01). The `provider` field is the only signal; the wire-shape union already
         // excludes any other value (persistence.ts's load guard).
+        const rehydratedProvider = (persisted.provider === 'yahoo' || persisted.frozenInit?.provider === 'yahoo')
+          ? 'yahoo'
+          : (persisted.provider === 'sleeper' ? 'sleeper' : 'espn');
         setSession({
           kind: 'manual',
           frozenInit: persisted.frozenInit,
           reconnectCred: persisted.userId ? { provider: 'sleeper', userId: persisted.userId } : null,
           reconnectDraftId: persisted.draftId,
-          provider: persisted.provider === 'yahoo' || persisted.provider === 'sleeper'
-            ? persisted.provider
-            : 'espn',
+          provider: rehydratedProvider,
         });
         // No auto-navigation: the landing's ResumeCard ("Resume draft" → /draft) is the
         // in-progress indicator. A deep link to /draft-guide must not yank the user into
@@ -287,7 +289,9 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
       from: session.kind === 'complete'
         ? (session.from === 'connected' ? 'live' : session.from === 'bridge' ? 'espn' : 'manual')
         : null,
-      provider: session.kind === 'complete' ? session.provider : null,
+      provider: session.kind === 'complete'
+        ? session.provider
+        : (session.kind === 'manual' ? (session.provider ?? (session.frozenInit?.provider === 'yahoo' ? 'yahoo' : null)) : null),
       savedLeagueId: session.kind === 'complete' ? session.savedLeagueId : null,
     });
   }, [hydrated, session, board.state.overrides]);
@@ -339,19 +343,23 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
   }, [effectiveInit, picksSignature]);
 
   /** Which provider owns the live/frozen session — drives the status pill and Home's per-card
-   * resume. A manual session with no `reconnectCred` is always the ESPN path (ConnectSleeper no
-   * longer offers a manual-skip link, so nothing else reaches that combination). */
-  const activeProvider: ActiveProvider = session.kind === 'connected'
+   * resume. A manual session with no `reconnectCred` is always the ESPN path unless explicitly
+   * created as Yahoo from-scratch. */
+  const isYahoo = (session.kind === 'manual' || session.kind === 'complete') &&
+    (session.provider === 'yahoo' || session.frozenInit?.provider === 'yahoo');
+  const isSleeper = session.kind === 'connected'
     || (session.kind === 'manual' && session.reconnectCred != null)
-    || (session.kind === 'complete' && session.from === 'connected')
-    ? 'sleeper'
-    : session.kind === 'bridge'
-      || (session.kind === 'manual' && session.reconnectCred == null && session.provider !== 'yahoo')
-      || (session.kind === 'complete' && session.provider !== 'sleeper' && session.provider !== 'yahoo')
-      ? 'espn'
-      : session.kind === 'manual' && session.provider === 'yahoo'
-        ? 'yahoo'
-        : 'none';
+    || (session.kind === 'complete' && (session.from === 'connected' || session.provider === 'sleeper'));
+
+  const activeProvider: ActiveProvider = isYahoo
+    ? 'yahoo'
+    : (isSleeper
+      ? 'sleeper'
+      : (session.kind === 'bridge'
+        || (session.kind === 'manual' && session.reconnectCred == null)
+        || (session.kind === 'complete')
+        ? 'espn'
+        : 'none'));
   const preCompletionActiveProvider = activeProvider;
 
   // Draft-end detection (2026-08-28): the ONE place a live session gets flagged finished. Both
@@ -753,6 +761,38 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  function handleDraftIdpPlayer(playerName: string) {
+    if (session.kind !== 'manual' && session.kind !== 'bridge') return;
+    if (nextManualTarget == null) return;
+    if (effectiveInit == null) return;
+    board.applyOverride({
+      overall: nextManualOverall,
+      round: nextManualTarget.round,
+      slot: nextManualTarget.slot,
+      teamId: nextManualTarget.teamId,
+      playerId: null,
+      providerPlayerName: playerName,
+      source: 'manual-entry',
+      correctedAt: Date.now(),
+    });
+  }
+
+  function handleApplyBatchPicks(
+    overrides: readonly PickOverride[],
+    detectedSlot?: number | null,
+    slotToTeamName?: Record<number, string> | null,
+  ) {
+    board.applyOverridesBatch(overrides);
+    if ((detectedSlot != null || slotToTeamName != null) && session.kind === 'manual' && session.frozenInit) {
+      handleManualSetupEdit({
+        ...session.frozenInit,
+        ...(detectedSlot != null ? { mySlot: detectedSlot, myTeamId: String(detectedSlot) } : {}),
+        ...(slotToTeamName != null ? { slotToTeamName: { ...session.frozenInit.slotToTeamName, ...slotToTeamName } } : {}),
+      });
+    }
+    setPastePicksOpen(false);
+  }
+
   /**
    * Resume an in-progress SAVED draft (ESPN or manual) from its Cosmos `SavedDraft` transcript —
    * the launcher's one way back into a session whose live detection lapsed (the ESPN tab closed,
@@ -785,7 +825,13 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     if (draft.mode === 'espn') {
       setSession({ kind: 'bridge', frozenInit: draft.frozenInit, usesPresetSettings: false });
     } else {
-      setSession({ kind: 'manual', frozenInit: draft.frozenInit, reconnectCred: null, reconnectDraftId: null });
+      setSession({
+        kind: 'manual',
+        frozenInit: draft.frozenInit,
+        reconnectCred: null,
+        reconnectDraftId: null,
+        provider: draft.frozenInit.provider === 'yahoo' ? 'yahoo' : 'espn',
+      });
     }
     setManualSetup(null);
   }
@@ -1022,6 +1068,10 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     handleEspnStart,
     handleYahooStart,
     handleDraftPlayer,
+    handleDraftIdpPlayer,
+    pastePicksOpen,
+    setPastePicksOpen,
+    handleApplyBatchPicks,
     handleResumeDraft,
     handleManualSetupEdit,
     handleEspnBridgeConnect,
@@ -1074,6 +1124,14 @@ interface DraftSessionValue {
    * manual layer). Always returns a stable closure (recomputed every render like the other
    * session handlers, see the `sessionActions` comment). */
   handleDraftPlayer: (playerId: PlayerId) => void;
+  handleDraftIdpPlayer: (playerName: string) => void;
+  pastePicksOpen: boolean;
+  setPastePicksOpen: (open: boolean) => void;
+  handleApplyBatchPicks: (
+    overrides: readonly PickOverride[],
+    detectedSlot?: number | null,
+    slotToTeamName?: Record<number, string> | null,
+  ) => void;
   /** Resume an in-progress saved ESPN/manual draft from its Cosmos transcript — the launcher's way
    * back into a session whose live detection lapsed. See the implementation's doc. */
   handleResumeDraft: (draft: SavedDraft) => void;
@@ -1107,6 +1165,10 @@ export function useDraftSession(): DraftSessionValue {
   const value = useContext(DraftSessionContext);
   if (!value) throw new Error('useDraftSession must be used within a DraftSessionProvider.');
   return value;
+}
+
+export function useOptionalDraftSession(): DraftSessionValue | null {
+  return useContext(DraftSessionContext);
 }
 
 

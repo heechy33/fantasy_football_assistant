@@ -216,10 +216,11 @@ export function DraftLauncher() {
 
       {activeProvider === 'yahoo' && (
         <div className="draft-selection">
-          <p className="muted">
-            No Yahoo login is needed. Sit in the Yahoo draft room and click a player for every
-            pick — the app runs on the half-PPR preset that matches Yahoo&apos;s default scoring.
-          </p>
+          <ul className="yahoo-setup-bullets">
+            <li><strong>Manual draft only:</strong> No Yahoo login credentials needed.</li>
+            <li><strong>Copy &amp; paste sync:</strong> Easily copy picks from your Yahoo draft room and paste them into the assistant.</li>
+            <li><strong>Customizable settings:</strong> Configure your exact teams, roster slots, and scoring format.</li>
+          </ul>
           <button
             type="button"
             className="primary-button"

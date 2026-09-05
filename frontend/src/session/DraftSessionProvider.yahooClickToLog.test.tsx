@@ -156,4 +156,31 @@ describe('DraftSessionProvider — Yahoo from-scratch + click-to-log (2026-09-01
     await user.click(screen.getByText('click-draft'));
     expect(captured.current.session?.kind).toBe('disconnected');
   });
+
+  it('rehydrates a saved Yahoo manual session with provider: yahoo and activeProvider: yahoo', async () => {
+    localStorage.setItem('ffa.draftSession.v4', JSON.stringify({
+      userId: null,
+      draftId: null,
+      mode: 'manual',
+      overrides: [],
+      frozenInit: yahooInit(),
+      completedAt: null,
+      from: null,
+      provider: null,
+      savedLeagueId: null,
+    }));
+    const captured: { current: Partial<Captured> } = { current: {} };
+    render(
+      <MemoryRouter>
+        <DraftSessionProvider>
+          <YahooStartProbe captured={captured} />
+        </DraftSessionProvider>
+      </MemoryRouter>,
+    );
+    expect(captured.current.session?.kind).toBe('manual');
+    if (captured.current.session?.kind === 'manual') {
+      expect(captured.current.session.provider).toBe('yahoo');
+    }
+    expect(captured.current.activeProvider).toBe('yahoo');
+  });
 });

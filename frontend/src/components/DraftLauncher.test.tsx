@@ -502,12 +502,13 @@ describe('DraftLauncher — Yahoo (2026-09-01 from-scratch)', () => {
     return screen.getByRole('tab', { name: /Yahoo$/ });
   }
 
-  it('enables the Yahoo chip and renders the half-PPR description', async () => {
+  it('enables the Yahoo chip and renders the manual draft bullets', async () => {
     harness();
     expect(yahooChip()).not.toBeDisabled();
     await userEvent.click(yahooChip());
     expect(yahooChip()).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText(/Sit in the Yahoo draft room/)).toBeInTheDocument();
+    expect(screen.getByText(/Manual draft only/i)).toBeInTheDocument();
+    expect(screen.getByText(/Copy & paste sync/i)).toBeInTheDocument();
   });
 
   it('opens the YahooDraftSetup dialog when "Set up a Yahoo draft" is clicked', async () => {
@@ -515,7 +516,7 @@ describe('DraftLauncher — Yahoo (2026-09-01 from-scratch)', () => {
     await userEvent.click(yahooChip());
     await userEvent.click(screen.getByRole('button', { name: 'Set up a Yahoo draft' }));
     expect(screen.getByRole('dialog', { name: 'Set up Yahoo draft' })).toBeInTheDocument();
-    expect(screen.getByTestId('yahoo-preset-disclosure')).toBeInTheDocument();
+    expect(screen.getByTestId('yahoo-rounds-summary')).toBeInTheDocument();
   });
 
   it('passes the form\'s DraftInit to handleYahooStart and closes the dialog on submit', async () => {
@@ -525,8 +526,8 @@ describe('DraftLauncher — Yahoo (2026-09-01 from-scratch)', () => {
     await userEvent.clear(screen.getByLabelText('League name'));
     await userEvent.type(screen.getByLabelText('League name'), 'Friends League');
     await userEvent.selectOptions(screen.getByLabelText('Teams'), '10');
-    await userEvent.clear(screen.getByLabelText(/Your draft position/));
-    await userEvent.type(screen.getByLabelText(/Your draft position/), '4');
+    await userEvent.clear(screen.getByLabelText(/Draft position/));
+    await userEvent.type(screen.getByLabelText(/Draft position/), '4');
     await userEvent.click(screen.getByRole('button', { name: 'Start draft' }));
 
     expect(handleYahooStartMock).toHaveBeenCalledTimes(1);

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useReducer } from 'react';
 import type { Pick } from '../../../shared/types';
 import {
   applyOverride,
+  applyOverridesBatch,
   computeEffectivePicks,
   createDraftBoardState,
   freezeLivePicksToOverrides,
@@ -13,6 +14,7 @@ import {
 
 type Action =
   | { type: 'applyOverride'; override: PickOverride }
+  | { type: 'applyOverridesBatch'; overrides: readonly PickOverride[] }
   | { type: 'undoOverride'; overall: number }
   | { type: 'setMode'; mode: DraftBoardState['mode'] }
   | { type: 'freeze'; livePicks: Pick[] }
@@ -24,6 +26,8 @@ function reducer(state: DraftBoardState, action: Action): DraftBoardState {
   switch (action.type) {
     case 'applyOverride':
       return applyOverride(state, action.override);
+    case 'applyOverridesBatch':
+      return applyOverridesBatch(state, action.overrides);
     case 'undoOverride':
       return undoOverride(state, action.overall);
     case 'setMode':
@@ -43,6 +47,7 @@ export interface UseDraftBoardStateResult {
   state: DraftBoardState;
   effectivePicks: Pick[];
   applyOverride: (override: PickOverride) => void;
+  applyOverridesBatch: (overrides: readonly PickOverride[]) => void;
   undoOverride: (overall: number) => void;
   setMode: (mode: DraftBoardState['mode']) => void;
   /** Atomic manual takeover: every effective pick becomes a complete manual-entry override. */
@@ -74,6 +79,7 @@ export function useDraftBoardState(
     state,
     effectivePicks,
     applyOverride: (override) => dispatch({ type: 'applyOverride', override }),
+    applyOverridesBatch: (overrides) => dispatch({ type: 'applyOverridesBatch', overrides }),
     undoOverride: (overall) => dispatch({ type: 'undoOverride', overall }),
     setMode: (mode) => dispatch({ type: 'setMode', mode }),
     freeze: useCallback(() => dispatch({ type: 'freeze', livePicks }), [livePicks]),

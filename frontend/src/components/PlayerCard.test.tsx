@@ -667,22 +667,8 @@ describe('PlayerCard reach bookmark', () => {
   });
 });
 
-describe('PlayerCard with onDraftPlayer (2026-09-01 click-to-log)', () => {
-  it('renders the "Draft" affordance when the handler is provided', () => {
-    const onDraftPlayer = vi.fn();
-    render(
-      <PlayerCard
-        playerId="rb2"
-        recommendation={baseRecommendation()}
-        player={player}
-        onViewDetails={vi.fn()}
-        onDraftPlayer={onDraftPlayer}
-      />,
-    );
-    expect(screen.getByRole('button', { name: 'Draft Rush Two' })).toBeInTheDocument();
-  });
-
-  it('omits the "Draft" affordance when no handler is passed (live sessions, landing demo)', () => {
+describe('PlayerCard draft button (omitted in favor of bulk paste)', () => {
+  it('does not render a "Draft" button on the player card', () => {
     render(
       <PlayerCard
         playerId="rb2"
@@ -692,23 +678,5 @@ describe('PlayerCard with onDraftPlayer (2026-09-01 click-to-log)', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /Draft / })).not.toBeInTheDocument();
-  });
-
-  it('clicking "Draft" calls the handler and does NOT also open the drawer', async () => {
-    const user = userEvent.setup();
-    const onViewDetails = vi.fn();
-    const onDraftPlayer = vi.fn();
-    render(
-      <PlayerCard
-        playerId="rb2"
-        recommendation={baseRecommendation()}
-        player={player}
-        onViewDetails={onViewDetails}
-        onDraftPlayer={onDraftPlayer}
-      />,
-    );
-    await user.click(screen.getByRole('button', { name: 'Draft Rush Two' }));
-    expect(onDraftPlayer).toHaveBeenCalledTimes(1);
-    expect(onViewDetails).not.toHaveBeenCalled();
   });
 });

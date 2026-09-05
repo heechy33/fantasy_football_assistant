@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { Position } from '../../../shared/types';
 import { resolvePlayerContextFeedStatus } from '../data/playerContext';
 import {
   parseGuideFormat,
   serializeGuideFormat,
   guideAdpFormat,
-  GUIDE_POSITIONS,
+  ALL_GUIDE_POSITIONS,
+  type GuidePosition,
 } from '../data/guideLeagueSettings';
+import { IdpBoard } from '../components/IdpBoard';
 import { buildProviderColumn, unavailableProviderColumn, type GuideRankSource } from '../data/guideProviderColumns';
 import { buildPositionRankByPlayer, type GuideLane } from '../data/guideTableColumns';
 import { buildTeamDepthRoles } from '../data/teamDepthRole';
@@ -53,9 +54,10 @@ export function DraftGuideRoute() {
   // An unknown pos param degrades to ALL rather than silently filtering every row away (the same
   // degrade-don't-crash contract as activeSource below).
   const rawPos = searchParams.get('pos');
-  const position: Position | 'ALL' = rawPos != null && (GUIDE_POSITIONS as readonly string[]).includes(rawPos)
-    ? rawPos as Position | 'ALL'
+  const position: GuidePosition = rawPos != null && (ALL_GUIDE_POSITIONS as readonly string[]).includes(rawPos)
+    ? rawPos as GuidePosition
     : 'ALL';
+  const isIdp = position === 'D' || position === 'S';
   // Two views of one ranked pool — a sortable table and a snake draft grid. Like every other
   // guide selector, the choice lives in the URL; unknown values degrade to the table. The grid is
   // a FULL-board view: under a position filter it's disabled (and a `view=draft` deep link
@@ -190,7 +192,7 @@ export function DraftGuideRoute() {
           position={position}
           onPositionChange={(pos) => updateParams({ pos: pos === 'ALL' ? '' : pos })}
         />
-        {board.status === 'ready' && (
+        {!isIdp && board.status === 'ready' && (
           <div className="guide-view-toggle" role="group" aria-label="Board view">
             <button
               type="button"
@@ -213,31 +215,41 @@ export function DraftGuideRoute() {
         )}
       </div>
 
-      {board.status === 'loading' && <p className="guide-loading">Loading the board…</p>}
-      {board.status === 'error' && (
-        <p className="guide-loading">The projection board is unavailable right now — try again shortly.</p>
-      )}
-
-      {board.status === 'ready' && (
+      {isIdp ? (
+        <IdpBoard
+          key={position}
+          initialSlot={position}
+          showDraftButton={false}
+        />
+      ) : (
         <>
-          {view === 'draft' ? (
-            <DraftGuideBoard
-              rows={visibleRows}
-              teams={format.teams}
-              rounds={format.rounds}
-              sourceRankByPlayer={columns[activeSource].rankByPlayer}
-              positionRankByPlayer={positionRankByPlayer}
-              onSelectPlayer={setSelectedPlayerId}
-            />
-          ) : (
-            <DraftGuideTable
-              rows={visibleRows}
-              anchorLabel="Rank"
-              anchorRankByPlayer={anchorRankByPlayer}
-              positionRankByPlayer={positionRankByPlayer}
-              lanes={lanes}
-              onSelectPlayer={setSelectedPlayerId}
-            />
+          {board.status === 'loading' && <p className="guide-loading">Loading the board…</p>}
+          {board.status === 'error' && (
+            <p className="guide-loading">The projection board is unavailable right now — try again shortly.</p>
+          )}
+
+          {board.status === 'ready' && (
+            <>
+              {view === 'draft' ? (
+                <DraftGuideBoard
+                  rows={visibleRows}
+                  teams={format.teams}
+                  rounds={format.rounds}
+                  sourceRankByPlayer={columns[activeSource].rankByPlayer}
+                  positionRankByPlayer={positionRankByPlayer}
+                  onSelectPlayer={setSelectedPlayerId}
+                />
+              ) : (
+                <DraftGuideTable
+                  rows={visibleRows}
+                  anchorLabel="Rank"
+                  anchorRankByPlayer={anchorRankByPlayer}
+                  positionRankByPlayer={positionRankByPlayer}
+                  lanes={lanes}
+                  onSelectPlayer={setSelectedPlayerId}
+                />
+              )}
+            </>
           )}
         </>
       )}

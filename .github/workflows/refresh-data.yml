@@ -9,15 +9,17 @@ name: Refresh data
 # runners, no self-hosted infra, no other cost surface.
 on:
   schedule:
-    # Three times daily, ahead of evening drafts and Track B's Tuesday-morning waiver window.
-    # A once-daily cadence left an evening draft running on data up to ~17h old — during peak
-    # preseason, top-200 ADP moves 5-18+ picks on a single day of news (measured 2026-08-31 against
-    # the Josh Jacobs exempt-list move). Three runs/day is still well inside the Actions minutes
-    # budget in the cost call-out above (each run is a few minutes; 3/day is ~well under 1% of the
-    # 2,000 min/month free-tier bucket even before counting the public-repo unlimited-minutes case).
-    - cron: '0 9 * * *'   # ~4-5am ET
-    - cron: '0 15 * * *'  # ~10-11am ET
-    - cron: '0 21 * * *'  # ~4-5pm ET, ahead of evening drafts
+    # Every 4 hours (6 runs/day), aligned with key US news and draft windows.
+    # At ~2.5 min/run, 6 runs/day is ~450 min/month (well under the 2,000 min/mo
+    # free-tier budget for private repos, and $0/unlimited on public repos).
+    # This cadence ensures data is never more than 4 hours old while remaining
+    # gentle on upstream scraped sources (Yahoo Playwright rendering, Underdog).
+    - cron: '0 1 * * *'   # ~9pm ET (evening draft wrap-up)
+    - cron: '0 5 * * *'   # ~1am ET (overnight waivers / late updates)
+    - cron: '0 9 * * *'   # ~5am ET (early morning provider batch updates)
+    - cron: '0 13 * * *'  # ~9am ET (morning roster moves / transaction news)
+    - cron: '0 17 * * *'  # ~1pm ET (midday practice reports)
+    - cron: '0 21 * * *'  # ~5pm ET (ahead of evening drafts)
   workflow_dispatch: {}
   push:
     branches: [main]

@@ -28,7 +28,7 @@ export interface TopNavProps {
   isStale?: boolean;
   dataAgeMs?: number | null;
   pollHealthRef?: RefObject<PollHealth> | null;
-  /** Brand key for the status pill's provider chip ('espn' | 'sleeper'); null shows nothing. */
+  /** Brand key for the status pill's provider chip ('espn' | 'sleeper' | 'yahoo'); null shows nothing. */
   statusProvider?: string | null;
   /** True while the caller is on the Draft Room with NO live provider — renders the red blinking
    * "Disconnected" pill instead of a provider chip. */
@@ -98,7 +98,7 @@ export function TopNav({
   authenticated = false,
   onSignOut,
 }: TopNavProps) {
-  const providerBadgeKey = statusProvider === 'espn' || statusProvider === 'sleeper' ? statusProvider : null;
+  const providerBadgeKey = statusProvider === 'espn' || statusProvider === 'sleeper' || statusProvider === 'yahoo' ? statusProvider : null;
   const showStatus = providerBadgeKey != null || showDisconnected;
 
   return (
@@ -150,7 +150,7 @@ export function TopNav({
                     <StaleStatus healthRef={pollHealthRef} fallbackIsStale={isStale} fallbackDataAgeMs={dataAgeMs} />
                     <ProviderBadge brandKey={providerBadgeKey} size="sm" />
                     <span className="session-pill-text">
-                      {providerBrand(providerBadgeKey)?.label ?? providerBadgeKey} connected
+                      {providerBrand(providerBadgeKey)?.label ?? providerBadgeKey} {providerBadgeKey === 'yahoo' ? 'manual' : 'connected'}
                     </span>
                   </>
                 ) : (

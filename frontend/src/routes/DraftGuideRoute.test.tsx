@@ -125,6 +125,17 @@ describe('DraftGuideRoute URL state', () => {
     expect(within(chipGroup('Position')).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('selecting D renders the IDP board and sets pos=D in URL params', async () => {
+    const user = userEvent.setup();
+    renderAt('/draft-guide');
+    await screen.findByText(/The board, before draft day/);
+
+    await clickChip(user, 'Position', 'D');
+
+    expect(params()).toEqual({ pos: 'D' });
+    expect(screen.getByTestId('idp-board')).toBeInTheDocument();
+  });
+
   // The "Ranked by" selector is gone: the board is Sleeper-ordered with the other providers as
   // reference columns. An unknown `source=` deep link must degrade to Sleeper silently (no crash,
   // no selector to reflect it in).

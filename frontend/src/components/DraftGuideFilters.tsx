@@ -1,11 +1,10 @@
-import type { Position } from '../../../shared/types';
-import { GUIDE_POSITIONS, type GuideFormat } from '../data/guideLeagueSettings';
+import { ALL_GUIDE_POSITIONS, type GuideFormat, type GuidePosition } from '../data/guideLeagueSettings';
 
 export interface DraftGuideFiltersProps {
   format: GuideFormat;
   onFormatChange: (patch: Partial<GuideFormat>) => void;
-  position: Position | 'ALL';
-  onPositionChange: (position: Position | 'ALL') => void;
+  position: GuidePosition;
+  onPositionChange: (position: GuidePosition) => void;
 }
 
 /** Segmented chip-group control — the guide's filter idiom. One-click switching (no dropdown
@@ -79,8 +78,8 @@ export function DraftGuideFilters({
       <ChipGroup
         label="Position"
         value={position}
-        onChange={(pos) => onPositionChange(pos as Position | 'ALL')}
-        options={GUIDE_POSITIONS.map((pos) => ({ key: pos, label: pos === 'ALL' ? 'All' : pos }))}
+        onChange={(pos) => onPositionChange(pos as GuidePosition)}
+        options={ALL_GUIDE_POSITIONS.map((pos) => ({ key: pos, label: pos === 'ALL' ? 'All' : pos }))}
       />
     </div>
   );

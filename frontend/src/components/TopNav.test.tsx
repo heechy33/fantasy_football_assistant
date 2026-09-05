@@ -76,6 +76,14 @@ describe('TopNav', () => {
     expect(screen.getByRole('img', { name: 'Sleeper' })).toBeInTheDocument();
   });
 
+  it('renders the Yahoo manual pill when statusProvider is yahoo', () => {
+    renderNav({ active: 'draft', statusProvider: 'yahoo' });
+    expect(screen.getByText('Yahoo manual')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Yahoo' })).toBeInTheDocument();
+    const pill = screen.getByText('Yahoo manual').closest('.session-pill');
+    expect(pill).toHaveAttribute('data-state', 'connected');
+  });
+
   it('renders the red blinking Disconnected pill when the draft room has no live connection', () => {
     renderNav({ active: 'draft', showDisconnected: true });
     expect(screen.getByText('Disconnected')).toBeInTheDocument();

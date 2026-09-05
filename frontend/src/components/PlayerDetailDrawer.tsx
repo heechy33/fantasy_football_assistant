@@ -16,6 +16,8 @@ import { WeeklyChart } from './WeeklyChart';
 import { WeeklyStatGrid } from './WeeklyStatGrid';
 import { WeeklyViewToggle, type WeeklyView } from './WeeklyViewToggle';
 import { Drawer } from './Drawer';
+import { teamLogoUrl } from '../data/playerPortrait';
+import { PlayerPortrait } from './PlayerPortrait';
 
 export type PlayerContextFeedStatus = 'loading' | 'ready' | 'unavailable';
 
@@ -194,11 +196,15 @@ export function PlayerDetailDrawer({
     }
   }
 
+  const logoUrl = teamLogoUrl(player.team);
+
   return (
     <Drawer
       open
       size="wide"
       label={player.name}
+      team={player.team}
+      className="player-detail-drawer"
       onClose={onClose}
     >
       <div
@@ -224,32 +230,76 @@ export function PlayerDetailDrawer({
 
       {tab === 'overview' && (
         <div className="player-detail-panel" role="tabpanel" aria-labelledby="player-detail-tab-overview">
-          <div className="player-detail-hero">
-            <div className="player-detail-summary" data-team={player.team ?? undefined}>
-              <h2>{player.name}</h2>
-              <p className="muted player-context-meta">
-                <PositionBadge position={player.position} />
-                {' \u00b7 '}{player.team ?? 'Free agent'}
-                {player.depthChartPosition ? ` \u00b7 ${player.depthChartPosition}` : ''}
-                {player.depthChartOrder != null ? ` #${player.depthChartOrder}` : ''}
-                {statusTags.map((tag) => (
-                  <span key={tag.kind} className={statusTagClassName(tag.kind)}>{tag.label}</span>
-                ))}
-              </p>
-              {(player.availability ?? 1) <= 0 && player.availabilityReason && (
-                <p className="player-detail-unavailable-reason">{player.availabilityReason}</p>
-              )}
-              {bioItems.length > 0 && (
-                <dl className="player-detail-bio">
-                  {bioItems.map((item) => (
-                    <div key={item.label}>
-                      <dt>{item.label}</dt>
-                      <dd>{item.value}</dd>
+          <div className="player-detail-hero" data-team={player.team ?? undefined}>
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt=""
+                className="idp-hero-watermark"
+                aria-hidden="true"
+              />
+            )}
+            <div className="player-detail-hero-main">
+              <div className="idp-detail-hero-content player-detail-summary">
+                <div className="idp-detail-headline">
+                  <div className="idp-detail-title-wrap">
+                    <h2 className="idp-detail-name">{player.name}</h2>
+                    <div className="idp-detail-subhead player-context-meta">
+                      <PositionBadge position={player.position} />
+                      {player.team ? (
+                        <span className="idp-meta-team">
+                          {logoUrl && <img src={logoUrl} alt="" className="idp-team-mini-logo" width={18} height={18} />}
+                          {player.team}
+                        </span>
+                      ) : (
+                        <span className="idp-meta-team">Free agent</span>
+                      )}
+                      {player.depthChartPosition && (
+                        <span className="idp-slot-chip">{player.depthChartPosition}</span>
+                      )}
+                      {player.depthChartOrder != null && (
+                        <span className="idp-meta-bye">#{player.depthChartOrder}</span>
+                      )}
+                      {player.byeWeek != null && (
+                        <span className="idp-meta-bye">Bye {player.byeWeek}</span>
+                      )}
+                      {statusTags.map((tag) => (
+                        <span key={tag.kind} className={statusTagClassName(tag.kind)}>{tag.label}</span>
+                      ))}
                     </div>
-                  ))}
-                </dl>
-              )}
+                  </div>
+                </div>
+
+                {(player.availability ?? 1) <= 0 && player.availabilityReason && (
+                  <p className="player-detail-unavailable-reason">{player.availabilityReason}</p>
+                )}
+
+                {bioItems.length > 0 && (
+                  <dl className="player-detail-bio idp-bio-grid">
+                    {bioItems.map((item) => (
+                      <div key={item.label} className="idp-bio-cell">
+                        <dt>{item.label}</dt>
+                        <dd>{item.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+
+              <div className="idp-hero-portrait-frame">
+                <PlayerPortrait
+                  player={{
+                    playerId: player.playerId,
+                    name: player.name,
+                    position: player.position,
+                    team: player.team ?? 'FA',
+                  }}
+                  size="hero"
+                  className="idp-hero-portrait"
+                />
+              </div>
             </div>
+
             <TeamDepthRoleRow
               depthRole={depthRole ?? null}
               playerId={player.playerId}

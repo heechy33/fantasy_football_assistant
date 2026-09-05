@@ -30,9 +30,11 @@ export function DraftRoomRoute() {
     sessionActions,
     nextManualOverall,
     setCorrecting,
+    setPastePicksOpen,
     handleChooseAnotherDraft,
     handleEndDraft,
     handleDraftPlayer,
+    handleDraftIdpPlayer,
   } = useDraftSession();
   const { saveLeague, saveDraft } = useSavedLeagues();
   const [saving, setSaving] = useState(false);
@@ -196,9 +198,11 @@ export function DraftRoomRoute() {
           // (live Sleeper) keeps picks flowing through the poll. handleDraftPlayer is a no-op
           // for any other session kind, so even a future "complete" re-render stays harmless.
           onDraftPlayer={handleDraftPlayer}
+          onDraftIdpPlayer={handleDraftIdpPlayer}
           // Row-level "Edit pick" via the dormant DraftLog.onCorrect prop — opens the same
           // ManualPickCorrection modal the `⋯ → Log next pick` menu already uses.
           onCorrectPick={(overall) => setCorrecting({ mode: 'correct-existing', overall })}
+          onPastePicks={() => setPastePicksOpen(true)}
           sessionActions={sessionActions}
         />
       ) : (

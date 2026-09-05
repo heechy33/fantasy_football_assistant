@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Pick } from '../../../shared/types';
 import {
   applyOverride,
+  applyOverridesBatch,
   computeEffectivePicks,
   createDraftBoardState,
   freezeLivePicksToOverrides,
@@ -223,5 +224,39 @@ describe('freezeLivePicksToOverrides — atomic manual takeover', () => {
     expect(frozen.mode).toBe('manual');
     expect(frozen.livePicks).toEqual([]);
     expect(frozen.overrides.size).toBe(0);
+  });
+});
+
+describe('applyOverridesBatch', () => {
+  it('returns same state when overrides array is empty', () => {
+    const state = createDraftBoardState('manual');
+    expect(applyOverridesBatch(state, [])).toBe(state);
+  });
+
+  it('applies multiple overrides in a single atomic pass', () => {
+    const state = createDraftBoardState('manual');
+    const updated = applyOverridesBatch(state, [
+      { overall: 1, round: 1, slot: 1, teamId: 'team-1', playerId: 'player-A', source: 'manual-entry', correctedAt: 1 },
+      { overall: 2, round: 1, slot: 2, teamId: 'team-2', playerId: 'player-B', source: 'manual-entry', correctedAt: 1 },
+      { overall: 3, round: 1, slot: 3, teamId: 'team-3', playerId: 'player-C', source: 'manual-entry', correctedAt: 1 },
+    ]);
+
+    expect(updated.overrides.size).toBe(3);
+    const effective = computeEffectivePicks(updated);
+    expect(effective).toHaveLength(3);
+    expect(effective.map((p) => p.playerId)).toEqual(['player-A', 'player-B', 'player-C']);
+  });
+
+  it('overwrites earlier overrides if duplicate overall is present in batch or existing state', () => {
+    let state = createDraftBoardState('manual');
+    state = applyOverride(state, { overall: 1, round: 1, slot: 1, teamId: 'team-1', playerId: 'initial', source: 'manual-entry', correctedAt: 1 });
+
+    const updated = applyOverridesBatch(state, [
+      { overall: 1, round: 1, slot: 1, teamId: 'team-1', playerId: 'corrected', source: 'manual-entry', correctedAt: 2 },
+      { overall: 2, round: 1, slot: 2, teamId: 'team-2', playerId: 'player-B', source: 'manual-entry', correctedAt: 2 },
+    ]);
+
+    expect(updated.overrides.size).toBe(2);
+    expect(computeEffectivePicks(updated).find((p) => p.overall === 1)?.playerId).toBe('corrected');
   });
 });
