@@ -57,6 +57,7 @@ function isLiveSnapshot(value: unknown): value is EspnLiveSnapshot {
  * out of order if a slow chrome.storage.local.get overlaps a fast one) or on timeout.
  */
 export function requestEspnSnapshot(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<EspnBridgeResponse> {
+  if (typeof window === 'undefined') return Promise.resolve({ responded: false, live: null });
   return new Promise((resolve) => {
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let settled = false;
@@ -65,7 +66,13 @@ export function requestEspnSnapshot(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Esp
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      window.removeEventListener('message', onMessage);
+      try {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('message', onMessage);
+        }
+      } catch {
+        // window teardown in test environments
+      }
       resolve(result);
     }
 
@@ -114,6 +121,7 @@ function isRawLeagueCapture(value: unknown): value is { schemaVersion: number; l
  * capture instead, which crashed EspnSetupTabs on `snapshot.diagnostics` being undefined.
  */
 export function requestEspnLeague(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<EspnLeagueBridgeResponse> {
+  if (typeof window === 'undefined') return Promise.resolve({ responded: false, league: null });
   return new Promise((resolve) => {
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let settled = false;
@@ -122,7 +130,13 @@ export function requestEspnLeague(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<EspnL
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      window.removeEventListener('message', onMessage);
+      try {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('message', onMessage);
+        }
+      } catch {
+        // window teardown in test environments
+      }
       resolve(result);
     }
 
@@ -154,6 +168,7 @@ export function requestEspnLeague(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<EspnL
  * reused as-is — translation lives in exactly one place regardless of which capture fed it.
  */
 export function requestEspnDraftLeague(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<EspnLeagueBridgeResponse> {
+  if (typeof window === 'undefined') return Promise.resolve({ responded: false, league: null });
   return new Promise((resolve) => {
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let settled = false;
@@ -162,7 +177,13 @@ export function requestEspnDraftLeague(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      window.removeEventListener('message', onMessage);
+      try {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('message', onMessage);
+        }
+      } catch {
+        // window teardown in test environments
+      }
       resolve(result);
     }
 
@@ -189,6 +210,7 @@ export function requestEspnDraftLeague(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<
  * this resolves, so a failure here is logged, never blocking.
  */
 export function requestEspnResetSnapshot(timeoutMs = DEFAULT_TIMEOUT_MS): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
   return new Promise((resolve) => {
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let settled = false;
@@ -197,7 +219,13 @@ export function requestEspnResetSnapshot(timeoutMs = DEFAULT_TIMEOUT_MS): Promis
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      window.removeEventListener('message', onMessage);
+      try {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('message', onMessage);
+        }
+      } catch {
+        // window teardown in test environments
+      }
       resolve(ok);
     }
 
