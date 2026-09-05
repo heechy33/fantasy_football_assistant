@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import fantasyBobLogo from '../assets/brand/fantasy-bob.png';
 import { ProviderBadge } from './ProviderBadge';
+import { providerBrand } from '../data/providerBrand';
 
 /** Tiles left-to-right. Order is the user's; index drives both the grid column and the
  *  connector-branch x-coordinate below. */
@@ -32,12 +33,47 @@ const BRANCH_PATHS = [
  * than the travel window, so at most one comet is ever in flight. */
 const BRANCH_DELAYS = ['0s', '3.8s', '8.2s', '12.1s', '16.4s'];
 
+interface ProviderFeature {
+  title: string;
+  desc: string;
+}
+
+const PROVIDER_FEATURES: Readonly<Record<string, ProviderFeature>> = {
+  sleeper: {
+    title: 'Sleeper',
+    desc: 'Direct WebSocket feed & real-time draft board sync',
+  },
+  espn: {
+    title: 'ESPN',
+    desc: 'Chrome extension live pick capture & custom league scoring',
+  },
+  cbs: {
+    title: 'CBS Sports',
+    desc: 'Consensus rankings & weekly projections feed',
+  },
+  underdog: {
+    title: 'Underdog',
+    desc: 'Best ball ADP & tournament market consensus',
+  },
+  yahoo: {
+    title: 'Yahoo Fantasy',
+    desc: 'Draft log parser & custom league sync',
+  },
+};
+
 /**
  * The "03 · Data sources" illustration: a hub plate wired to one tile per platform, with an
  * animated comet traveling each wire on a staggered loop (pure CSS — see `.integrations-pulse-*`
  * in App.css; no animation library per the repo's zero-animation-library baseline).
+ *
+ * Interactive across all interfaces: tapping any provider badge lights up its wire and reveals
+ * how that source powers the Fantasy Bob draft engine.
  */
 export function IntegrationsMap() {
+  const [activeTile, setActiveTile] = useState<string | null>(null);
+
+  const activeFeature = activeTile ? PROVIDER_FEATURES[activeTile] : null;
+
   return (
     <div className="integrations-map" data-reveal>
       <div className="integrations-hub">
@@ -54,9 +90,18 @@ export function IntegrationsMap() {
         focusable="false"
       >
         <g className="integrations-trace">
-          {BRANCH_PATHS.map((d) => (
-            <path key={d} d={d} pathLength={100} vectorEffect="non-scaling-stroke" />
-          ))}
+          {BRANCH_PATHS.map((d, i) => {
+            const isBranchActive = activeTile === INTEGRATION_TILES[i];
+            return (
+              <path
+                key={d}
+                d={d}
+                pathLength={100}
+                vectorEffect="non-scaling-stroke"
+                className={isBranchActive ? 'integrations-wire-active' : undefined}
+              />
+            );
+          })}
         </g>
         <g className="integrations-pulse-tail">
           {BRANCH_PATHS.map((d, i) => (
@@ -82,12 +127,33 @@ export function IntegrationsMap() {
         </g>
       </svg>
       <ul className="integrations-tiles">
-        {INTEGRATION_TILES.map((key) => (
-          <li key={key} className="integrations-tile">
-            <ProviderBadge brandKey={key} />
-          </li>
-        ))}
+        {INTEGRATION_TILES.map((key) => {
+          const isSelected = activeTile === key;
+          const label = providerBrand(key)?.label ?? key;
+          return (
+            <li key={key} className="integrations-tile">
+              <button
+                type="button"
+                className="integrations-tile-btn"
+                aria-pressed={isSelected}
+                aria-label={`Show ${label} data integration`}
+                onClick={() => setActiveTile(isSelected ? null : key)}
+              >
+                <ProviderBadge brandKey={key} />
+              </button>
+            </li>
+          );
+        })}
       </ul>
+      <div className="integrations-detail-wrap" aria-live="polite">
+        {activeFeature && (
+          <div className="integrations-detail-pill">
+            <span className="integrations-detail-dot" aria-hidden="true" />
+            <strong>{activeFeature.title}</strong>
+            <span className="integrations-detail-desc">{activeFeature.desc}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

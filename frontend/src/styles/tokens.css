@@ -111,11 +111,25 @@
      halation/ghosting comfort ceiling for a saturated-accent dark UI. Paired with the --text-1
      move below; still reads as black. --surface-0-gradient's stops moved by the same delta so the
      radial glow keeps its original relationship to the base. */
-  --surface-0: #0d1014;
-  --surface-0-gradient: radial-gradient(120% 80% at 50% -10%, #141a22, #0d1014 62%);
-  --surface-1: rgb(12 15 19 / .86); /* section/panel background */
+  --surface-0: #060913;
+  --surface-0-gradient:
+    radial-gradient(100% 70% at 50% -10%, rgba(14, 165, 233, 0.15), transparent 60%),
+    radial-gradient(80% 50% at 85% 15%, rgba(99, 102, 241, 0.12), transparent 50%),
+    radial-gradient(70% 50% at 15% 35%, rgba(6, 182, 212, 0.08), transparent 45%),
+    #060913;
+  --surface-1: rgb(8 13 22 / .86); /* section/panel background */
   --surface-2: #10141a;             /* card, input, dialog background */
   --surface-3: #151a21;             /* inset row, stat tile, chip-row background */
+
+  /* Glass and radiant card tokens — modern translucent surfaces that blend seamlessly
+     with the black/blue radiant background without harsh white/gray box outlines. */
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-subtle: rgba(255, 255, 255, 0.05);
+  --border-glass-hover: rgba(56, 189, 248, 0.35);
+  --glass-surface-1: rgba(10, 15, 26, 0.78);
+  --glass-surface-2: rgba(255, 255, 255, 0.03);
+  --glass-surface-hover: rgba(56, 189, 248, 0.08);
+  --glass-glow: 0 0 20px rgba(0, 184, 219, 0.15);
 
   /* Raised surfaces for controls that previously carried inline navy literals in App.css — named
      so App.css stays literal-free past its header comment. */
