@@ -101,8 +101,8 @@ export function AppLayout() {
         <YahooPastePicksModal
           draftInit={session.frozenInit}
           players={rankedPlayers}
-          onSubmit={(overrides, detectedSlot, slotToTeamName) => {
-            handleApplyBatchPicks(overrides, detectedSlot, slotToTeamName);
+          onSubmit={(overrides, detectedSlot, slotToTeamName, detectedTeams) => {
+            handleApplyBatchPicks(overrides, detectedSlot, slotToTeamName, detectedTeams);
           }}
           onClose={() => setPastePicksOpen(false)}
         />

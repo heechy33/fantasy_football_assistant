@@ -226,7 +226,7 @@ export function DraftWorkspace({
               onViewDetails={handleViewDetails}
               onClosePlayer={handleClosePlayer}
               onOpenRailDrawer={handleOpenRailDrawer}
-              onDraftPlayer={onDraftPlayer}
+              onDraftPlayer={draftInit?.provider === 'yahoo' ? undefined : onDraftPlayer}
               sessionActions={sessionActions}
             />
           ) : null

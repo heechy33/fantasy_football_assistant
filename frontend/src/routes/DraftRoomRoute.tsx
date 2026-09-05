@@ -195,9 +195,9 @@ export function DraftRoomRoute() {
           onTheClock={onTheClock}
           boundaries={boundaries}
           // Click-to-log: only manual/bridge sessions get the affordance — `kind: 'connected'`
-          // (live Sleeper) keeps picks flowing through the poll. handleDraftPlayer is a no-op
-          // for any other session kind, so even a future "complete" re-render stays harmless.
-          onDraftPlayer={handleDraftPlayer}
+          // (live Sleeper) keeps picks flowing through the poll. Yahoo sessions sync via paste
+          // or manual entry modals and deliberately omit the row-level Draft button.
+          onDraftPlayer={effectiveInit?.provider === 'yahoo' ? undefined : handleDraftPlayer}
           onDraftIdpPlayer={handleDraftIdpPlayer}
           // Row-level "Edit pick" via the dormant DraftLog.onCorrect prop — opens the same
           // ManualPickCorrection modal the `⋯ → Log next pick` menu already uses.

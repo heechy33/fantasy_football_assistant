@@ -13,6 +13,7 @@ export interface YahooPastePicksModalProps {
     overrides: PickOverride[],
     detectedSlot: number | null,
     slotToTeamName: Record<number, string>,
+    detectedTeams?: number | null,
   ) => void;
   onClose: () => void;
 }
@@ -30,7 +31,7 @@ export function YahooPastePicksModal({
 
   const parseResult = useMemo(() => {
     if (!rawText.trim()) {
-      return { picks: [] as ParsedYahooPick[], slotToTeamName: {}, detectedUserSlot: null };
+      return { picks: [] as ParsedYahooPick[], slotToTeamName: {}, detectedUserSlot: null, detectedTeams: null };
     }
     return parseYahooDraftText(rawText, players, allIdpPlayers, draftInit.teams);
   }, [rawText, players, allIdpPlayers, draftInit.teams]);
@@ -41,10 +42,11 @@ export function YahooPastePicksModal({
     e.preventDefault();
     if (!canSubmit) return;
 
+    const effectiveTeams = parseResult.detectedTeams ?? draftInit.teams;
     const overrides: PickOverride[] = parseResult.picks.map((pick) => {
-      const round = roundForOverall(draftInit.teams, pick.overall);
-      const slot = slotForOverall(draftInit.draftType, draftInit.teams, pick.overall);
-      const teamId = `team-${slot}`;
+      const round = roundForOverall(effectiveTeams, pick.overall);
+      const slot = slotForOverall(draftInit.draftType, effectiveTeams, pick.overall);
+      const teamId = draftInit.slotToTeam[slot] ?? String(slot);
       const providerPlayerName = pick.matchedPlayer?.name
         ?? (pick.matchedIdp ? pick.matchedIdp.name : pick.playerName);
 
@@ -60,7 +62,12 @@ export function YahooPastePicksModal({
       };
     });
 
-    onSubmit(overrides, parseResult.detectedUserSlot, parseResult.slotToTeamName);
+    onSubmit(
+      overrides,
+      parseResult.detectedUserSlot,
+      parseResult.slotToTeamName,
+      parseResult.detectedTeams,
+    );
     onClose();
   }
 
@@ -93,7 +100,7 @@ export function YahooPastePicksModal({
         <div className="yahoo-paste-steps">
           <div className="yahoo-paste-step">
             <span className="yahoo-paste-step-badge">1</span>
-            <span>Copy the chat / picks feed in your Yahoo draft room</span>
+            <span>Copy either the chat / picks feed OR the Draft Board in your Yahoo draft room</span>
           </div>
           <div className="yahoo-paste-step">
             <span className="yahoo-paste-step-badge">2</span>
@@ -110,7 +117,7 @@ export function YahooPastePicksModal({
               id="yahoo-raw-draft-input"
               className="yahoo-paste-textarea"
               rows={8}
-              placeholder={'Nikolas LeBlanc\nJ. Gibbs\nRB Det Bye 6\n2\nGabe\nB. Robinson\nRB Atl Bye 11\n...'}
+              placeholder={'Paste Yahoo chat / picks feed (e.g. "J. Gibbs RB Det Bye 6")\nOR Yahoo Draft Board (e.g. "Jahmyr Gibbs RB Det 1.1") here...'}
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
               autoFocus
@@ -124,6 +131,11 @@ export function YahooPastePicksModal({
                 {parseResult.detectedUserSlot != null && (
                   <span className="yahoo-detected-user-badge">
                     Seat detected: Slot {parseResult.detectedUserSlot} (You)
+                  </span>
+                )}
+                {parseResult.detectedTeams != null && (
+                  <span className="yahoo-detected-teams-badge">
+                    {parseResult.detectedTeams} teams detected
                   </span>
                 )}
                 {Object.keys(parseResult.slotToTeamName).length > 0 && (
@@ -161,7 +173,12 @@ export function YahooPastePicksModal({
                               <strong>
                                 {p.matchedPlayer?.name ?? p.matchedIdp?.name ?? p.playerName}
                               </strong>
-                              {p.injury && <span className="yahoo-paste-injury-tag">{p.injury}</span>}
+                              {p.injury && (
+                                <>
+                                  {' '}
+                                  <span className="yahoo-paste-injury-tag">{p.injury}</span>
+                                </>
+                              )}
                             </td>
                             <td>{p.position}</td>
                             <td>{p.nflTeam}</td>

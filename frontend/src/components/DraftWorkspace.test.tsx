@@ -1124,4 +1124,47 @@ describe('DraftWorkspace late-draft K/DST surfacing and survival gating', () => 
     expect(screen.queryByText(/Defensive Players \(IDP\)/)).not.toBeInTheDocument();
     yahooRender.unmount();
   });
+
+  it('omits the "Draft" button on row view for Yahoo drafts but keeps it for other manual drafts', async () => {
+    const user = userEvent.setup();
+    const onDraftPlayer = vi.fn();
+    buildRecommendationBoard.mockReturnValue(allBoard);
+
+    // Yahoo draft: switch to Rows view, Draft button should NOT be present
+    const yahooInit: DraftInit = {
+      ...draftInit,
+      provider: 'yahoo',
+      settings: { ...settings, provider: 'yahoo' },
+    };
+    const yahooRender = render(
+      <DraftWorkspace
+        {...defaultProps({ draftInit: yahooInit, onDraftPlayer })}
+      />,
+    );
+
+    // Switch presentation to Rows
+    const rowsRadioYahoo = screen.getByRole('radio', { name: 'Rows' });
+    await user.click(rowsRadioYahoo);
+
+    // Rows are present
+    expect(screen.getAllByRole('button', { name: /^View details for/ })).toHaveLength(3);
+    // Draft buttons are omitted
+    expect(screen.queryByRole('button', { name: /^Draft / })).toBeNull();
+    yahooRender.unmount();
+
+    // Non-Yahoo manual draft: switch to Rows view, Draft button SHOULD be present
+    const sleeperRender = render(
+      <DraftWorkspace
+        {...defaultProps({ onDraftPlayer })}
+      />,
+    );
+    const rowsRadioSleeper = screen.getByRole('radio', { name: 'Rows' });
+    await user.click(rowsRadioSleeper);
+
+    // Rows are present
+    expect(screen.getAllByRole('button', { name: /^View details for/ })).toHaveLength(3);
+    // Draft buttons ARE present
+    expect(screen.getAllByRole('button', { name: /^Draft / })).toHaveLength(3);
+    sleeperRender.unmount();
+  });
 });

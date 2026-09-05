@@ -781,13 +781,44 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     overrides: readonly PickOverride[],
     detectedSlot?: number | null,
     slotToTeamName?: Record<number, string> | null,
+    detectedTeams?: number | null,
   ) {
     board.applyOverridesBatch(overrides);
-    if ((detectedSlot != null || slotToTeamName != null) && session.kind === 'manual' && session.frozenInit) {
+    if (
+      (detectedSlot != null || slotToTeamName != null || detectedTeams != null) &&
+      (session.kind === 'manual' || session.kind === 'bridge') &&
+      session.frozenInit
+    ) {
+      const targetTeams = detectedTeams ?? session.frozenInit.teams;
+      let slotToTeam = session.frozenInit.slotToTeam;
+      let mergedSlotToTeamName = session.frozenInit.slotToTeamName ?? {};
+      if (detectedTeams != null && detectedTeams !== session.frozenInit.teams) {
+        slotToTeam = {};
+        mergedSlotToTeamName = {};
+        for (let slot = 1; slot <= targetTeams; slot += 1) {
+          slotToTeam[slot] = String(slot);
+          mergedSlotToTeamName[slot] = `Team ${slot}`;
+        }
+      }
+      if (slotToTeamName != null) {
+        mergedSlotToTeamName = { ...mergedSlotToTeamName, ...slotToTeamName };
+      }
+      const targetSlot = detectedSlot ?? session.frozenInit.mySlot;
+      const targetTeamId = targetSlot != null
+        ? (slotToTeam[targetSlot] ?? String(targetSlot))
+        : session.frozenInit.myTeamId;
+
       handleManualSetupEdit({
         ...session.frozenInit,
-        ...(detectedSlot != null ? { mySlot: detectedSlot, myTeamId: String(detectedSlot) } : {}),
-        ...(slotToTeamName != null ? { slotToTeamName: { ...session.frozenInit.slotToTeamName, ...slotToTeamName } } : {}),
+        teams: targetTeams,
+        slotToTeam,
+        slotToTeamName: mergedSlotToTeamName,
+        mySlot: targetSlot,
+        myTeamId: targetTeamId,
+        settings: {
+          ...session.frozenInit.settings,
+          teams: targetTeams,
+        },
       });
     }
     setPastePicksOpen(false);
@@ -1131,6 +1162,7 @@ interface DraftSessionValue {
     overrides: readonly PickOverride[],
     detectedSlot?: number | null,
     slotToTeamName?: Record<number, string> | null,
+    detectedTeams?: number | null,
   ) => void;
   /** Resume an in-progress saved ESPN/manual draft from its Cosmos transcript — the launcher's way
    * back into a session whose live detection lapsed. See the implementation's doc. */

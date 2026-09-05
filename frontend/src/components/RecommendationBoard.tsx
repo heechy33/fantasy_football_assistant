@@ -577,114 +577,117 @@ export function RecommendationBoard({
               </p>
             ) : (
               <>
-                {effectivePresentation === 'rows' ? (
-                  <BoardRows
-                    itemCount={effectiveBoardMode === 'engine' ? rankedRecommendations.length : marketRows.length}
-                    label="Recommendation players"
-                  >
-                    {effectiveBoardMode === 'engine'
-                      ? rankedRecommendations.map((recommendation, index) => (
-                          <PlayerBoardRow
-                            key={recommendation.playerId}
-                            playerId={recommendation.playerId}
-                            recommendation={recommendation}
-                            player={playersById.get(recommendation.playerId)}
-                            adpBoard={adp}
-                            adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
-                            usage={usage[recommendation.playerId]}
-                            depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
-                            avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
-                            projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
-                            availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
-                            availabilityVisible={isMyTurn}
-                            currentPick={currentOverall}
-                            nextUp={nextUpAt(rankedRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
-                            selected={selectedPlayerId === recommendation.playerId}
-                            onViewDetails={() => onViewDetails(recommendation.playerId)}
-                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(recommendation.playerId) : undefined}
-                          />
-                        ))
-                      : marketRows.map((row, index) => (
-                          <PlayerBoardRow
-                            key={row.playerId}
-                            playerId={row.playerId}
-                            recommendation={row.recommendation}
-                            player={playersById.get(row.playerId)}
-                            adp={row.adp}
-                            adpBoard={adp}
-                            adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
-                            usage={usage[row.playerId]}
-                            depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
-                            avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
-                            projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
-                            availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
-                            availabilityVisible={isMyTurn}
-                            currentPick={currentOverall}
-                            nextUp={nextUpAt(marketRows, index, playersById)}
-                            selected={selectedPlayerId === row.playerId}
-                            onViewDetails={() => onViewDetails(row.playerId)}
-                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(row.playerId) : undefined}
-                          />
-                        ))}
-                  </BoardRows>
-                ) : (
-                  <BoardFilmstrip
-                    itemCount={effectiveBoardMode === 'engine' ? cardRecommendations.length : visibleMarketRows.length}
-                    cardsPerPage={cardsPerPage}
-                    canLoadMore={hasMoreCards}
-                    onLoadMore={() => {
-                      if (nextCardPageSize != null) setCardsVisibleCount(nextCardPageSize);
-                    }}
-                    id="recommendation-board"
-                    label="Recommendation players"
-                    resetKey={filmstripResetKey}
-                  >
-                    {effectiveBoardMode === 'engine'
-                      ? cardRecommendations.map((recommendation, index) => (
-                          <PlayerCard
-                            key={recommendation.playerId}
-                            playerId={recommendation.playerId}
-                            recommendation={recommendation}
-                            player={playersById.get(recommendation.playerId)}
-                            adpBoard={adp}
-                            adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
-                            usage={usage[recommendation.playerId]}
-                            depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
-                            avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
-                            roleStats={roleStatsByPlayer.get(recommendation.playerId) ?? null}
-                            projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
-                            availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
-                            availabilityVisible={isMyTurn}
-                            currentPick={currentOverall}
-                            nextUp={nextUpAt(cardRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
-                            onViewDetails={() => onViewDetails(recommendation.playerId)}
-                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(recommendation.playerId) : undefined}
-                          />
-                        ))
-                      : visibleMarketRows.map((row, index) => (
-                          <PlayerCard
-                            key={row.playerId}
-                            playerId={row.playerId}
-                            recommendation={row.recommendation}
-                            player={playersById.get(row.playerId)}
-                            adp={row.adp}
-                            adpBoard={adp}
-                            adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
-                            usage={usage[row.playerId]}
-                            depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
-                            avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
-                            roleStats={roleStatsByPlayer.get(row.playerId) ?? null}
-                            projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
-                            availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
-                            availabilityVisible={isMyTurn}
-                            currentPick={currentOverall}
-                            nextUp={nextUpAt(visibleMarketRows, index, playersById)}
-                            onViewDetails={() => onViewDetails(row.playerId)}
-                            onDraftPlayer={onDraftPlayer ? () => onDraftPlayer(row.playerId) : undefined}
-                          />
-                        ))}
-                  </BoardFilmstrip>
-                )}
+                {(() => {
+                  const effectiveOnDraftPlayer = draftInit.provider === 'yahoo' ? undefined : onDraftPlayer;
+                  return effectivePresentation === 'rows' ? (
+                    <BoardRows
+                      itemCount={effectiveBoardMode === 'engine' ? rankedRecommendations.length : marketRows.length}
+                      label="Recommendation players"
+                    >
+                      {effectiveBoardMode === 'engine'
+                        ? rankedRecommendations.map((recommendation, index) => (
+                            <PlayerBoardRow
+                              key={recommendation.playerId}
+                              playerId={recommendation.playerId}
+                              recommendation={recommendation}
+                              player={playersById.get(recommendation.playerId)}
+                              adpBoard={adp}
+                              adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
+                              usage={usage[recommendation.playerId]}
+                              depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
+                              avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
+                              projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
+                              availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
+                              availabilityVisible={isMyTurn}
+                              currentPick={currentOverall}
+                              nextUp={nextUpAt(rankedRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
+                              selected={selectedPlayerId === recommendation.playerId}
+                              onViewDetails={() => onViewDetails(recommendation.playerId)}
+                              onDraftPlayer={effectiveOnDraftPlayer ? () => effectiveOnDraftPlayer(recommendation.playerId) : undefined}
+                            />
+                          ))
+                        : marketRows.map((row, index) => (
+                            <PlayerBoardRow
+                              key={row.playerId}
+                              playerId={row.playerId}
+                              recommendation={row.recommendation}
+                              player={playersById.get(row.playerId)}
+                              adp={row.adp}
+                              adpBoard={adp}
+                              adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
+                              usage={usage[row.playerId]}
+                              depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
+                              avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
+                              projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
+                              availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
+                              availabilityVisible={isMyTurn}
+                              currentPick={currentOverall}
+                              nextUp={nextUpAt(marketRows, index, playersById)}
+                              selected={selectedPlayerId === row.playerId}
+                              onViewDetails={() => onViewDetails(row.playerId)}
+                              onDraftPlayer={effectiveOnDraftPlayer ? () => effectiveOnDraftPlayer(row.playerId) : undefined}
+                            />
+                          ))}
+                    </BoardRows>
+                  ) : (
+                    <BoardFilmstrip
+                      itemCount={effectiveBoardMode === 'engine' ? cardRecommendations.length : visibleMarketRows.length}
+                      cardsPerPage={cardsPerPage}
+                      canLoadMore={hasMoreCards}
+                      onLoadMore={() => {
+                        if (nextCardPageSize != null) setCardsVisibleCount(nextCardPageSize);
+                      }}
+                      id="recommendation-board"
+                      label="Recommendation players"
+                      resetKey={filmstripResetKey}
+                    >
+                      {effectiveBoardMode === 'engine'
+                        ? cardRecommendations.map((recommendation, index) => (
+                            <PlayerCard
+                              key={recommendation.playerId}
+                              playerId={recommendation.playerId}
+                              recommendation={recommendation}
+                              player={playersById.get(recommendation.playerId)}
+                              adpBoard={adp}
+                              adpSource={adpSourceByPlayer.get(recommendation.playerId) ?? null}
+                              usage={usage[recommendation.playerId]}
+                              depthRole={depthRoleByPlayer.get(recommendation.playerId) ?? null}
+                              avgPointsPerGame={avgPointsPerGameByPlayer.get(recommendation.playerId) ?? null}
+                              roleStats={roleStatsByPlayer.get(recommendation.playerId) ?? null}
+                              projectedPoints={projectedPointsByPlayer.get(recommendation.playerId) ?? null}
+                              availableNextPickProbability={marketAvailabilityByPlayer.get(recommendation.playerId) ?? null}
+                              availabilityVisible={isMyTurn}
+                              currentPick={currentOverall}
+                              nextUp={nextUpAt(cardRecommendations.map((r) => ({ playerId: r.playerId, recommendation: r })), index, playersById)}
+                              onViewDetails={() => onViewDetails(recommendation.playerId)}
+                              onDraftPlayer={effectiveOnDraftPlayer ? () => effectiveOnDraftPlayer(recommendation.playerId) : undefined}
+                            />
+                          ))
+                        : visibleMarketRows.map((row, index) => (
+                            <PlayerCard
+                              key={row.playerId}
+                              playerId={row.playerId}
+                              recommendation={row.recommendation}
+                              player={playersById.get(row.playerId)}
+                              adp={row.adp}
+                              adpBoard={adp}
+                              adpSource={adpSourceByPlayer.get(row.playerId) ?? null}
+                              usage={usage[row.playerId]}
+                              depthRole={depthRoleByPlayer.get(row.playerId) ?? null}
+                              avgPointsPerGame={avgPointsPerGameByPlayer.get(row.playerId) ?? null}
+                              roleStats={roleStatsByPlayer.get(row.playerId) ?? null}
+                              projectedPoints={projectedPointsByPlayer.get(row.playerId) ?? null}
+                              availableNextPickProbability={marketAvailabilityByPlayer.get(row.playerId) ?? null}
+                              availabilityVisible={isMyTurn}
+                              currentPick={currentOverall}
+                              nextUp={nextUpAt(visibleMarketRows, index, playersById)}
+                              onViewDetails={() => onViewDetails(row.playerId)}
+                              onDraftPlayer={effectiveOnDraftPlayer ? () => effectiveOnDraftPlayer(row.playerId) : undefined}
+                            />
+                          ))}
+                    </BoardFilmstrip>
+                  );
+                })()}
               </>
             )}
           </>

@@ -119,10 +119,11 @@ describe('YahooPastePicksModal', () => {
     await user.click(applyButton);
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    const [overrides, detectedSlot, slotToTeamName] = onSubmit.mock.calls[0] as [
+    const [overrides, detectedSlot, slotToTeamName, detectedTeams] = onSubmit.mock.calls[0] as [
       PickOverride[],
       number | null,
       Record<number, string>,
+      number | null | undefined,
     ];
 
     expect(overrides).toHaveLength(3);
@@ -133,17 +134,56 @@ describe('YahooPastePicksModal', () => {
     expect(pick1.overall).toBe(1);
     expect(pick1.playerId).toBe('p-gibbs');
     expect(pick1.providerPlayerName).toBe('Jahmyr Gibbs');
+    expect(pick1.teamId).toBe('team-1');
 
     expect(pick2.overall).toBe(2);
     expect(pick2.playerId).toBe('p-bijan');
+    expect(pick2.teamId).toBe('team-2');
 
     expect(pick3.overall).toBe(8);
     expect(pick3.playerId).toBe('p-jsn');
+    expect(pick3.teamId).toBe('team-8');
 
     expect(detectedSlot).toBe(8);
+    expect(detectedTeams).toBeNull();
     expect(slotToTeamName[1]).toBe('Nikolas LeBlanc');
     expect(slotToTeamName[2]).toBe('Gabe');
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses slotToTeam string ids matching manual draft init (e.g. slot 5 -> teamId "5")', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const onClose = vi.fn();
+
+    const manualInit: DraftInit = {
+      ...TEST_DRAFT_INIT,
+      mySlot: 5,
+      myTeamId: '5',
+      slotToTeam: { 1: '1', 2: '2', 5: '5', 8: '8' },
+    };
+
+    render(
+      <YahooPastePicksModal
+        draftInit={manualInit}
+        players={SAMPLE_PLAYERS}
+        onSubmit={onSubmit}
+        onClose={onClose}
+      />,
+    );
+
+    const textarea = screen.getByRole('textbox');
+    await user.click(textarea);
+    await user.paste(RAW_FEED);
+
+    await user.click(screen.getByRole('button', { name: /Apply/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const [overrides] = onSubmit.mock.calls[0] as [PickOverride[]];
+    // Slot 1 -> teamId '1', Slot 2 -> teamId '2', Slot 8 -> teamId '8'
+    expect(overrides[0]?.teamId).toBe('1');
+    expect(overrides[1]?.teamId).toBe('2');
+    expect(overrides[2]?.teamId).toBe('8');
   });
 });
