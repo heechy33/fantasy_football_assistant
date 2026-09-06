@@ -171,6 +171,9 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const persisted = loadPersistedSession();
     if (persisted) {
+      if (persisted.savedLeagueId) {
+        setSavedLeagueId(persisted.savedLeagueId);
+      }
       for (const override of persisted.overrides) board.applyOverride(override);
 
       if (persisted.mode === 'complete' && persisted.frozenInit) {
@@ -292,9 +295,9 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
       provider: session.kind === 'complete'
         ? session.provider
         : (session.kind === 'manual' ? (session.provider ?? (session.frozenInit?.provider === 'yahoo' ? 'yahoo' : null)) : null),
-      savedLeagueId: session.kind === 'complete' ? session.savedLeagueId : null,
+      savedLeagueId: session.kind === 'complete' ? session.savedLeagueId : savedLeagueId,
     });
-  }, [hydrated, session, board.state.overrides]);
+  }, [hydrated, session, board.state.overrides, savedLeagueId]);
 
   // Manual takeover freezes the latest DraftInit into the manual session, so the workspace and
   // clock math keep working with no live poll. `effectiveInit` is the single source for that:
@@ -1115,12 +1118,14 @@ export function DraftSessionProvider({ children }: { children: ReactNode }) {
     /** Monotonic End-draft event counter for draftSync's transcript cleanup — see draftSync.ts. */
     endDraftSeq,
     reportSavedLeagueId: setSavedLeagueId,
+    savedLeagueId,
   };
 
   return <DraftSessionContext.Provider value={value}>{children}</DraftSessionContext.Provider>;
 }
 interface DraftSessionValue {
   session: Session;
+  savedLeagueId: string | null;
   manifest: DataManifest | null;
   rankedPlayers: RankedPlayer[];
   correcting: Correcting | null;

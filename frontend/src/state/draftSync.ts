@@ -93,7 +93,7 @@ const SYNC_DEBOUNCE_MS = 5000;
  */
 export function useDraftSync(repositoryOverride?: SavedLeaguesRepository): void {
   const { status, getToken } = useAuth();
-  const { session, effectiveInit, board, picksSignature, reportSavedLeagueId, endDraftSeq = 0 } = useDraftSession();
+  const { session, effectiveInit, board, picksSignature, savedLeagueId, reportSavedLeagueId, endDraftSeq = 0 } = useDraftSession();
 
   const repository = useMemo(
     () => repositoryOverride ?? createHttpRepository(getToken),
@@ -131,7 +131,9 @@ export function useDraftSync(repositoryOverride?: SavedLeaguesRepository): void 
     // Reset the adopted-id cache when the underlying league changes, so a switched draft doesn't
     // upsert on top of a previous league's saved id.
     if (ids.current.leagueId !== initAtGate.leagueId) {
-      ids.current = { leagueId: initAtGate.leagueId, savedLeagueId: null, savedDraftId: null };
+      ids.current = { leagueId: initAtGate.leagueId, savedLeagueId: savedLeagueId ?? null, savedDraftId: null };
+    } else if (savedLeagueId && ids.current.savedLeagueId !== savedLeagueId) {
+      ids.current.savedLeagueId = savedLeagueId;
     }
 
     const timer = setTimeout(() => {
@@ -281,7 +283,7 @@ export function useDraftSync(repositoryOverride?: SavedLeaguesRepository): void 
     }
 
     return () => clearTimeout(timer);
-  }, [status, repository, draftIdentity, picksSignature, reportSavedLeagueId]);
+  }, [status, repository, draftIdentity, picksSignature, savedLeagueId, reportSavedLeagueId]);
 
   /** End-draft cleanup (2026-08-30): "End draft" on an ESPN/manual session used to leave its
    * `status: 'active'` SavedDraft transcript in Cosmos forever — only a completed SLEEPER draft's

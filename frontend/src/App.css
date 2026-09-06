@@ -343,6 +343,55 @@ section { margin: 1rem 0; padding: 1.25rem; border: 1px solid var(--border-divid
 .draft-complete-banner p { margin: 0; font-size: .92rem; }
 .draft-complete-banner-actions { display: flex; gap: .6rem; flex-shrink: 0; }
 
+.draft-room-save-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: .85rem 1.15rem;
+  border-radius: var(--radius-md);
+  background: var(--glass-surface-1);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(12px);
+}
+.draft-room-save-banner-text p {
+  margin: 0;
+  font-size: .9rem;
+  color: var(--text-1);
+}
+.draft-room-save-banner-text .save-banner-error {
+  margin-top: .35rem;
+  color: var(--danger-text);
+  font-size: .84rem;
+}
+.draft-room-save-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-shrink: 0;
+}
+.draft-room-save-banner-success {
+  color: var(--success-text);
+  background: var(--success-bg);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+.draft-room-save-banner-success p {
+  margin: 0;
+  font-size: .9rem;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .draft-room-save-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .draft-room-save-banner-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 /* Landing — one persistent cinematic scene (LandingPage): a fixed full-viewport Three.js layer
    behind every section, so the chrome Lombardi carries the whole narrative instead of living
    only in the hero. Sections stay transparent/frosted so the scene never breaks mid-story. */

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthProvider';
 import { DataHealth, type EspnCaptureSummary } from '../components/DataHealth';
 import { DraftLauncher } from '../components/DraftLauncher';
 import { DraftWorkspace } from '../components/DraftWorkspace';
 import { MANUAL_SCORING_DIAGNOSTICS } from '../components/ManualDraftSetup';
-import { SessionMenu } from '../components/SessionMenu';
+import { SessionMenu, type SessionAction } from '../components/SessionMenu';
 import { requestEspnResetSnapshot } from '../adapters/espnBridge';
 import { hasDetailIdentity } from '../adapters/espn';
 import { mapProvider, sessionKindToMode, shouldSyncDraft } from '../state/draftSync';
@@ -15,8 +16,10 @@ import { useDraftSession } from '../session/DraftSessionProvider';
  * disconnected state is the DraftLauncher (2026-08-27 connect/start split). */
 export function DraftRoomRoute() {
   const navigate = useNavigate();
+  const { status: authStatus } = useAuth();
   const {
     session,
+    savedLeagueId,
     manifest,
     board,
     poll,
@@ -35,10 +38,80 @@ export function DraftRoomRoute() {
     handleEndDraft,
     handleDraftPlayer,
     handleDraftIdpPlayer,
+    reportSavedLeagueId,
   } = useDraftSession();
-  const { saveLeague, saveDraft } = useSavedLeagues();
+  const { leagues, saveLeague, saveDraft } = useSavedLeagues();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const matchingSavedLeague = effectiveInit != null
+    ? leagues.find((l) => l.provider === mapProvider(effectiveInit.provider) && l.providerLeagueId === effectiveInit.leagueId)
+    : undefined;
+
+  useEffect(() => {
+    if (matchingSavedLeague && savedLeagueId == null) {
+      reportSavedLeagueId(matchingSavedLeague.id);
+    }
+  }, [matchingSavedLeague, savedLeagueId, reportSavedLeagueId]);
+
+  const canSaveActiveToMyLeagues = (session.kind === 'connected' || session.kind === 'manual' || session.kind === 'bridge')
+    && authStatus === 'signed-in'
+    && savedLeagueId == null
+    && matchingSavedLeague == null
+    && effectiveInit != null
+    && shouldSyncDraft(mapProvider(effectiveInit.provider), effectiveInit.leagueId);
+
+  async function handleSaveActiveToMyLeagues() {
+    if (!effectiveInit || session.kind === 'disconnected' || session.kind === 'complete') return;
+    const provider = mapProvider(effectiveInit.provider);
+    const providerUserId = session.kind === 'connected'
+      ? session.cred.userId
+      : (session.kind === 'manual' && session.reconnectCred ? session.reconnectCred.userId : undefined);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const league = await saveLeague({
+        provider,
+        providerLeagueId: effectiveInit.leagueId,
+        name: effectiveInit.settings.name,
+        teams: effectiveInit.teams,
+        rounds: effectiveInit.rounds,
+        mySlot: effectiveInit.mySlot,
+        settings: effectiveInit.settings,
+        latestDraftId: provider === 'sleeper' ? effectiveInit.draftId : null,
+        providerUserId: providerUserId ?? null,
+      });
+      await saveDraft({
+        leagueId: league.id,
+        provider,
+        providerDraftId: effectiveInit.draftId,
+        mode: sessionKindToMode(session.kind),
+        frozenInit: session.kind === 'manual' || session.kind === 'bridge' ? effectiveInit : null,
+        overrides: [...board.state.overrides.values()],
+        picks: provider === 'sleeper' ? undefined : board.effectivePicks,
+        status: 'active',
+      });
+      reportSavedLeagueId(league.id);
+      setSavedSuccess(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save this league.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const effectiveSessionActions: SessionAction[] = useMemo(() => {
+    if (!canSaveActiveToMyLeagues) return sessionActions;
+    const saveAction: SessionAction = {
+      id: 'save-to-my-leagues',
+      label: saving ? 'Saving to My Leagues…' : 'Save to My Leagues',
+      onSelect: () => void handleSaveActiveToMyLeagues(),
+      disabled: saving,
+    };
+    return [saveAction, ...sessionActions];
+  }, [canSaveActiveToMyLeagues, saving, sessionActions, effectiveInit, session, board]);
 
   /**
    * "Save to My Leagues" on the completion banner (2026-08-29 live-only redesign): the Draft Room
@@ -77,6 +150,7 @@ export function DraftRoomRoute() {
         picks: provider === 'sleeper' ? undefined : board.effectivePicks,
         status: 'complete',
       });
+      reportSavedLeagueId(league.id);
       navigate(`/leagues/${league.id}`);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not save this league.');
@@ -86,6 +160,8 @@ export function DraftRoomRoute() {
   }
   const canSaveToMyLeagues = session.kind === 'complete'
     && session.savedLeagueId == null
+    && savedLeagueId == null
+    && matchingSavedLeague == null
     && shouldSyncDraft(mapProvider(session.provider), session.frozenInit.leagueId);
 
   // Bridge sessions only — a raw view of the extension's captured live stream (see DataHealth's
@@ -112,6 +188,49 @@ export function DraftRoomRoute() {
   return (
     <>
       {session.kind === 'disconnected' && <DraftLauncher />}
+
+      {canSaveActiveToMyLeagues && !bannerDismissed && (
+        <div className="draft-room-save-banner" role="status">
+          <div className="draft-room-save-banner-text">
+            <p>
+              <strong>Save to My Leagues:</strong> Save this {activeProvider === 'sleeper' ? 'Sleeper' : activeProvider === 'espn' ? 'ESPN' : 'Yahoo'} league to your account so you can access it on your iPad and other devices.
+            </p>
+            {saveError && <p className="save-banner-error" role="alert">{saveError}</p>}
+          </div>
+          <div className="draft-room-save-banner-actions">
+            <button
+              type="button"
+              className="primary-button"
+              disabled={saving}
+              onClick={() => void handleSaveActiveToMyLeagues()}
+            >
+              {saving ? 'Saving…' : 'Save to My Leagues'}
+            </button>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => setBannerDismissed(true)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {savedSuccess && (
+        <div className="draft-room-save-banner draft-room-save-banner-success" role="status">
+          <p>
+            ✓ <strong>Saved to My Leagues!</strong> This draft is now linked to your account and syncing across devices.
+          </p>
+          <button
+            type="button"
+            className="quiet-button"
+            onClick={() => setSavedSuccess(false)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {session.kind === 'complete' && (
         <>
@@ -182,7 +301,7 @@ export function DraftRoomRoute() {
                 const existing = board.effectivePicks.some((p) => p.overall === overall);
                 setCorrecting({ mode: existing ? 'correct-existing' : 'add-manual', overall });
               }}
-              sessionActions={sessionActions}
+              sessionActions={effectiveSessionActions}
             />
           )}
         </>
@@ -211,7 +330,7 @@ export function DraftRoomRoute() {
             setCorrecting({ mode: existing ? 'correct-existing' : 'add-manual', overall });
           }}
           onPastePicks={() => setPastePicksOpen(true)}
-          sessionActions={sessionActions}
+          sessionActions={effectiveSessionActions}
         />
       ) : (
         <section className="manual-draft">
@@ -222,7 +341,7 @@ export function DraftRoomRoute() {
             </div>
             <div className="board-toolbar-right">
               <button className="quiet-button" type="button" onClick={handleEndDraft}>Connect a draft</button>
-              {sessionActions.length > 0 && <SessionMenu actions={sessionActions} />}
+              {effectiveSessionActions.length > 0 && <SessionMenu actions={effectiveSessionActions} />}
             </div>
           </div>
           {board.effectivePicks.length === 0 ? (

@@ -122,6 +122,7 @@ function sessionValueStub(opts: {
   board?: ReturnType<typeof boardStub>;
   picksSignature?: string;
   reportSavedLeagueId?: (id: string) => void;
+  savedLeagueId?: string | null;
   endDraftSeq?: number;
 } = {}) {
   const kind = opts.kind ?? 'connected';
@@ -139,6 +140,7 @@ function sessionValueStub(opts: {
     board: opts.board ?? boardStub(),
     picksSignature: opts.picksSignature ?? 'sig-1',
     reportSavedLeagueId: opts.reportSavedLeagueId ?? vi.fn(),
+    savedLeagueId: opts.savedLeagueId ?? null,
     endDraftSeq: opts.endDraftSeq ?? 0,
   };
 }
