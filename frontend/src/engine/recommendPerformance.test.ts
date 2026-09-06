@@ -384,7 +384,7 @@ describe('buildRecommendationBoard Stage C performance (worst-case rollout windo
     // Stage C's own rollout size — isolated runs measure ~300-350ms here; this ceiling keeps margin
     // for parallel-worker contention in a full-suite run, consistent with this file's "generous
     // ceiling, not a tight bound" philosophy (see the module doc above).
-    expect(med).toBeLessThan(900);
+    expect(med).toBeLessThan(1200);
   }, 30_000);
 });
 

@@ -178,6 +178,10 @@ export function DraftRoomRoute() {
               picksSignature={picksSignature}
               onTheClock={onTheClock}
               boundaries={boundaries}
+              onCorrectPick={(overall) => {
+                const existing = board.effectivePicks.some((p) => p.overall === overall);
+                setCorrecting({ mode: existing ? 'correct-existing' : 'add-manual', overall });
+              }}
               sessionActions={sessionActions}
             />
           )}
@@ -200,9 +204,12 @@ export function DraftRoomRoute() {
           // retain the compact button for fast click-to-log drafting.
           onDraftPlayer={handleDraftPlayer}
           onDraftIdpPlayer={handleDraftIdpPlayer}
-          // Row-level "Edit pick" via the dormant DraftLog.onCorrect prop — opens the same
-          // ManualPickCorrection modal the `⋯ → Log next pick` menu already uses.
-          onCorrectPick={(overall) => setCorrecting({ mode: 'correct-existing', overall })}
+          // Row-level "Edit pick" via DraftLog.onCorrect — opens ManualPickCorrection modal to
+          // edit/replace the drafted player or log a missing pick.
+          onCorrectPick={(overall) => {
+            const existing = board.effectivePicks.some((p) => p.overall === overall);
+            setCorrecting({ mode: existing ? 'correct-existing' : 'add-manual', overall });
+          }}
           onPastePicks={() => setPastePicksOpen(true)}
           sessionActions={sessionActions}
         />

@@ -39,6 +39,7 @@ interface DraftLogRowProps {
   isScrollTarget: boolean;
   currentRowRef: RefObject<HTMLLIElement | null>;
   onViewPlayer: ((playerId: PlayerId) => void) | undefined;
+  onCorrect?: ((overall: number) => void) | undefined;
 }
 
 function youUpLabel(picksUntilUserTurn: number | null): string | null {
@@ -69,6 +70,7 @@ const DraftLogRow = memo(function DraftLogRow({
   isScrollTarget,
   currentRowRef,
   onViewPlayer,
+  onCorrect,
 }: DraftLogRowProps) {
   const isUnmatched = pick != null && pick.playerId === null;
   const hasPlayerToView = playerId != null;
@@ -79,6 +81,7 @@ const DraftLogRow = memo(function DraftLogRow({
     : null;
 
   const pickNo = `#${overall}`;
+  const canEdit = Boolean(onCorrect && pick);
   const cardBody = (
     <>
       <span className="draft-log-name">{displayName ?? '———'}</span>
@@ -100,7 +103,20 @@ const DraftLogRow = memo(function DraftLogRow({
         <span className="draft-log-you-up">{youUpText}</span>
       )}
       <div className="draft-log-row-body">
-        <span className="draft-log-pick-no" aria-label={`Pick ${pickNo}`}>{pickNo}</span>
+        {canEdit ? (
+          <button
+            type="button"
+            className="draft-log-pick-no"
+            onClick={() => onCorrect?.(overall)}
+            aria-label={`Edit pick ${pickNo}`}
+            title={`Edit pick ${pickNo}`}
+          >
+            <span className="draft-log-pick-default">{pickNo}</span>
+            <span className="draft-log-pick-hover">Edit</span>
+          </button>
+        ) : (
+          <span className="draft-log-pick-no" aria-label={`Pick ${pickNo}`}>{pickNo}</span>
+        )}
         {hasPlayerToView ? (
           <button type="button" className="draft-log-card" onClick={() => onViewPlayer?.(playerId)}>
             {cardBody}
@@ -161,6 +177,7 @@ export const DraftLog = memo(function DraftLog({
   playersById,
   onTheClock,
   onViewPlayer,
+  onCorrect,
   onPastePicks,
   userNextOverall,
   picksUntilUserTurn,
@@ -176,6 +193,12 @@ export const DraftLog = memo(function DraftLog({
   onViewPlayerRef.current = onViewPlayer;
   const stableViewPlayer = useCallback((playerId: PlayerId) => {
     onViewPlayerRef.current?.(playerId);
+  }, []);
+
+  const onCorrectRef = useRef(onCorrect);
+  onCorrectRef.current = onCorrect;
+  const stableCorrect = useCallback((overall: number) => {
+    onCorrectRef.current?.(overall);
   }, []);
 
   const pickedByOverall = useMemo(() => new Map(effectivePicks.map((p) => [p.overall, p])), [effectivePicks]);
@@ -340,6 +363,7 @@ export const DraftLog = memo(function DraftLog({
                 isScrollTarget={isScrollTarget}
                 currentRowRef={currentRowRef}
                 onViewPlayer={stableViewPlayer}
+                onCorrect={onCorrect ? stableCorrect : undefined}
               />
             );
           })}

@@ -1521,38 +1521,51 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; }
 }
 button.draft-log-card { width: 100%; }
 button.draft-log-card:hover, button.draft-log-card:focus-visible { background: var(--surface-row-hover); }
-/* Row-level "Edit pick" (2026-09-01) — only renders when DraftLog receives an onCorrect handler.
-   Small, quiet, intentionally secondary: the row's whole-body click still opens the player
-   drawer (it's the primary surface), and the existing ManualPickCorrection modal opens from
-   here, so the user is correcting — not re-doing. */
-.draft-log-edit-button {
-  flex: 0 0 auto;
-  align-self: stretch;
-  padding: 0 .55rem;
-  border: 1px solid var(--border-glass);
+/* Click-to-edit pick number (2026-09-05) — hovering over a recorded pick number like #55 reveals
+   "EDIT" so the user can click to correct/replace the drafted player via ManualPickCorrection. */
+button.draft-log-pick-no {
+  margin: 0;
+  padding: .15rem .3rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--glass-surface-2);
-  color: var(--text-2);
-  font: inherit;
-  font-size: .66rem;
-  font-weight: 800;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+  background: transparent;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: all 120ms ease;
 }
-.draft-log-edit-button:hover, .draft-log-edit-button:focus-visible {
-  background: var(--glass-surface-hover);
-  border-color: var(--border-glass-hover);
-  color: var(--text-1);
+button.draft-log-pick-no:hover,
+button.draft-log-pick-no:focus-visible {
+  background: var(--surface-row-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--accent);
+  color: var(--accent);
 }
-.draft-log-edit-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button.draft-log-pick-no:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+button.draft-log-pick-no:active {
+  transform: translateY(1px);
+}
+.draft-log-pick-no .draft-log-pick-hover {
+  display: none;
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+button.draft-log-pick-no:hover .draft-log-pick-default,
+button.draft-log-pick-no:focus-visible .draft-log-pick-default {
+  display: none;
+}
+button.draft-log-pick-no:hover .draft-log-pick-hover,
+button.draft-log-pick-no:focus-visible .draft-log-pick-hover {
+  display: inline;
+}
 .draft-log-pick-no {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.85rem;
+  min-width: 2.1rem;
   color: var(--text-4);
   font-family: var(--font-display);
   font-size: .74rem;

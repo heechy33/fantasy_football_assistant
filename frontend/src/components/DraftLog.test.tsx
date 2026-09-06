@@ -414,4 +414,50 @@ describe('DraftLog', () => {
     expect(screen.getByRole('button', { name: 'Go to current pick' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Paste draft picks' })).not.toBeInTheDocument();
   });
+
+  describe('click-to-edit pick number', () => {
+    it('renders pick number as a button with hover edit label when onCorrect is passed for a drafted pick', async () => {
+      const user = userEvent.setup();
+      const onCorrect = vi.fn();
+      const onViewPlayer = vi.fn();
+      render(
+        <DraftLog
+          {...baseProps()}
+          effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+          onCorrect={onCorrect}
+          onViewPlayer={onViewPlayer}
+        />,
+      );
+
+      // Pick #1 was drafted, so its pick number is an editable button
+      const editBtn = screen.getByRole('button', { name: 'Edit pick #1' });
+      expect(editBtn).toBeInTheDocument();
+      expect(editBtn).toHaveClass('draft-log-pick-no');
+
+      // Both default number and hover edit labels are present for CSS toggle
+      expect(editBtn.querySelector('.draft-log-pick-default')).toHaveTextContent('#1');
+      expect(editBtn.querySelector('.draft-log-pick-hover')).toHaveTextContent('Edit');
+
+      // Clicking invokes onCorrect with the overall number (1) without opening player details
+      await user.click(editBtn);
+      expect(onCorrect).toHaveBeenCalledTimes(1);
+      expect(onCorrect).toHaveBeenCalledWith(1);
+      expect(onViewPlayer).not.toHaveBeenCalled();
+
+      // Undrafted pick #2 is not an edit button
+      expect(screen.queryByRole('button', { name: 'Edit pick #2' })).toBeNull();
+      expect(screen.getByText('#2')).toHaveClass('draft-log-pick-no');
+    });
+
+    it('renders pick number as plain span without edit button when onCorrect is omitted', () => {
+      render(
+        <DraftLog
+          {...baseProps()}
+          effectivePicks={[pick(1, 'me', 'p1', 'Known Player')]}
+        />,
+      );
+      expect(screen.queryByRole('button', { name: 'Edit pick #1' })).toBeNull();
+      expect(screen.getByText('#1')).toHaveClass('draft-log-pick-no');
+    });
+  });
 });
