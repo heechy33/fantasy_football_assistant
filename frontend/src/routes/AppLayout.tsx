@@ -40,6 +40,7 @@ export function AppLayout() {
     unavailablePlayerIds,
     rankedPlayers,
     handleManualSetupEdit,
+    nextManualOverall,
   } = useDraftSession();
   const { status, signOut } = useAuth();
   useDraftSync();
@@ -101,6 +102,7 @@ export function AppLayout() {
         <YahooPastePicksModal
           draftInit={session.frozenInit}
           players={rankedPlayers}
+          nextManualOverall={nextManualOverall}
           onSubmit={(overrides, detectedSlot, slotToTeamName, detectedTeams) => {
             handleApplyBatchPicks(overrides, detectedSlot, slotToTeamName, detectedTeams);
           }}

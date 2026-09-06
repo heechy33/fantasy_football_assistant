@@ -186,4 +186,53 @@ describe('YahooPastePicksModal', () => {
     expect(overrides[1]?.teamId).toBe('2');
     expect(overrides[2]?.teamId).toBe('8');
   });
+
+  it('preserves mid-draft pick numbers and passes nextManualOverall without restarting from #1', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const onClose = vi.fn();
+
+    const midDraftText = `22
+Gabe
+B. Robinson
+RB
+Atl
+Bye 11
+23
+Scott
+J. Gibbs
+RB
+Det
+Bye 6`;
+
+    render(
+      <YahooPastePicksModal
+        draftInit={TEST_DRAFT_INIT}
+        players={SAMPLE_PLAYERS}
+        nextManualOverall={22}
+        onSubmit={onSubmit}
+        onClose={onClose}
+      />,
+    );
+
+    const textarea = screen.getByRole('textbox');
+    await user.click(textarea);
+    await user.paste(midDraftText);
+
+    expect(screen.getByText(/2 picks recognized/i)).toBeInTheDocument();
+    // Preview table must show #22 and #23, NOT #1 and #2
+    expect(screen.getByText('#22')).toBeInTheDocument();
+    expect(screen.getByText('#23')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Apply 2 picks/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const [overrides] = onSubmit.mock.calls[0] as [PickOverride[]];
+    expect(overrides).toHaveLength(2);
+    expect(overrides[0]?.overall).toBe(22);
+    expect(overrides[0]?.round).toBe(3);
+    expect(overrides[1]?.overall).toBe(23);
+    expect(overrides[1]?.round).toBe(3);
+  });
 });
+

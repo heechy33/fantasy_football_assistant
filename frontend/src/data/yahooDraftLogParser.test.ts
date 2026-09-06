@@ -815,4 +815,276 @@ Cin
     const unmatched = result.picks.filter((p) => !p.matchedPlayer);
     expect(unmatched).toHaveLength(0);
   });
+
+  it('parses mid-draft picks 22 to 32 without restarting at #1 and without misdetecting turnarounds as 30 teams', () => {
+    const fullPlayers: PlayerMeta[] = [
+      ...SAMPLE_PLAYERS,
+      meta({ playerId: '11566', name: 'Brock Bowers', position: 'TE', team: 'LV', eligiblePositions: ['TE'] }),
+      meta({ playerId: '7588', name: 'Javonte Williams', position: 'RB', team: 'DAL', eligiblePositions: ['RB'] }),
+      meta({ playerId: '8144', name: 'Chris Olave', position: 'WR', team: 'NO', eligiblePositions: ['WR'] }),
+      meta({ playerId: '8112', name: 'Drake London', position: 'WR', team: 'ATL', eligiblePositions: ['WR'] }),
+      meta({ playerId: '8150', name: 'Kyren Williams', position: 'RB', team: 'LAR', eligiblePositions: ['RB'] }),
+      meta({ playerId: '13287', name: 'Jeremiyah Love', position: 'RB', team: 'ARI', eligiblePositions: ['RB'] }),
+      meta({ playerId: '8132', name: 'George Pickens', position: 'WR', team: 'DAL', eligiblePositions: ['WR'] }),
+      meta({ playerId: '8130', name: 'Trey McBride', position: 'TE', team: 'ARI', eligiblePositions: ['TE'] }),
+      meta({ playerId: '7525', name: 'DeVonta Smith', position: 'WR', team: 'PHI', eligiblePositions: ['WR'] }),
+      meta({ playerId: '4984', name: 'Josh Allen', position: 'QB', team: 'BUF', eligiblePositions: ['QB'] }),
+    ];
+
+    const midDraftPaste = `22
+Frank
+B. Bowers
+TE
+LV
+Bye 13
+23
+Tim
+J. Williams
+RB
+Dal
+Bye 14
+24
+Dale
+C. Olave
+WR
+NO
+Bye 8
+25
+You
+D. London
+WR
+Atl
+Bye 11
+26
+Eddie
+K. Williams
+RB
+LAR
+Bye 11
+27
+Mike
+J. Love
+RB
+Ari
+Bye 14
+28
+Tom
+G. Pickens
+WR
+Dal
+Bye 14
+29
+Andrew
+T. McBride
+TE
+Ari
+Bye 14
+30
+Chris
+D. Smith
+WR
+Phi
+Bye 10
+31
+Chris
+S. Barkley
+RB
+Phi
+Bye 10
+32
+Andrew
+J. Allen
+QB
+Buf
+Bye 7`;
+
+    const result = parseYahooDraftText(midDraftPaste, fullPlayers, undefined, 10);
+
+    // 11 picks parsed
+    expect(result.picks).toHaveLength(11);
+
+    // Crucial: detectedTeams must NOT be 30 from the Chris turnaround at 30 & 31!
+    expect(result.detectedTeams).toBe(10);
+
+    // Pick 22: Brock Bowers (NOT pick #1!)
+    expect(result.picks[0]?.overall).toBe(22);
+    expect(result.picks[0]?.managerName).toBe('Frank');
+    expect(result.picks[0]?.playerName).toBe('Brock Bowers');
+    expect(result.picks[0]?.playerId).toBe('11566');
+
+    // Pick 23: Javonte Williams (NOT pick #2!)
+    expect(result.picks[1]?.overall).toBe(23);
+    expect(result.picks[1]?.playerName).toBe('Javonte Williams');
+
+    // Pick 25: You (slot 5 in 10-team snake)
+    expect(result.picks[3]?.overall).toBe(25);
+    expect(result.picks[3]?.isUserPick).toBe(true);
+    expect(result.detectedUserSlot).toBe(5);
+
+    // Pick 30 & 31: Chris turnaround (slot 1)
+    expect(result.picks[8]?.overall).toBe(30);
+    expect(result.picks[8]?.managerName).toBe('Chris');
+    expect(result.picks[8]?.playerName).toBe('DeVonta Smith');
+
+    expect(result.picks[9]?.overall).toBe(31);
+    expect(result.picks[9]?.managerName).toBe('Chris');
+    expect(result.picks[9]?.playerName).toBe('Saquon Barkley');
+
+    // Pick 32
+    expect(result.picks[10]?.overall).toBe(32);
+    expect(result.picks[10]?.playerName).toBe('Josh Allen');
+  });
+
+  it('infers pick 22 when first pick number in snippet is missing due to text selection', () => {
+    const fullPlayers: PlayerMeta[] = [
+      ...SAMPLE_PLAYERS,
+      meta({ playerId: '11566', name: 'Brock Bowers', position: 'TE', team: 'LV', eligiblePositions: ['TE'] }),
+      meta({ playerId: '7588', name: 'Javonte Williams', position: 'RB', team: 'DAL', eligiblePositions: ['RB'] }),
+      meta({ playerId: '8144', name: 'Chris Olave', position: 'WR', team: 'NO', eligiblePositions: ['WR'] }),
+    ];
+
+    // User starts copying at "Frank" for pick 22, missing "22"
+    const snippetMissingFirstNum = `Frank
+B. Bowers
+TE
+LV
+Bye 13
+23
+Tim
+J. Williams
+RB
+Dal
+Bye 14
+24
+Dale
+C. Olave
+WR
+NO
+Bye 8`;
+
+    const result = parseYahooDraftText(snippetMissingFirstNum, fullPlayers, undefined, 10);
+
+    expect(result.picks).toHaveLength(3);
+    // Backwards contiguous propagation should infer 22 from 23
+    expect(result.picks[0]?.overall).toBe(22);
+    expect(result.picks[0]?.playerName).toBe('Brock Bowers');
+    expect(result.picks[1]?.overall).toBe(23);
+    expect(result.picks[2]?.overall).toBe(24);
+  });
+
+  it('infers starting pick from fallbackStartingOverall when snippet has zero pick numbers', () => {
+    const fullPlayers: PlayerMeta[] = [
+      ...SAMPLE_PLAYERS,
+      meta({ playerId: '11566', name: 'Brock Bowers', position: 'TE', team: 'LV', eligiblePositions: ['TE'] }),
+      meta({ playerId: '7588', name: 'Javonte Williams', position: 'RB', team: 'DAL', eligiblePositions: ['RB'] }),
+    ];
+
+    const snippetNoNums = `Frank
+B. Bowers
+TE
+LV
+Bye 13
+Tim
+J. Williams
+RB
+Dal
+Bye 14`;
+
+    // Passing fallbackStartingOverall = 22 (from nextManualOverall when 21 picks already on board)
+    const result = parseYahooDraftText(snippetNoNums, fullPlayers, undefined, 10, 22);
+
+    expect(result.picks).toHaveLength(2);
+    expect(result.picks[0]?.overall).toBe(22);
+    expect(result.picks[0]?.playerName).toBe('Brock Bowers');
+    expect(result.picks[1]?.overall).toBe(23);
+    expect(result.picks[1]?.playerName).toBe('Javonte Williams');
+  });
+
+  it('parses varied pick number formats: "Pick 22", "#22", "22.", "22. Frank", "3.2"', () => {
+    const fullPlayers: PlayerMeta[] = [
+      ...SAMPLE_PLAYERS,
+      meta({ playerId: '11566', name: 'Brock Bowers', position: 'TE', team: 'LV', eligiblePositions: ['TE'] }),
+      meta({ playerId: '7588', name: 'Javonte Williams', position: 'RB', team: 'DAL', eligiblePositions: ['RB'] }),
+      meta({ playerId: '8144', name: 'Chris Olave', position: 'WR', team: 'NO', eligiblePositions: ['WR'] }),
+      meta({ playerId: '8112', name: 'Drake London', position: 'WR', team: 'ATL', eligiblePositions: ['WR'] }),
+      meta({ playerId: '8150', name: 'Kyren Williams', position: 'RB', team: 'LAR', eligiblePositions: ['RB'] }),
+    ];
+
+    const variedFormats = `Pick 22
+Frank
+B. Bowers
+TE
+LV
+Bye 13
+#23
+Tim
+J. Williams
+RB
+Dal
+Bye 14
+24.
+Dale
+C. Olave
+WR
+NO
+Bye 8
+25. You
+D. London
+WR
+Atl
+Bye 11
+3.6
+Eddie
+K. Williams
+RB
+LAR
+Bye 11`;
+
+    const result = parseYahooDraftText(variedFormats, fullPlayers, undefined, 10);
+
+    expect(result.picks).toHaveLength(5);
+    expect(result.picks[0]?.overall).toBe(22);
+    expect(result.picks[0]?.managerName).toBe('Frank');
+    expect(result.picks[1]?.overall).toBe(23);
+    expect(result.picks[1]?.managerName).toBe('Tim');
+    expect(result.picks[2]?.overall).toBe(24);
+    expect(result.picks[2]?.managerName).toBe('Dale');
+    expect(result.picks[3]?.overall).toBe(25);
+    expect(result.picks[3]?.isUserPick).toBe(true);
+    expect(result.picks[4]?.overall).toBe(26); // Round 3, pick 6 in 10-team = 26
+    expect(result.picks[4]?.managerName).toBe('Eddie');
+  });
+
+  it('parses picks when position and team are combined on one line (e.g. TE - LV or TE LV)', () => {
+    const fullPlayers: PlayerMeta[] = [
+      ...SAMPLE_PLAYERS,
+      meta({ playerId: '11566', name: 'Brock Bowers', position: 'TE', team: 'LV', eligiblePositions: ['TE'] }),
+      meta({ playerId: '7588', name: 'Javonte Williams', position: 'RB', team: 'DAL', eligiblePositions: ['RB'] }),
+    ];
+
+    const comboPosTeamPaste = `22
+Frank
+Brock Bowers
+TE - LV
+Bye 13
+23
+Tim
+Javonte Williams
+RB DAL
+Bye 14`;
+
+    const result = parseYahooDraftText(comboPosTeamPaste, fullPlayers, undefined, 10);
+
+    expect(result.picks).toHaveLength(2);
+    expect(result.picks[0]?.overall).toBe(22);
+    expect(result.picks[0]?.playerName).toBe('Brock Bowers');
+    expect(result.picks[0]?.position).toBe('TE');
+    expect(result.picks[0]?.nflTeam).toBe('LV');
+
+    expect(result.picks[1]?.overall).toBe(23);
+    expect(result.picks[1]?.playerName).toBe('Javonte Williams');
+    expect(result.picks[1]?.position).toBe('RB');
+    expect(result.picks[1]?.nflTeam).toBe('DAL');
+  });
 });
+

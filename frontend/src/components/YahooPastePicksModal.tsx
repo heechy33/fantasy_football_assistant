@@ -9,6 +9,7 @@ import type { PickOverride } from '../state/draftBoardState';
 export interface YahooPastePicksModalProps {
   draftInit: DraftInit;
   players: readonly PlayerMeta[];
+  nextManualOverall?: number;
   onSubmit: (
     overrides: PickOverride[],
     detectedSlot: number | null,
@@ -21,6 +22,7 @@ export interface YahooPastePicksModalProps {
 export function YahooPastePicksModal({
   draftInit,
   players,
+  nextManualOverall,
   onSubmit,
   onClose,
 }: YahooPastePicksModalProps) {
@@ -33,8 +35,8 @@ export function YahooPastePicksModal({
     if (!rawText.trim()) {
       return { picks: [] as ParsedYahooPick[], slotToTeamName: {}, detectedUserSlot: null, detectedTeams: null };
     }
-    return parseYahooDraftText(rawText, players, allIdpPlayers, draftInit.teams);
-  }, [rawText, players, allIdpPlayers, draftInit.teams]);
+    return parseYahooDraftText(rawText, players, allIdpPlayers, draftInit.teams, nextManualOverall);
+  }, [rawText, players, allIdpPlayers, draftInit.teams, nextManualOverall]);
 
   const canSubmit = parseResult.picks.length > 0;
 
