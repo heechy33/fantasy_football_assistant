@@ -120,7 +120,7 @@ describe('DraftRoomRoute end-draft exit', () => {
     );
 
     // Save banner is present
-    expect(await screen.findByText(/Save to My Leagues:/)).toBeInTheDocument();
+    expect(await screen.findByText(/Save to My Leagues to sync across devices/)).toBeInTheDocument();
     const saveButton = screen.getByRole('button', { name: 'Save to My Leagues' });
     await user.click(saveButton);
 

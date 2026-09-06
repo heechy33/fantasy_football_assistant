@@ -192,9 +192,7 @@ export function DraftRoomRoute() {
       {canSaveActiveToMyLeagues && !bannerDismissed && (
         <div className="draft-room-save-banner" role="status">
           <div className="draft-room-save-banner-text">
-            <p>
-              <strong>Save to My Leagues:</strong> Save this {activeProvider === 'sleeper' ? 'Sleeper' : activeProvider === 'espn' ? 'ESPN' : 'Yahoo'} league to your account so you can access it on your iPad and other devices.
-            </p>
+            <p>Save to My Leagues to sync across devices.</p>
             {saveError && <p className="save-banner-error" role="alert">{saveError}</p>}
           </div>
           <div className="draft-room-save-banner-actions">
@@ -220,7 +218,7 @@ export function DraftRoomRoute() {
       {savedSuccess && (
         <div className="draft-room-save-banner draft-room-save-banner-success" role="status">
           <p>
-            ✓ <strong>Saved to My Leagues!</strong> This draft is now linked to your account and syncing across devices.
+            ✓ <strong>Saved to My Leagues!</strong> Synced across devices.
           </p>
           <button
             type="button"
