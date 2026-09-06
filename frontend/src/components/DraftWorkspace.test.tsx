@@ -1142,13 +1142,16 @@ describe('DraftWorkspace late-draft K/DST surfacing and survival gating', () => 
       />,
     );
 
+    // In Cards view (default), Draft buttons ARE present on PlayerCards
+    expect(screen.getAllByRole('button', { name: /^Draft / })).toHaveLength(3);
+
     // Switch presentation to Rows
     const rowsRadioYahoo = screen.getByRole('radio', { name: 'Rows' });
     await user.click(rowsRadioYahoo);
 
     // Rows are present
     expect(screen.getAllByRole('button', { name: /^View details for/ })).toHaveLength(3);
-    // Draft buttons are omitted
+    // Draft buttons are omitted in Rows view for Yahoo
     expect(screen.queryByRole('button', { name: /^Draft / })).toBeNull();
     yahooRender.unmount();
 

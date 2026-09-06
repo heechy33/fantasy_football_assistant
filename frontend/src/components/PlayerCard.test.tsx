@@ -667,8 +667,8 @@ describe('PlayerCard reach bookmark', () => {
   });
 });
 
-describe('PlayerCard draft button (omitted in favor of bulk paste)', () => {
-  it('does not render a "Draft" button on the player card', () => {
+describe('PlayerCard draft button', () => {
+  it('does not render a "Draft" button when onDraftPlayer is omitted', () => {
     render(
       <PlayerCard
         playerId="rb2"
@@ -678,5 +678,27 @@ describe('PlayerCard draft button (omitted in favor of bulk paste)', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /Draft / })).not.toBeInTheDocument();
+  });
+
+  it('renders a "Draft" button and triggers onDraftPlayer without opening details when clicked', async () => {
+    const user = userEvent.setup();
+    const onViewDetails = vi.fn();
+    const onDraftPlayer = vi.fn();
+    render(
+      <PlayerCard
+        playerId="rb2"
+        recommendation={baseRecommendation()}
+        player={player}
+        onViewDetails={onViewDetails}
+        onDraftPlayer={onDraftPlayer}
+      />,
+    );
+    const draftButton = screen.getByRole('button', { name: `Draft ${player.name}` });
+    expect(draftButton).toBeInTheDocument();
+    expect(draftButton).toHaveClass('player-card-draft-button');
+
+    await user.click(draftButton);
+    expect(onDraftPlayer).toHaveBeenCalledTimes(1);
+    expect(onViewDetails).not.toHaveBeenCalled();
   });
 });

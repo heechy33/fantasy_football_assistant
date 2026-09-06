@@ -88,7 +88,7 @@ function teamChromeStyle(team: string | null | undefined): CSSProperties {
 export function PlayerCard(props: PlayerCardProps) {
   const {
     playerId, recommendation, player, adpBoard, nextUp, usage, depthRole, avgPointsPerGame,
-    availabilityVisible = true, roleStats, onViewDetails,
+    availabilityVisible = true, roleStats, onViewDetails, onDraftPlayer,
   } = props;
   const values = boardFaceValues(props);
   const name = player?.name ?? playerId;
@@ -124,6 +124,19 @@ export function PlayerCard(props: PlayerCardProps) {
       )}
       <header className="player-card-head">
         {positionalRank && <span className="player-card-pos-rank">{positionalRank}</span>}
+        {onDraftPlayer && (
+          <button
+            type="button"
+            className="player-card-draft-button"
+            aria-label={`Draft ${name}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDraftPlayer();
+            }}
+          >
+            Draft
+          </button>
+        )}
         {logoUrl && (
           <img className="player-card-logo" src={logoUrl} alt="" width={28} height={28} />
         )}

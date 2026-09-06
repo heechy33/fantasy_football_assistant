@@ -1880,14 +1880,15 @@ button.draft-log-card:hover, button.draft-log-card:focus-visible { background: v
 .player-card-draft-button {
   flex: 0 0 auto;
   margin-left: auto;
-  padding: .3rem .7rem;
+  padding: .2rem .55rem;
   border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--surface-0);
   font: inherit;
-  font-size: .78rem;
+  font-size: .68rem;
   font-weight: 800;
+  line-height: 1.1;
   letter-spacing: .03em;
   text-transform: uppercase;
   cursor: pointer;
