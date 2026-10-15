@@ -8,24 +8,23 @@ name: Refresh data
 # budget even run daily plus occasional push/dispatch triggers — no paid
 # runners, no self-hosted infra, no other cost surface.
 on:
-  schedule:
-    # Every 4 hours (6 runs/day), aligned with key US news and draft windows.
-    # At ~2.5 min/run, 6 runs/day is ~450 min/month (well under the 2,000 min/mo
-    # free-tier budget for private repos, and $0/unlimited on public repos).
-    # This cadence ensures data is never more than 4 hours old while remaining
-    # gentle on upstream scraped sources (Yahoo Playwright rendering, Underdog).
-    - cron: '0 1 * * *'   # ~9pm ET (evening draft wrap-up)
-    - cron: '0 5 * * *'   # ~1am ET (overnight waivers / late updates)
-    - cron: '0 9 * * *'   # ~5am ET (early morning provider batch updates)
-    - cron: '0 13 * * *'  # ~9am ET (morning roster moves / transaction news)
-    - cron: '0 17 * * *'  # ~1pm ET (midday practice reports)
-    - cron: '0 21 * * *'  # ~5pm ET (ahead of evening drafts)
+  # PAUSED (2026-10-15): project on hold — no automatic data collection. Manual
+  # runs only via Actions → "Refresh data" → Run workflow. To resume cron +
+  # push triggers, uncomment the blocks below.
   workflow_dispatch: {}
-  push:
-    branches: [main]
-    paths:
-      - 'pipeline/**'
-      - '.github/workflows/refresh-data.yml'
+  # schedule:
+  #   # Every 4 hours (6 runs/day), aligned with key US news and draft windows.
+  #   - cron: '0 1 * * *'   # ~9pm ET (evening draft wrap-up)
+  #   - cron: '0 5 * * *'   # ~1am ET (overnight waivers / late updates)
+  #   - cron: '0 9 * * *'   # ~5am ET (early morning provider batch updates)
+  #   - cron: '0 13 * * *'  # ~9am ET (morning roster moves / transaction news)
+  #   - cron: '0 17 * * *'  # ~1pm ET (midday practice reports)
+  #   - cron: '0 21 * * *'  # ~5pm ET (ahead of evening drafts)
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'pipeline/**'
+  #     - '.github/workflows/refresh-data.yml'
 
 # schedule/workflow_dispatch/push can all fire close together (e.g. a
 # pipeline change pushed right around the daily cron); without this, two
@@ -66,6 +65,12 @@ jobs:
         # crosswalk data never gets committed, it just leaves data/ stale
         # until the next successful run.
         run: python pipeline/build_data.py
+
+      - name: Snapshot weekly projections
+        # Phase W0 / Layer D in-season: capture current-week projections across
+        # retrievable primary sources (Sleeper, ESPN, CBS, FFToday) into data/
+        # so Monday vintage tags preserve weekly projections before kickoff.
+        run: python pipeline/snapshot_weekly_projections.py
 
       - name: Commit updated data
         id: commit
